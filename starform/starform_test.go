@@ -14,7 +14,7 @@ type testSourceLoader struct {
 	sources map[string][]testSource
 }
 
-var _ starform.Loader = &testSourceLoader{}
+var _ starform.ScriptLoader = &testSourceLoader{}
 
 func (tsl *testSourceLoader) Load(nameOrPath string) ([]starform.ScriptSource, error) {
 	if sources, ok := tsl.sources[nameOrPath]; ok {
@@ -47,14 +47,6 @@ func TestRunSimpleScriptlet(t *testing.T) {
 		Loader: &testSourceLoader{
 			sources: map[string][]testSource{
 				"test": {{
-					name: "init.star",
-					content: `
-						def init():
-							print("third")
-						print("first")
-					`,
-					hash: "7377d1f78160ca48dabe25115ece825bd6e5168baa9ab036aa0eef3eba608ba2",
-				}, {
 					name: "lib.star",
 					content: `
 						print("second")
@@ -62,6 +54,14 @@ func TestRunSimpleScriptlet(t *testing.T) {
 							print("never-called")
 					`,
 					hash: "edb7d785abbf5ffa17675d0da845f1debe38fc68f94f4726599fc2189c181eea",
+				}, {
+					name: "init.star",
+					content: `
+						def init():
+							print("third")
+						print("first")
+					`,
+					hash: "7377d1f78160ca48dabe25115ece825bd6e5168baa9ab036aa0eef3eba608ba2",
 				}},
 			},
 		},

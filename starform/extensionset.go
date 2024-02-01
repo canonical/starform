@@ -3,22 +3,25 @@ package starform
 import (
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
 
 type ExtensionSet struct {
+	starlarkOptions     syntax.FileOptions
 	printHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
-	loader              Loader
+	loader              ScriptLoader
 	cache               ScriptCache
 	flags               starlark.SafetyFlags
 	maxAllocs, maxSteps uint64
 }
 
 type ExtensionSetOptions struct {
+	StarlarkOptions     syntax.FileOptions
 	PrintHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
-	Loader              Loader
+	Loader              ScriptLoader
 	Flags               *starlark.SafetyFlags
 	MaxAllocs, MaxSteps *uint64
 	Cache               ScriptCache
@@ -30,10 +33,11 @@ func NewExtensionSet(options ExtensionSetOptions) (*ExtensionSet, error) {
 	}
 
 	result := &ExtensionSet{
-		printHandler: options.PrintHandler,
-		loader:       options.Loader,
-		maxAllocs:    math.MaxInt64,
-		maxSteps:     math.MaxInt64,
+		starlarkOptions: options.StarlarkOptions,
+		printHandler:    options.PrintHandler,
+		loader:          options.Loader,
+		maxAllocs:       math.MaxInt64,
+		maxSteps:        math.MaxInt64,
 	}
 
 	result.cache = options.Cache
@@ -69,16 +73,18 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 	if err != nil {
 		return nil, err
 	}
+	sort.Slice(scripts, func(i, j int) bool {
+		return scripts[i].Name() < scripts[j].Name()
+	})
 
 	isPredeclared := func(string) bool { return false }
 	modules := make([]starlark.StringDict, len(scripts))
 	for i, script := range scripts {
-		options := &syntax.FileOptions{}
 		source, err := script.Content()
 		if err != nil {
 			return nil, err
 		}
-		_, comp, err := starlark.SourceProgramOptions(options, script.Name(), source, isPredeclared)
+		_, comp, err := starlark.SourceProgramOptions(&es.starlarkOptions, script.Name(), source, isPredeclared)
 		if err != nil {
 			return nil, err
 		}
