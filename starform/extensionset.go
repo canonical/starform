@@ -19,11 +19,10 @@ type ExtensionSet struct {
 }
 
 type ExtensionSetOptions struct {
-	StarlarkOptions     syntax.FileOptions
 	PrintHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
 	Loader              ScriptLoader
-	Flags               *starlark.SafetyFlags
-	MaxAllocs, MaxSteps *uint64
+	Flags               starlark.SafetyFlags
+	MaxAllocs, MaxSteps uint64
 	Cache               ScriptCache
 }
 
@@ -36,25 +35,14 @@ func NewExtensionSet(options ExtensionSetOptions) (*ExtensionSet, error) {
 		starlarkOptions: options.StarlarkOptions,
 		printHandler:    options.PrintHandler,
 		loader:          options.Loader,
-		maxAllocs:       math.MaxInt64,
-		maxSteps:        math.MaxInt64,
+		maxAllocs:       options.MaxAllocs,
+		maxSteps:        options.MaxSteps,
+		flags:           options.Flags,
+		cache:           options.Cache,
 	}
-
-	result.cache = options.Cache
 	if result.cache == nil {
 		result.cache = DefaultScriptCache
 	}
-
-	if options.Flags != nil {
-		result.flags = *options.Flags
-	}
-	if options.MaxAllocs != nil {
-		result.maxAllocs = *options.MaxAllocs
-	}
-	if options.MaxSteps != nil {
-		result.maxSteps = *options.MaxSteps
-	}
-
 	return result, nil
 }
 
