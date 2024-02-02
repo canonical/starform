@@ -2,7 +2,6 @@ package starform
 
 import (
 	"fmt"
-	"math"
 	"sort"
 
 	"github.com/canonical/starlark/starlark"
@@ -78,10 +77,15 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		_, comp, err := starlark.SourceProgramOptions(&starlarkDialect, script.Name(), source, isPredeclared)
 		if err != nil {
 			return nil, err
 		}
+		if numLoads := comp.NumLoads(); numLoads > 0 {
+			return nil, fmt.Errorf("load statements not yet supported: %s has %d", script.Name(), numLoads)
+		}
+
 		module, err := comp.Init(es.makeThread(), nil)
 		if err != nil {
 			return nil, err
