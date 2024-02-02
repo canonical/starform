@@ -52,6 +52,14 @@ func (es *ExtensionSet) makeThread() *starlark.Thread {
 	return thread
 }
 
+var starlarkDialect = syntax.FileOptions{
+	Set:             true,
+	While:           false,
+	TopLevelControl: false,
+	GlobalReassign:  false,
+	Recursion:       false,
+}
+
 func (es *ExtensionSet) Load(name string) (*Extension, error) {
 	scripts, err := es.loader.Load(name)
 	if err != nil {
@@ -68,7 +76,7 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		if err != nil {
 			return nil, err
 		}
-		_, comp, err := starlark.SourceProgramOptions(&es.starlarkOptions, script.Name(), source, isPredeclared)
+		_, comp, err := starlark.SourceProgramOptions(&starlarkDialect, script.Name(), source, isPredeclared)
 		if err != nil {
 			return nil, err
 		}
