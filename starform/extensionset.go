@@ -10,7 +10,6 @@ import (
 )
 
 type ExtensionSet struct {
-	starlarkOptions     syntax.FileOptions
 	printHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
 	loader              ScriptLoader
 	cache               ScriptCache
@@ -32,13 +31,12 @@ func NewExtensionSet(options ExtensionSetOptions) (*ExtensionSet, error) {
 	}
 
 	result := &ExtensionSet{
-		starlarkOptions: options.StarlarkOptions,
-		printHandler:    options.PrintHandler,
-		loader:          options.Loader,
-		maxAllocs:       options.MaxAllocs,
-		maxSteps:        options.MaxSteps,
-		requiredSafety:  options.RequireSafety,
-		cache:           options.Cache,
+		printHandler:   options.PrintHandler,
+		loader:         options.Loader,
+		maxAllocs:      options.MaxAllocs,
+		maxSteps:       options.MaxSteps,
+		requiredSafety: options.RequireSafety,
+		cache:          options.Cache,
 	}
 	if result.cache == nil {
 		result.cache = DefaultScriptCache
@@ -54,6 +52,14 @@ func (es *ExtensionSet) makeThread() *starlark.Thread {
 	thread.SetMaxSteps(es.maxSteps)
 	thread.SetMaxAllocs(es.maxAllocs)
 	return thread
+}
+
+var starlarkDialect = syntax.FileOptions{
+	Set:             true,
+	While:           false,
+	TopLevelControl: false,
+	GlobalReassign:  false,
+	Recursion:       false,
 }
 
 func (es *ExtensionSet) Load(name string) (*Extension, error) {
@@ -72,7 +78,7 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		if err != nil {
 			return nil, err
 		}
-		_, comp, err := starlark.SourceProgramOptions(&es.starlarkOptions, script.Name(), source, isPredeclared)
+		_, comp, err := starlark.SourceProgramOptions(&starlarkDialect, script.Name(), source, isPredeclared)
 		if err != nil {
 			return nil, err
 		}
