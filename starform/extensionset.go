@@ -11,14 +11,14 @@ type ExtensionSet struct {
 	printHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
 	loader              ScriptLoader
 	cache               ScriptCache
-	flags               starlark.SafetyFlags
+	requiredSafety      starlark.SafetyFlags
 	maxAllocs, maxSteps uint64
 }
 
 type ExtensionSetOptions struct {
 	PrintHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
 	Loader              ScriptLoader
-	Flags               starlark.SafetyFlags
+	RequireSafety       starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
 	Cache               ScriptCache
 }
@@ -29,12 +29,12 @@ func NewExtensionSet(options ExtensionSetOptions) (*ExtensionSet, error) {
 	}
 
 	result := &ExtensionSet{
-		printHandler: options.PrintHandler,
-		loader:       options.Loader,
-		maxAllocs:    options.MaxAllocs,
-		maxSteps:     options.MaxSteps,
-		flags:        options.Flags,
-		cache:        options.Cache,
+		printHandler:   options.PrintHandler,
+		loader:         options.Loader,
+		maxAllocs:      options.MaxAllocs,
+		maxSteps:       options.MaxSteps,
+		requiredSafety: options.RequireSafety,
+		cache:          options.Cache,
 	}
 	if result.cache == nil {
 		result.cache = DefaultScriptCache
@@ -46,7 +46,7 @@ func (es *ExtensionSet) makeThread() *starlark.Thread {
 	thread := &starlark.Thread{
 		Print: es.printHandler,
 	}
-	thread.RequireSafety(es.flags)
+	thread.RequireSafety(es.requiredSafety)
 	thread.SetMaxSteps(es.maxSteps)
 	thread.SetMaxAllocs(es.maxAllocs)
 	return thread
