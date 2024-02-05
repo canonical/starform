@@ -39,11 +39,11 @@ func (ts *testSource) Content() (interface{}, error) { return startest.Reindent(
 func (ts *testSource) Hash() interface{}             { return ts.hash }
 
 func TestRunSimpleScriptlet(t *testing.T) {
-	builder := &strings.Builder{}
+	log := &strings.Builder{}
 	opts := &starform.ExtensionSetOptions{
 		PrintHandler: func(thread *starlark.Thread, msg string) {
-			builder.WriteString(msg)
-			builder.WriteByte('\n')
+			log.WriteString(msg)
+			log.WriteByte('\n')
 		},
 		Loader: &testSourceLoader{
 			sources: map[string][]testSource{
@@ -84,7 +84,7 @@ func TestRunSimpleScriptlet(t *testing.T) {
 	}
 
 	const expectedLog = "first\nsecond\nthird\n"
-	if actualLog := builder.String(); actualLog != expectedLog {
+	if actualLog := log.String(); actualLog != expectedLog {
 		t.Errorf("output error: expected %v go %v", expectedLog, actualLog)
 	}
 }
