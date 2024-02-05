@@ -72,15 +72,15 @@ func TestRunSimpleScriptlet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	scriptlet, err := set.Load("test")
+	extension, err := set.Load("test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scriptlet == nil {
-		t.Fatalf("scriptlet should not be nil")
+	if extension == nil {
+		t.Fatalf("extension should not be nil")
 	}
-	if scriptlet.Name != "test" {
-		t.Errorf("scriptlet name mismatch: expected %v got %v", "test", scriptlet.Name)
+	if extension.Name != "test" {
+		t.Errorf("extension name mismatch: expected %v got %v", "test", extension.Name)
 	}
 
 	const expectedLog = "first\nsecond\nthird\n"
