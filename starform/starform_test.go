@@ -40,7 +40,7 @@ func (ts *testSource) Hash() interface{}             { return ts.hash }
 
 func TestRunSimpleScriptlet(t *testing.T) {
 	builder := &strings.Builder{}
-	set, err := starform.NewExtensionSet(starform.ExtensionSetOptions{
+	opts := &starform.ExtensionSetOptions{
 		PrintHandler: func(thread *starlark.Thread, msg string) {
 			builder.WriteString(msg)
 			builder.WriteByte('\n')
@@ -66,7 +66,8 @@ func TestRunSimpleScriptlet(t *testing.T) {
 				}},
 			},
 		},
-	})
+	}
+	set, err := starform.NewExtensionSet(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,13 +76,13 @@ func TestRunSimpleScriptlet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	if scriptlet == nil {
 		t.Fatalf("scriptlet should not be nil")
 	}
 	if scriptlet.Name != "test" {
 		t.Errorf("scriptlet name mismatch: expected %v got %v", "test", scriptlet.Name)
 	}
+
 	const expectedLog = "first\nsecond\nthird\n"
 	if actualLog := builder.String(); actualLog != expectedLog {
 		t.Errorf("output error: expected %v go %v", expectedLog, actualLog)

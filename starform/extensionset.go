@@ -9,22 +9,22 @@ import (
 )
 
 type ExtensionSet struct {
-	printHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
 	loader              ScriptletLoader
 	cache               ScriptletCache
+	printHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
 	requiredSafety      starlark.SafetyFlags
 	maxAllocs, maxSteps uint64
 }
 
 type ExtensionSetOptions struct {
-	PrintHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
 	Loader              ScriptletLoader
-	RequireSafety       starlark.SafetyFlags
-	MaxAllocs, MaxSteps uint64
 	Cache               ScriptletCache
+	PrintHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
+	RequiredSafety      starlark.SafetyFlags
+	MaxAllocs, MaxSteps uint64
 }
 
-func NewExtensionSet(options ExtensionSetOptions) (*ExtensionSet, error) {
+func NewExtensionSet(options *ExtensionSetOptions) (*ExtensionSet, error) {
 	if options.Loader == nil {
 		return nil, fmt.Errorf("Loader cannot be nil")
 	}
@@ -34,7 +34,7 @@ func NewExtensionSet(options ExtensionSetOptions) (*ExtensionSet, error) {
 		loader:         options.Loader,
 		maxAllocs:      options.MaxAllocs,
 		maxSteps:       options.MaxSteps,
-		requiredSafety: options.RequireSafety,
+		requiredSafety: options.RequiredSafety,
 		cache:          options.Cache,
 	}
 	if result.cache == nil {
@@ -71,37 +71,40 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 	})
 
 	isPredeclared := func(string) bool { return false }
-	modules := make([]starlark.StringDict, len(scriptlets))
-	for i, scriptlet := range scriptlets {
+	modules := make([]starlark.StringDict, 0, len(scriptlets))
+	for _, scriptlet := range scriptlets {
 		source, err := scriptlet.Content()
 		if err != nil {
 			return nil, err
 		}
 
-		_, comp, err := starlark.SourceProgramOptions(&starlarkDialect, scriptlet.Path(), source, isPredeclared)
+		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, scriptlet.Path(), source, isPredeclared)
 		if err != nil {
 			return nil, err
 		}
-		if numLoads := comp.NumLoads(); numLoads > 0 {
-			return nil, fmt.Errorf("load statements not yet supported: %s has %d", scriptlet.Path(), numLoads)
+		if prog.NumLoads() > 0 {
+			return nil, fmt.Errorf("load statements are not yet supported")
 		}
 
-		module, err := comp.Init(es.makeThread(), nil)
+		module, err := prog.Init(es.makeThread(), nil)
 		if err != nil {
 			return nil, err
 		}
-		modules[i] = module
+		modules = append(modules, module)
 	}
 
 	for _, module := range modules {
-		if init, ok := module["init"]; ok {
-			if _, ok := init.(starlark.Callable); !ok {
-				continue
-			}
-			_, err := starlark.Call(es.makeThread(), init, nil, nil)
-			if err != nil {
-				return nil, err
-			}
+		init, ok := module["init"]
+		if !ok {
+			continue
+		}
+		if _, ok := init.(starlark.Callable); !ok {
+			continue
+		}
+
+		_, err := starlark.Call(es.makeThread(), init, nil, nil)
+		if err != nil {
+			return nil, err
 		}
 	}
 
