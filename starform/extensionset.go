@@ -67,7 +67,7 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		return nil, err
 	}
 	sort.Slice(scripts, func(i, j int) bool {
-		return scripts[i].Name() < scripts[j].Name()
+		return scripts[i].Path() < scripts[j].Path()
 	})
 
 	isPredeclared := func(string) bool { return false }
@@ -78,12 +78,12 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 			return nil, err
 		}
 
-		_, comp, err := starlark.SourceProgramOptions(&starlarkDialect, script.Name(), source, isPredeclared)
+		_, comp, err := starlark.SourceProgramOptions(&starlarkDialect, script.Path(), source, isPredeclared)
 		if err != nil {
 			return nil, err
 		}
 		if numLoads := comp.NumLoads(); numLoads > 0 {
-			return nil, fmt.Errorf("load statements not yet supported: %s has %d", script.Name(), numLoads)
+			return nil, fmt.Errorf("load statements not yet supported: %s has %d", script.Path(), numLoads)
 		}
 
 		module, err := comp.Init(es.makeThread(), nil)
