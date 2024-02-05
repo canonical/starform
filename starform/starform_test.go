@@ -33,9 +33,9 @@ type testSource struct {
 
 var _ starform.ScriptSource = &testSource{}
 
-func (ts *testSource) Content() (interface{}, error) { return startest.Reindent(ts.content) }
-func (ts *testSource) Hash() string                  { return ts.hash }
 func (ts *testSource) Name() string                  { return ts.name }
+func (ts *testSource) Content() (interface{}, error) { return startest.Reindent(ts.content) }
+func (ts *testSource) Hash() interface{}             { return ts.hash }
 
 func TestRunSimpleScriptlet(t *testing.T) {
 	builder := &strings.Builder{}
