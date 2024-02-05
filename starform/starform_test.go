@@ -28,7 +28,8 @@ func (tsl *testSourceLoader) Load(nameOrPath string) ([]starform.ScriptletSource
 }
 
 type testSource struct {
-	name, content, hash string
+	name, content string
+	hash          interface{}
 }
 
 var _ starform.ScriptletSource = &testSource{}
@@ -53,7 +54,7 @@ func TestRunSimpleScriptlet(t *testing.T) {
 						def never_called():
 							print("never-called")
 					`,
-					hash: "edb7d785abbf5ffa17675d0da845f1debe38fc68f94f4726599fc2189c181eea",
+					hash: 123,
 				}, {
 					name: "init.star",
 					content: `
@@ -61,7 +62,7 @@ func TestRunSimpleScriptlet(t *testing.T) {
 							print("third")
 						print("first")
 					`,
-					hash: "7377d1f78160ca48dabe25115ece825bd6e5168baa9ab036aa0eef3eba608ba2",
+					hash: 456,
 				}},
 			},
 		},
