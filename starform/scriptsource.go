@@ -5,7 +5,7 @@ type ScriptLoader interface {
 }
 
 type ScriptSource interface {
-	Name() string
+	Path() string
 	Content() (interface{}, error)
 	Hash() interface{}
 }
