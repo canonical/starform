@@ -76,7 +76,7 @@ func TestRunSimpleScriptlet(t *testing.T) {
 	}
 
 	if scriptlet == nil {
-		t.Error("scriptlet should not be nil")
+		t.Fatalf("scriptlet should not be nil")
 	}
 	if scriptlet.Name != "test" {
 		t.Errorf("scriptlet name mismatch: expected %v got %v", "test", scriptlet.Name)
