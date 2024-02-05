@@ -14,11 +14,11 @@ type testSourceLoader struct {
 	sources map[string][]testSource
 }
 
-var _ starform.ScriptLoader = &testSourceLoader{}
+var _ starform.ScriptletLoader = &testSourceLoader{}
 
-func (tsl *testSourceLoader) Load(nameOrPath string) ([]starform.ScriptSource, error) {
+func (tsl *testSourceLoader) Load(nameOrPath string) ([]starform.ScriptletSource, error) {
 	if sources, ok := tsl.sources[nameOrPath]; ok {
-		result := make([]starform.ScriptSource, len(sources))
+		result := make([]starform.ScriptletSource, len(sources))
 		for i := range sources {
 			result[i] = &sources[i]
 		}
@@ -31,7 +31,7 @@ type testSource struct {
 	name, content, hash string
 }
 
-var _ starform.ScriptSource = &testSource{}
+var _ starform.ScriptletSource = &testSource{}
 
 func (ts *testSource) Path() string                  { return ts.name }
 func (ts *testSource) Content() (interface{}, error) { return startest.Reindent(ts.content) }
