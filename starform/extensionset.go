@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/canonical/starlark/starlark"
+	"github.com/canonical/starlark/syntax"
 )
 
 type ExtensionSet struct {
