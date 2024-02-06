@@ -11,7 +11,7 @@ import (
 type ExtensionSet struct {
 	loader              ScriptletLoader
 	cache               ScriptletCache
-	printHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
+	printHandler        func(thread *starlark.Thread, msg string)
 	requiredSafety      starlark.SafetyFlags
 	maxAllocs, maxSteps uint64
 }
@@ -19,7 +19,7 @@ type ExtensionSet struct {
 type ExtensionSetOptions struct {
 	Loader              ScriptletLoader
 	Cache               ScriptletCache
-	PrintHandler        func(thread *starlark.Thread, msg string) // FIXME non so se mi piace
+	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
 }
