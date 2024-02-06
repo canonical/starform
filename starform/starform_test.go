@@ -36,7 +36,7 @@ var _ starform.ScriptletSource = &testSource{}
 
 func (ts *testSource) Path() string                  { return ts.name }
 func (ts *testSource) Content() (interface{}, error) { return startest.Reindent(ts.content) }
-func (ts *testSource) Hash() interface{}             { return ts.hash }
+func (ts *testSource) Hash() (interface{}, error)    { return ts.hash, nil }
 
 func TestRunSimpleScriptlet(t *testing.T) {
 	log := &strings.Builder{}
