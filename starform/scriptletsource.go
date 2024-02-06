@@ -7,5 +7,5 @@ type ScriptletLoader interface {
 type ScriptletSource interface {
 	Path() string
 	Content() (interface{}, error)
-	Hash() interface{}
+	Hash() (interface{}, error)
 }
