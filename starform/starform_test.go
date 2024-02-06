@@ -40,6 +40,7 @@ func (ts *testSource) Hash() interface{}             { return ts.hash }
 
 func TestRunSimpleScriptlet(t *testing.T) {
 	log := &strings.Builder{}
+
 	opts := &starform.ExtensionSetOptions{
 		PrintHandler: func(thread *starlark.Thread, msg string) {
 			log.WriteString(msg)
