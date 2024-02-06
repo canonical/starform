@@ -3,6 +3,7 @@ package starform
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
@@ -66,6 +67,9 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		source, err := scriptlet.Content()
 		if err != nil {
 			return nil, err
+		}
+		if path := scriptlet.Path(); !strings.HasSuffix(path, ".star") {
+			return nil, fmt.Errorf("unsupported path: %s", path)
 		}
 
 		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, scriptlet.Path(), source, isPredeclared)

@@ -89,3 +89,26 @@ func TestRunSimpleScriptlet(t *testing.T) {
 		t.Errorf("output error: expected %v go %v", expectedLog, actualLog)
 	}
 }
+
+func TestOnlyStarScriptlets(t *testing.T) {
+	opts := &starform.ExtensionSetOptions{
+		PrintHandler: func(thread *starlark.Thread, msg string) {},
+		Loader: &testSourceLoader{
+			sources: map[string][]testSource{
+				"test": {{
+					name:    "lib.html",
+					content: `<b>not relevant</b>`,
+					hash:    123,
+				}},
+			},
+		},
+	}
+	set, err := starform.NewExtensionSet(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = set.Load("test")
+	if err == nil {
+		t.Error("expected error")
+	}
+}
