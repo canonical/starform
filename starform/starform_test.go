@@ -39,54 +39,112 @@ func (ts *testSource) Content() (interface{}, error) { return startest.Reindent(
 func (ts *testSource) Hash() (interface{}, error)    { return ts.hash, nil }
 
 func TestRunSimpleScriptlet(t *testing.T) {
-	log := &strings.Builder{}
-
-	opts := &starform.ExtensionSetOptions{
-		PrintHandler: func(thread *starlark.Thread, msg string) {
-			log.WriteString(msg)
-			log.WriteByte('\n')
-		},
-		Loader: &testSourceLoader{
-			sources: map[string][]testSource{
-				"test": {{
-					name: "lib.star",
-					content: `
-						print("second")
-						def never_called():
-							print("never-called")
-					`,
-					hash: 123,
-				}, {
-					name: "init.star",
-					content: `
-						def init():
-							print("third")
-						print("first")
-					`,
-					hash: 456,
-				}},
-			},
-		},
-	}
-	set, err := starform.NewExtensionSet(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	extension, err := set.Load("test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if extension == nil {
-		t.Fatalf("extension should not be nil")
-	}
-	if extension.Name != "test" {
-		t.Errorf("extension name mismatch: expected %v got %v", "test", extension.Name)
-	}
-
-	const expectedLog = "first\nsecond\nthird\n"
-	if actualLog := log.String(); actualLog != expectedLog {
-		t.Errorf("output error: expected %v go %v", expectedLog, actualLog)
+	tests := []struct {
+		name        string
+		sources     []testSource
+		expectedLog string
+	}{{
+		name:        "empty",
+		sources:     nil,
+		expectedLog: "",
+	}, {
+		name: "no-init (single)",
+		sources: []testSource{{
+			name: "single.star",
+			content: `
+				print("single")
+				def never_called():
+					print("never-called")
+			`,
+			hash: 1,
+		}},
+		expectedLog: "single\n",
+	}, {
+		name: "no-init (multiple)",
+		sources: []testSource{{
+			name: "second.star",
+			content: `
+				print("second")
+				def never_called():
+					print("never-called")
+			`,
+			hash: 1,
+		}, {
+			name: "first.star",
+			content: `
+				print("first")
+				def never_called():
+					print("never-called")
+			`,
+			hash: 2,
+		}},
+		expectedLog: "first\nsecond\n",
+	}, {
+		name: "init (single)",
+		sources: []testSource{{
+			name: "single.star",
+			content: `
+				print("Hello,")
+				def init():
+					print("world!")
+			`,
+			hash: 1,
+		}},
+		expectedLog: "Hello,\nworld!\n",
+	}, {
+		name: "init (multiple)",
+		sources: []testSource{{
+			name: "lib.star",
+			content: `
+					print("second")
+					def never_called():
+						print("never-called")
+				`,
+			hash: 1,
+		}, {
+			name: "init.star",
+			content: `
+					def init():
+						print("third")
+					print("first")
+				`,
+			hash: 4,
+		}},
+		expectedLog: "first\nsecond\nthird\n",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			log := &strings.Builder{}
+			printHandler := func(thread *starlark.Thread, msg string) {
+				log.WriteString(msg)
+				log.WriteByte('\n')
+			}
+			opts := &starform.ExtensionSetOptions{
+				PrintHandler: printHandler,
+				Loader: &testSourceLoader{
+					sources: map[string][]testSource{
+						"test": test.sources,
+					},
+				},
+			}
+			set, err := starform.NewExtensionSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			extension, err := set.Load("test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if extension == nil {
+				t.Fatalf("extension should not be nil")
+			}
+			if extension.Name != "test" {
+				t.Errorf("extension name mismatch: expected %v got %v", "test", extension.Name)
+			}
+			if actualLog := log.String(); actualLog != test.expectedLog {
+				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
+			}
+		})
 	}
 }
 
