@@ -73,7 +73,7 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 			return nil, err
 		}
 		if prog.NumLoads() > 0 {
-			return nil, fmt.Errorf("load statements are not yet supported")
+			return nil, fmt.Errorf("load statements not supported")
 		}
 
 		module, err := prog.Init(es.makeThread(), nil)
