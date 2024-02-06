@@ -43,16 +43,6 @@ func NewExtensionSet(options *ExtensionSetOptions) (*ExtensionSet, error) {
 	return result, nil
 }
 
-func (es *ExtensionSet) makeThread() *starlark.Thread {
-	thread := &starlark.Thread{
-		Print: es.printHandler,
-	}
-	thread.RequireSafety(es.requiredSafety)
-	thread.SetMaxSteps(es.maxSteps)
-	thread.SetMaxAllocs(es.maxAllocs)
-	return thread
-}
-
 var starlarkDialect = syntax.FileOptions{
 	Set:             true,
 	While:           false,
@@ -112,4 +102,14 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		Name:    name,
 		modules: modules,
 	}, nil
+}
+
+func (es *ExtensionSet) makeThread() *starlark.Thread {
+	thread := &starlark.Thread{
+		Print: es.printHandler,
+	}
+	thread.RequireSafety(es.requiredSafety)
+	thread.SetMaxSteps(es.maxSteps)
+	thread.SetMaxAllocs(es.maxAllocs)
+	return thread
 }
