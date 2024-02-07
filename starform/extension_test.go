@@ -10,15 +10,15 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-type testSourceLoader struct {
-	sources map[string][]testSource
+type testExtensionLoader struct {
+	sources map[string][]testExtensionSource
 }
 
-var _ starform.ScriptletLoader = &testSourceLoader{}
+var _ starform.ExtensionLoader = &testExtensionLoader{}
 
-func (tsl *testSourceLoader) Load(nameOrPath string) ([]starform.ScriptletSource, error) {
-	if sources, ok := tsl.sources[nameOrPath]; ok {
-		result := make([]starform.ScriptletSource, len(sources))
+func (tel *testExtensionLoader) Load(nameOrPath string) ([]starform.ExtensionSource, error) {
+	if sources, ok := tel.sources[nameOrPath]; ok {
+		result := make([]starform.ExtensionSource, len(sources))
 		for i := range sources {
 			result[i] = &sources[i]
 		}
@@ -27,21 +27,25 @@ func (tsl *testSourceLoader) Load(nameOrPath string) ([]starform.ScriptletSource
 	return nil, fmt.Errorf("not found")
 }
 
-type testSource struct {
+type testExtensionSource struct {
 	name, content string
-	hash          interface{}
 }
 
-var _ starform.ScriptletSource = &testSource{}
+var _ starform.ExtensionSource = &testExtensionSource{}
 
-func (ts *testSource) Path() string                  { return ts.name }
-func (ts *testSource) Content() (interface{}, error) { return startest.Reindent(ts.content) }
-func (ts *testSource) Hash() (interface{}, error)    { return ts.hash, nil }
+func (tes *testExtensionSource) Path() string { return tes.name }
+func (tes *testExtensionSource) Content() ([]byte, error) {
+	content, err := startest.Reindent(tes.content)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(content), nil
+}
 
 func TestRunSimpleScriptlet(t *testing.T) {
 	tests := []struct {
 		name        string
-		sources     []testSource
+		sources     []testExtensionSource
 		expectedLog string
 	}{{
 		name:        "empty",
@@ -49,26 +53,24 @@ func TestRunSimpleScriptlet(t *testing.T) {
 		expectedLog: "",
 	}, {
 		name: "no-init (single)",
-		sources: []testSource{{
+		sources: []testExtensionSource{{
 			name: "single.star",
 			content: `
 				print("single")
 				def never_called():
 					print("never-called")
 			`,
-			hash: 1,
 		}},
 		expectedLog: "single\n",
 	}, {
 		name: "no-init (multiple)",
-		sources: []testSource{{
+		sources: []testExtensionSource{{
 			name: "second.star",
 			content: `
 				print("second")
 				def never_called():
 					print("never-called")
 			`,
-			hash: 1,
 		}, {
 			name: "first.star",
 			content: `
@@ -76,41 +78,56 @@ func TestRunSimpleScriptlet(t *testing.T) {
 				def never_called():
 					print("never-called")
 			`,
-			hash: 2,
 		}},
 		expectedLog: "first\nsecond\n",
 	}, {
 		name: "init (single)",
-		sources: []testSource{{
+		sources: []testExtensionSource{{
 			name: "single.star",
 			content: `
 				print("Hello,")
 				def init():
 					print("world!")
 			`,
-			hash: 1,
 		}},
 		expectedLog: "Hello,\nworld!\n",
 	}, {
 		name: "init (multiple)",
-		sources: []testSource{{
+		sources: []testExtensionSource{{
 			name: "lib.star",
 			content: `
-					print("second")
-					def never_called():
-						print("never-called")
-				`,
-			hash: 1,
+				print("second")
+				def never_called():
+					print("never-called")
+			`,
 		}, {
 			name: "init.star",
 			content: `
-					def init():
-						print("third")
-					print("first")
-				`,
-			hash: 4,
+				def init():
+					print("third")
+				print("first")
+			`,
 		}},
 		expectedLog: "first\nsecond\nthird\n",
+	}, {
+		name: "wrong extension",
+		sources: []testExtensionSource{{
+			name: "index.html",
+			content: `
+				<b>not a script</b>
+			`,
+		}, {
+			name: "lib.star.swp",
+			content: `
+				print("vim cache file")
+			`,
+		}, {
+			name: "README.md",
+			content: `
+				# Docs
+			`,
+		}},
+		expectedLog: "",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -121,8 +138,8 @@ func TestRunSimpleScriptlet(t *testing.T) {
 			}
 			opts := &starform.ExtensionSetOptions{
 				PrintHandler: printHandler,
-				Loader: &testSourceLoader{
-					sources: map[string][]testSource{
+				Loader: &testExtensionLoader{
+					sources: map[string][]testExtensionSource{
 						"test": test.sources,
 					},
 				},
@@ -145,28 +162,5 @@ func TestRunSimpleScriptlet(t *testing.T) {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
 			}
 		})
-	}
-}
-
-func TestOnlyStarScriptlets(t *testing.T) {
-	opts := &starform.ExtensionSetOptions{
-		PrintHandler: func(thread *starlark.Thread, msg string) {},
-		Loader: &testSourceLoader{
-			sources: map[string][]testSource{
-				"test": {{
-					name:    "lib.html",
-					content: `<b>not relevant</b>`,
-					hash:    123,
-				}},
-			},
-		},
-	}
-	set, err := starform.NewExtensionSet(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = set.Load("test")
-	if err == nil {
-		t.Error("expected error")
 	}
 }

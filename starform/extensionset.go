@@ -10,16 +10,16 @@ import (
 )
 
 type ExtensionSet struct {
-	loader              ScriptletLoader
-	cache               ScriptletCache
+	loader              ExtensionLoader
+	cache               ExtensionCache
 	printHandler        func(thread *starlark.Thread, msg string)
 	requiredSafety      starlark.SafetyFlags
 	maxAllocs, maxSteps uint64
 }
 
 type ExtensionSetOptions struct {
-	Loader              ScriptletLoader
-	Cache               ScriptletCache
+	Loader              ExtensionLoader
+	Cache               ExtensionCache
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
@@ -69,7 +69,7 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 			return nil, err
 		}
 		if path := scriptlet.Path(); !strings.HasSuffix(path, ".star") {
-			return nil, fmt.Errorf("unsupported path: %s", path)
+			continue
 		}
 
 		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, scriptlet.Path(), source, isPredeclared)
