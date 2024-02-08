@@ -103,8 +103,7 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 	}
 
 	return &Extension{
-		Name:    name,
-		modules: modules,
+		Name: name,
 	}, nil
 }
 

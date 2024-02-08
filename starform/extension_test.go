@@ -42,7 +42,7 @@ func (tes *testExtensionSource) Content() ([]byte, error) {
 	return []byte(content), nil
 }
 
-func TestRunSimpleScriptlet(t *testing.T) {
+func TestLoadSimpleExtension(t *testing.T) {
 	tests := []struct {
 		name        string
 		sources     []testExtensionSource
@@ -57,26 +57,26 @@ func TestRunSimpleScriptlet(t *testing.T) {
 			name: "single.star",
 			content: `
 				print("single")
-				def never_called():
-					print("never-called")
+				def do_not_call():
+					fail('unexpectedly called')
 			`,
 		}},
 		expectedLog: "single\n",
 	}, {
 		name: "no-init (multiple)",
 		sources: []testExtensionSource{{
-			name: "second.star",
+			name: "2.star",
 			content: `
 				print("second")
-				def never_called():
-					print("never-called")
+				def do_not_call():
+					fail('unexpectedly called')
 			`,
 		}, {
-			name: "first.star",
+			name: "1.star",
 			content: `
 				print("first")
-				def never_called():
-					print("never-called")
+				def do_not_call():
+					fail('unexpectedly called')
 			`,
 		}},
 		expectedLog: "first\nsecond\n",
@@ -97,8 +97,8 @@ func TestRunSimpleScriptlet(t *testing.T) {
 			name: "lib.star",
 			content: `
 				print("second")
-				def never_called():
-					print("never-called")
+				def do_not_call():
+					fail('unexpectedly called')
 			`,
 		}, {
 			name: "init.star",
@@ -110,7 +110,7 @@ func TestRunSimpleScriptlet(t *testing.T) {
 		}},
 		expectedLog: "first\nsecond\nthird\n",
 	}, {
-		name: "wrong extension",
+		name: "unsupported extensions",
 		sources: []testExtensionSource{{
 			name: "index.html",
 			content: `
@@ -136,13 +136,14 @@ func TestRunSimpleScriptlet(t *testing.T) {
 				log.WriteString(msg)
 				log.WriteByte('\n')
 			}
+			loader := &testExtensionLoader{
+				sources: map[string][]testExtensionSource{
+					"test": test.sources,
+				},
+			}
 			opts := &starform.ExtensionSetOptions{
 				PrintHandler: printHandler,
-				Loader: &testExtensionLoader{
-					sources: map[string][]testExtensionSource{
-						"test": test.sources,
-					},
-				},
+				Loader:       loader,
 			}
 			set, err := starform.NewExtensionSet(opts)
 			if err != nil {
