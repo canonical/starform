@@ -42,6 +42,63 @@ func (tes *testExtensionSource) Content() ([]byte, error) {
 	return []byte(content), nil
 }
 
+func TestOptionsValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		opts     *starform.ExtensionSetOptions
+		expected string
+	}{{
+		name:     "no loader",
+		opts:     &starform.ExtensionSetOptions{},
+		expected: "Loader cannot be nil",
+	}, {
+		name: "NotSafe (unbounded)",
+		opts: &starform.ExtensionSetOptions{
+			Loader: &testExtensionLoader{},
+		},
+	}, {
+		name: "MemSafe (unbounded)",
+		opts: &starform.ExtensionSetOptions{
+			Loader:         &testExtensionLoader{},
+			RequiredSafety: starlark.MemSafe,
+		},
+		expected: "cannot run starlark with unbounded MaxAllocs",
+	}, {
+		name: "MemSafe (bounded)",
+		opts: &starform.ExtensionSetOptions{
+			Loader:         &testExtensionLoader{},
+			RequiredSafety: starlark.MemSafe,
+			MaxAllocs:      100,
+		},
+	}, {
+		name: "CPUSafe (unbounded)",
+		opts: &starform.ExtensionSetOptions{
+			Loader:         &testExtensionLoader{},
+			RequiredSafety: starlark.CPUSafe,
+		},
+		expected: "cannot run starlark with unbounded MaxSteps",
+	}, {
+		name: "CPUSafe (bounded)",
+		opts: &starform.ExtensionSetOptions{
+			Loader:         &testExtensionLoader{},
+			RequiredSafety: starlark.CPUSafe,
+			MaxSteps:       100,
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := starform.NewExtensionSet(test.opts)
+			if test.expected == "" && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			} else if test.expected != "" && err == nil {
+				t.Error("expected error")
+			} else if test.expected != "" && err.Error() != test.expected {
+				t.Errorf("expected %v got %v", test.expected, err)
+			}
+		})
+	}
+}
+
 func TestLoadSimpleExtension(t *testing.T) {
 	tests := []struct {
 		name        string
