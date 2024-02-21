@@ -29,6 +29,12 @@ func NewExtensionSet(options *ExtensionSetOptions) (*ExtensionSet, error) {
 	if options.Loader == nil {
 		return nil, fmt.Errorf("Loader cannot be nil")
 	}
+	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
+		return nil, fmt.Errorf("cannot run starlark with unbounded MaxAllocs")
+	}
+	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
+		return nil, fmt.Errorf("cannot run starlark with unbounded MaxSteps")
+	}
 
 	result := &ExtensionSet{
 		printHandler:   options.PrintHandler,
