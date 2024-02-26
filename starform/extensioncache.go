@@ -1,7 +1,7 @@
 package starform
 
 type ExtensionCache interface {
-	private()
+	private() // This will be removed once this interface is stabilised.
 }
 
 type noopExtensionCache struct{}
