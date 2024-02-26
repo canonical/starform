@@ -1,7 +1,11 @@
 package starform
 
-type ExtensionCache interface{}
+type ExtensionCache interface {
+	private()
+}
 
 type noopExtensionCache struct{}
 
-var DefaultScriptletCache ExtensionCache = &noopExtensionCache{}
+func (*noopExtensionCache) private() {}
+
+var NoopExtensionCache ExtensionCache = &noopExtensionCache{}

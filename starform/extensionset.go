@@ -45,7 +45,7 @@ func NewExtensionSet(options *ExtensionSetOptions) (*ExtensionSet, error) {
 		cache:          options.Cache,
 	}
 	if result.cache == nil {
-		result.cache = DefaultScriptletCache
+		result.cache = NoopExtensionCache
 	}
 	return result, nil
 }
