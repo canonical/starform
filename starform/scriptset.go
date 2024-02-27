@@ -42,7 +42,7 @@ var starlarkDialect = syntax.FileOptions{
 	Recursion:       false,
 }
 
-func NewScriptSet(options *ScriptSetOptions, name string) (*ScriptSet, error) {
+func NewScriptSet(name string, options *ScriptSetOptions) (*ScriptSet, error) {
 	if err := options.CheckValid(); err != nil {
 		return nil, err
 	}

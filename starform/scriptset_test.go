@@ -206,7 +206,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			set, err := starform.NewScriptSet(opts, "test")
+			set, err := starform.NewScriptSet("test", opts)
 			if err != nil {
 				t.Fatal(err)
 			}
