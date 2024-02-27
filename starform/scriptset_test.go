@@ -10,15 +10,15 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-type testExtensionLoader struct {
-	sources map[string][]testExtensionSource
+type testScriptLoader struct {
+	sources map[string][]testScriptSource
 }
 
-var _ starform.ExtensionLoader = &testExtensionLoader{}
+var _ starform.ScriptLoader = &testScriptLoader{}
 
-func (tel *testExtensionLoader) Load(nameOrPath string) ([]starform.ExtensionSource, error) {
-	if sources, ok := tel.sources[nameOrPath]; ok {
-		result := make([]starform.ExtensionSource, len(sources))
+func (tel *testScriptLoader) Load(name string) ([]starform.ScriptSource, error) {
+	if sources, ok := tel.sources[name]; ok {
+		result := make([]starform.ScriptSource, len(sources))
 		for i := range sources {
 			result[i] = &sources[i]
 		}
@@ -27,14 +27,14 @@ func (tel *testExtensionLoader) Load(nameOrPath string) ([]starform.ExtensionSou
 	return nil, fmt.Errorf("not found")
 }
 
-type testExtensionSource struct {
+type testScriptSource struct {
 	name, content string
 }
 
-var _ starform.ExtensionSource = &testExtensionSource{}
+var _ starform.ScriptSource = &testScriptSource{}
 
-func (tes *testExtensionSource) Path() string { return tes.name }
-func (tes *testExtensionSource) Content() ([]byte, error) {
+func (tes *testScriptSource) Path() string { return tes.name }
+func (tes *testScriptSource) Content() ([]byte, error) {
 	content, err := startest.Reindent(tes.content)
 	if err != nil {
 		return nil, err
@@ -45,49 +45,49 @@ func (tes *testExtensionSource) Content() ([]byte, error) {
 func TestOptionsValidation(t *testing.T) {
 	tests := []struct {
 		name     string
-		opts     *starform.ExtensionSetOptions
+		opts     *starform.ScriptSetOptions
 		expected string
 	}{{
 		name:     "no loader",
-		opts:     &starform.ExtensionSetOptions{},
+		opts:     &starform.ScriptSetOptions{},
 		expected: "Loader cannot be nil",
 	}, {
 		name: "NotSafe (unbounded)",
-		opts: &starform.ExtensionSetOptions{
-			Loader: &testExtensionLoader{},
+		opts: &starform.ScriptSetOptions{
+			Loader: &testScriptLoader{},
 		},
 	}, {
 		name: "MemSafe (unbounded)",
-		opts: &starform.ExtensionSetOptions{
-			Loader:         &testExtensionLoader{},
+		opts: &starform.ScriptSetOptions{
+			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.MemSafe,
 		},
 		expected: "cannot run starlark with unbounded MaxAllocs",
 	}, {
 		name: "MemSafe (bounded)",
-		opts: &starform.ExtensionSetOptions{
-			Loader:         &testExtensionLoader{},
+		opts: &starform.ScriptSetOptions{
+			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.MemSafe,
 			MaxAllocs:      100,
 		},
 	}, {
 		name: "CPUSafe (unbounded)",
-		opts: &starform.ExtensionSetOptions{
-			Loader:         &testExtensionLoader{},
+		opts: &starform.ScriptSetOptions{
+			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.CPUSafe,
 		},
 		expected: "cannot run starlark with unbounded MaxSteps",
 	}, {
 		name: "CPUSafe (bounded)",
-		opts: &starform.ExtensionSetOptions{
-			Loader:         &testExtensionLoader{},
+		opts: &starform.ScriptSetOptions{
+			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.CPUSafe,
 			MaxSteps:       100,
 		},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := starform.NewExtensionSet(test.opts)
+			err := test.opts.CheckValid()
 			if test.expected == "" && err != nil {
 				t.Errorf("unexpected error: %v", err)
 			} else if test.expected != "" && err == nil {
@@ -99,10 +99,10 @@ func TestOptionsValidation(t *testing.T) {
 	}
 }
 
-func TestLoadSimpleExtension(t *testing.T) {
+func TestLoadSimpleScriptSet(t *testing.T) {
 	tests := []struct {
 		name        string
-		sources     []testExtensionSource
+		sources     []testScriptSource
 		expectedLog string
 	}{{
 		name:        "empty",
@@ -110,7 +110,7 @@ func TestLoadSimpleExtension(t *testing.T) {
 		expectedLog: "",
 	}, {
 		name: "no-init (single)",
-		sources: []testExtensionSource{{
+		sources: []testScriptSource{{
 			name: "single.star",
 			content: `
 				print("single")
@@ -121,7 +121,7 @@ func TestLoadSimpleExtension(t *testing.T) {
 		expectedLog: "single\n",
 	}, {
 		name: "no-init (multiple)",
-		sources: []testExtensionSource{{
+		sources: []testScriptSource{{
 			name: "2.star",
 			content: `
 				print("second")
@@ -139,7 +139,7 @@ func TestLoadSimpleExtension(t *testing.T) {
 		expectedLog: "first\nsecond\n",
 	}, {
 		name: "init (single)",
-		sources: []testExtensionSource{{
+		sources: []testScriptSource{{
 			name: "single.star",
 			content: `
 				print("Hello,")
@@ -150,7 +150,7 @@ func TestLoadSimpleExtension(t *testing.T) {
 		expectedLog: "Hello,\nworld!\n",
 	}, {
 		name: "init (multiple)",
-		sources: []testExtensionSource{{
+		sources: []testScriptSource{{
 			name: "lib.star",
 			content: `
 				print("second")
@@ -168,7 +168,7 @@ func TestLoadSimpleExtension(t *testing.T) {
 		expectedLog: "first\nsecond\nthird\n",
 	}, {
 		name: "unsupported extensions",
-		sources: []testExtensionSource{{
+		sources: []testScriptSource{{
 			name: "index.html",
 			content: `
 				<b>not a script</b>
@@ -193,28 +193,28 @@ func TestLoadSimpleExtension(t *testing.T) {
 				log.WriteString(msg)
 				log.WriteByte('\n')
 			}
-			loader := &testExtensionLoader{
-				sources: map[string][]testExtensionSource{
+			loader := &testScriptLoader{
+				sources: map[string][]testScriptSource{
 					"test": test.sources,
 				},
 			}
-			opts := &starform.ExtensionSetOptions{
+			opts := &starform.ScriptSetOptions{
 				PrintHandler: printHandler,
 				Loader:       loader,
 			}
-			set, err := starform.NewExtensionSet(opts)
+			err := opts.CheckValid()
 			if err != nil {
 				t.Fatal(err)
 			}
-			extension, err := set.Load("test")
+			set, err := starform.NewScriptSet(opts, "test")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if extension == nil {
+			if set == nil {
 				t.Fatalf("extension should not be nil")
 			}
-			if extension.Name != "test" {
-				t.Errorf("extension name mismatch: expected %v got %v", "test", extension.Name)
+			if set.Name != "test" {
+				t.Errorf("extension name mismatch: expected %v got %v", "test", set.Name)
 			}
 			if actualLog := log.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)

@@ -9,45 +9,29 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
-type ExtensionSet struct {
-	loader              ExtensionLoader
-	cache               ExtensionCache
-	printHandler        func(thread *starlark.Thread, msg string)
-	requiredSafety      starlark.SafetyFlags
-	maxAllocs, maxSteps uint64
+type ScriptSet struct {
+	Name string
 }
 
-type ExtensionSetOptions struct {
-	Loader              ExtensionLoader
-	Cache               ExtensionCache
+type ScriptSetOptions struct {
+	Loader              ScriptLoader
+	Cache               ScriptCache
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
 }
 
-func NewExtensionSet(options *ExtensionSetOptions) (*ExtensionSet, error) {
+func (options *ScriptSetOptions) CheckValid() error {
 	if options.Loader == nil {
-		return nil, fmt.Errorf("Loader cannot be nil")
+		return fmt.Errorf("Loader cannot be nil")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
-		return nil, fmt.Errorf("cannot run starlark with unbounded MaxAllocs")
+		return fmt.Errorf("cannot run starlark with unbounded MaxAllocs")
 	}
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
-		return nil, fmt.Errorf("cannot run starlark with unbounded MaxSteps")
+		return fmt.Errorf("cannot run starlark with unbounded MaxSteps")
 	}
-
-	result := &ExtensionSet{
-		printHandler:   options.PrintHandler,
-		loader:         options.Loader,
-		maxAllocs:      options.MaxAllocs,
-		maxSteps:       options.MaxSteps,
-		requiredSafety: options.RequiredSafety,
-		cache:          options.Cache,
-	}
-	if result.cache == nil {
-		result.cache = NoopExtensionCache
-	}
-	return result, nil
+	return nil
 }
 
 var starlarkDialect = syntax.FileOptions{
@@ -58,8 +42,11 @@ var starlarkDialect = syntax.FileOptions{
 	Recursion:       false,
 }
 
-func (es *ExtensionSet) Load(name string) (*Extension, error) {
-	scriptlets, err := es.loader.Load(name)
+func NewScriptSet(options *ScriptSetOptions, name string) (*ScriptSet, error) {
+	if err := options.CheckValid(); err != nil {
+		return nil, err
+	}
+	scriptlets, err := options.Loader.Load(name)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +73,7 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 			return nil, fmt.Errorf("load statements not supported")
 		}
 
-		module, err := prog.Init(es.makeThread(), nil)
+		module, err := prog.Init(makeThread(options), nil)
 		if err != nil {
 			return nil, err
 		}
@@ -102,23 +89,23 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 			continue
 		}
 
-		_, err := starlark.Call(es.makeThread(), init, nil, nil)
+		_, err := starlark.Call(makeThread(options), init, nil, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return &Extension{
+	return &ScriptSet{
 		Name: name,
 	}, nil
 }
 
-func (es *ExtensionSet) makeThread() *starlark.Thread {
+func makeThread(options *ScriptSetOptions) *starlark.Thread {
 	thread := &starlark.Thread{
-		Print: es.printHandler,
+		Print: options.PrintHandler,
 	}
-	thread.RequireSafety(es.requiredSafety)
-	thread.SetMaxSteps(es.maxSteps)
-	thread.SetMaxAllocs(es.maxAllocs)
+	thread.RequireSafety(options.RequiredSafety)
+	thread.SetMaxSteps(options.MaxSteps)
+	thread.SetMaxAllocs(options.MaxAllocs)
 	return thread
 }
