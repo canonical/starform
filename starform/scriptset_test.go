@@ -206,15 +206,15 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			set, err := starform.NewScriptSet("test", opts)
+			scripts, err := starform.NewScriptSet("test", opts)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if set == nil {
-				t.Fatalf("extension should not be nil")
+			if scripts == nil {
+				t.Fatalf("returned set should not be nil")
 			}
-			if set.Name != "test" {
-				t.Errorf("extension name mismatch: expected %v got %v", "test", set.Name)
+			if scripts.Name != "test" {
+				t.Errorf("name mismatch: expected %v got %v", "test", scripts.Name)
 			}
 			if actualLog := log.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
