@@ -10,7 +10,8 @@ import (
 )
 
 type ScriptSet struct {
-	Name string
+	Name    string
+	options *ScriptSetOptions
 }
 
 type ScriptSetOptions struct {
@@ -46,26 +47,28 @@ func NewScriptSet(name string, options *ScriptSetOptions) (*ScriptSet, error) {
 	if err := options.CheckValid(); err != nil {
 		return nil, err
 	}
-	scriptlets, err := options.Loader.Load(name)
+
+	sources, err := options.Loader.Load(name)
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(scriptlets, func(i, j int) bool {
-		return scriptlets[i].Path() < scriptlets[j].Path()
+	sort.Slice(sources, func(i, j int) bool {
+		return sources[i].Path() < sources[j].Path()
 	})
 
 	isPredeclared := func(string) bool { return false }
-	modules := make([]starlark.StringDict, 0, len(scriptlets))
-	for _, scriptlet := range scriptlets {
-		source, err := scriptlet.Content()
+	modules := make([]starlark.StringDict, 0, len(sources))
+	for _, source := range sources {
+		content, err := source.Content()
 		if err != nil {
 			return nil, err
 		}
-		if path := scriptlet.Path(); !strings.HasSuffix(path, ".star") {
+		// TODO: check for proper naming convention here
+		if path := source.Path(); !strings.HasSuffix(path, ".star") {
 			continue
 		}
 
-		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, scriptlet.Path(), source, isPredeclared)
+		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, source.Path(), content, isPredeclared)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +99,8 @@ func NewScriptSet(name string, options *ScriptSetOptions) (*ScriptSet, error) {
 	}
 
 	return &ScriptSet{
-		Name: name,
+		Name:    name,
+		options: options,
 	}, nil
 }
 

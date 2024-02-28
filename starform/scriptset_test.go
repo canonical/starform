@@ -16,8 +16,8 @@ type testScriptLoader struct {
 
 var _ starform.ScriptLoader = &testScriptLoader{}
 
-func (tel *testScriptLoader) Load(name string) ([]starform.ScriptSource, error) {
-	if sources, ok := tel.sources[name]; ok {
+func (tsl *testScriptLoader) Load(name string) ([]starform.ScriptSource, error) {
+	if sources, ok := tsl.sources[name]; ok {
 		result := make([]starform.ScriptSource, len(sources))
 		for i := range sources {
 			result[i] = &sources[i]
@@ -33,9 +33,9 @@ type testScriptSource struct {
 
 var _ starform.ScriptSource = &testScriptSource{}
 
-func (tes *testScriptSource) Path() string { return tes.name }
-func (tes *testScriptSource) Content() ([]byte, error) {
-	content, err := startest.Reindent(tes.content)
+func (tss *testScriptSource) Path() string { return tss.name }
+func (tss *testScriptSource) Content() ([]byte, error) {
+	content, err := startest.Reindent(tss.content)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func TestOptionsValidation(t *testing.T) {
 		opts:     &starform.ScriptSetOptions{},
 		expected: "Loader cannot be nil",
 	}, {
-		name: "NotSafe (unbounded)",
+		name: "NotSafe",
 		opts: &starform.ScriptSetOptions{
 			Loader: &testScriptLoader{},
 		},
@@ -216,6 +216,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			if scripts.Name != "test" {
 				t.Errorf("name mismatch: expected %v got %v", "test", scripts.Name)
 			}
+
 			if actualLog := log.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
 			}
