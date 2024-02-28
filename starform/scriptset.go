@@ -10,29 +10,20 @@ import (
 )
 
 type ScriptSet struct {
-	Name    string
 	options *ScriptSetOptions
 }
 
+type ScriptSource interface {
+	Path() string
+	Content() ([]byte, error)
+}
+
 type ScriptSetOptions struct {
-	Loader              ScriptLoader
+	Sources             []ScriptSource
 	Cache               ScriptCache
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
-}
-
-func (options *ScriptSetOptions) CheckValid() error {
-	if options.Loader == nil {
-		return fmt.Errorf("Loader cannot be nil")
-	}
-	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
-		return fmt.Errorf("cannot run starlark with unbounded MaxAllocs")
-	}
-	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
-		return fmt.Errorf("cannot run starlark with unbounded MaxSteps")
-	}
-	return nil
 }
 
 var starlarkDialect = syntax.FileOptions{
@@ -43,22 +34,21 @@ var starlarkDialect = syntax.FileOptions{
 	Recursion:       false,
 }
 
-func NewScriptSet(name string, options *ScriptSetOptions) (*ScriptSet, error) {
-	if err := options.CheckValid(); err != nil {
-		return nil, err
+func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
+	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
+		return nil, fmt.Errorf("cannot run starlark with unbounded MaxAllocs")
+	}
+	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
+		return nil, fmt.Errorf("cannot run starlark with unbounded MaxSteps")
 	}
 
-	sources, err := options.Loader.Load(name)
-	if err != nil {
-		return nil, err
-	}
-	sort.Slice(sources, func(i, j int) bool {
-		return sources[i].Path() < sources[j].Path()
+	sort.Slice(options.Sources, func(i, j int) bool {
+		return options.Sources[i].Path() < options.Sources[j].Path()
 	})
 
 	isPredeclared := func(string) bool { return false }
-	modules := make([]starlark.StringDict, 0, len(sources))
-	for _, source := range sources {
+	modules := make([]starlark.StringDict, 0, len(options.Sources))
+	for _, source := range options.Sources {
 		content, err := source.Content()
 		if err != nil {
 			return nil, err
@@ -99,7 +89,6 @@ func NewScriptSet(name string, options *ScriptSetOptions) (*ScriptSet, error) {
 	}
 
 	return &ScriptSet{
-		Name:    name,
 		options: options,
 	}, nil
 }

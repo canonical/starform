@@ -1,7 +1,6 @@
 package starform_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -9,23 +8,6 @@ import (
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
 )
-
-type testScriptLoader struct {
-	sources map[string][]testScriptSource
-}
-
-var _ starform.ScriptLoader = &testScriptLoader{}
-
-func (tsl *testScriptLoader) Load(name string) ([]starform.ScriptSource, error) {
-	if sources, ok := tsl.sources[name]; ok {
-		result := make([]starform.ScriptSource, len(sources))
-		for i := range sources {
-			result[i] = &sources[i]
-		}
-		return result, nil
-	}
-	return nil, fmt.Errorf("not found")
-}
 
 type testScriptSource struct {
 	name, content string
@@ -48,46 +30,36 @@ func TestOptionsValidation(t *testing.T) {
 		opts     *starform.ScriptSetOptions
 		expected string
 	}{{
-		name:     "no loader",
-		opts:     &starform.ScriptSetOptions{},
-		expected: "Loader cannot be nil",
-	}, {
 		name: "NotSafe",
-		opts: &starform.ScriptSetOptions{
-			Loader: &testScriptLoader{},
-		},
+		opts: &starform.ScriptSetOptions{},
 	}, {
 		name: "MemSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
-			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.MemSafe,
 		},
 		expected: "cannot run starlark with unbounded MaxAllocs",
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
-			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.MemSafe,
 			MaxAllocs:      100,
 		},
 	}, {
 		name: "CPUSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
-			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.CPUSafe,
 		},
 		expected: "cannot run starlark with unbounded MaxSteps",
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
-			Loader:         &testScriptLoader{},
 			RequiredSafety: starlark.CPUSafe,
 			MaxSteps:       100,
 		},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := test.opts.CheckValid()
+			_, err := starform.NewScriptSet(test.opts)
 			if test.expected == "" && err != nil {
 				t.Errorf("unexpected error: %v", err)
 			} else if test.expected != "" && err == nil {
@@ -102,7 +74,7 @@ func TestOptionsValidation(t *testing.T) {
 func TestLoadSimpleScriptSet(t *testing.T) {
 	tests := []struct {
 		name        string
-		sources     []testScriptSource
+		sources     []starform.ScriptSource
 		expectedLog string
 	}{{
 		name:        "empty",
@@ -110,80 +82,81 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 		expectedLog: "",
 	}, {
 		name: "no-init (single)",
-		sources: []testScriptSource{{
-			name: "single.star",
-			content: `
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "single.star",
+				content: `
 				print("single")
 				def do_not_call():
 					fail('unexpectedly called')
-			`,
-		}},
+			`},
+		},
 		expectedLog: "single\n",
 	}, {
 		name: "no-init (multiple)",
-		sources: []testScriptSource{{
-			name: "2.star",
-			content: `
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "2.star",
+				content: `
 				print("second")
 				def do_not_call():
 					fail('unexpectedly called')
-			`,
-		}, {
-			name: "1.star",
-			content: `
+			`}, &testScriptSource{
+				name: "1.star",
+				content: `
 				print("first")
 				def do_not_call():
 					fail('unexpectedly called')
-			`,
-		}},
+			`},
+		},
 		expectedLog: "first\nsecond\n",
 	}, {
 		name: "init (single)",
-		sources: []testScriptSource{{
-			name: "single.star",
-			content: `
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "single.star",
+				content: `
 				print("Hello,")
 				def init():
 					print("world!")
-			`,
-		}},
+			`},
+		},
 		expectedLog: "Hello,\nworld!\n",
 	}, {
 		name: "init (multiple)",
-		sources: []testScriptSource{{
-			name: "lib.star",
-			content: `
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "lib.star",
+				content: `
 				print("second")
 				def do_not_call():
 					fail('unexpectedly called')
-			`,
-		}, {
-			name: "init.star",
-			content: `
+			`}, &testScriptSource{
+				name: "init.star",
+				content: `
 				def init():
 					print("third")
 				print("first")
-			`,
-		}},
+			`},
+		},
 		expectedLog: "first\nsecond\nthird\n",
 	}, {
 		name: "unsupported extensions",
-		sources: []testScriptSource{{
-			name: "index.html",
-			content: `
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "index.html",
+				content: `
 				<b>not a script</b>
-			`,
-		}, {
-			name: "lib.star.swp",
-			content: `
+			`}, &testScriptSource{
+				name: "lib.star.swp",
+				content: `
 				print("vim cache file")
-			`,
-		}, {
-			name: "README.md",
-			content: `
+			`}, &testScriptSource{
+				name: "README.md",
+				content: `
 				# Docs
-			`,
-		}},
+			`},
+		},
 		expectedLog: "",
 	}}
 	for _, test := range tests {
@@ -193,28 +166,16 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 				log.WriteString(msg)
 				log.WriteByte('\n')
 			}
-			loader := &testScriptLoader{
-				sources: map[string][]testScriptSource{
-					"test": test.sources,
-				},
-			}
 			opts := &starform.ScriptSetOptions{
 				PrintHandler: printHandler,
-				Loader:       loader,
+				Sources:      test.sources,
 			}
-			err := opts.CheckValid()
-			if err != nil {
-				t.Fatal(err)
-			}
-			scripts, err := starform.NewScriptSet("test", opts)
+			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if scripts == nil {
 				t.Fatalf("returned set should not be nil")
-			}
-			if scripts.Name != "test" {
-				t.Errorf("name mismatch: expected %v got %v", "test", scripts.Name)
 			}
 
 			if actualLog := log.String(); actualLog != test.expectedLog {
