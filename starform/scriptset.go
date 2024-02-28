@@ -1,6 +1,7 @@
 package starform
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -15,7 +16,7 @@ type ScriptSet struct {
 
 type ScriptSource interface {
 	Path() string
-	Content() ([]byte, error)
+	Content(context.Context) ([]byte, error)
 }
 
 type ScriptSetOptions struct {
@@ -34,7 +35,7 @@ var starlarkDialect = syntax.FileOptions{
 	Recursion:       false,
 }
 
-func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
+func NewScriptSet(ctx context.Context, options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
 	}
@@ -53,8 +54,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
-
-		content, err := source.Content()
+		content, err := source.Content(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
@@ -66,7 +66,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 			return nil, fmt.Errorf("load statements not supported")
 		}
 
-		module, err := prog.Init(makeThread(options), nil)
+		module, err := prog.Init(makeThread(ctx, options), nil)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
@@ -82,7 +82,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 			return nil, fmt.Errorf("cannot call non-function init")
 		}
 
-		_, err := starlark.Call(makeThread(options), init, nil, nil)
+		_, err := starlark.Call(makeThread(ctx, options), init, nil, nil)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load script: %w", err)
 		}
@@ -93,12 +93,13 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	}, nil
 }
 
-func makeThread(options *ScriptSetOptions) *starlark.Thread {
+func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
 	thread := &starlark.Thread{
 		Print: options.PrintHandler,
 	}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
+	thread.SetContext(ctx)
 	return thread
 }

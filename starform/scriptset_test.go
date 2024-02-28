@@ -1,6 +1,8 @@
 package starform_test
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -16,7 +18,11 @@ type testScriptSource struct {
 var _ starform.ScriptSource = &testScriptSource{}
 
 func (tss *testScriptSource) Path() string { return tss.name }
-func (tss *testScriptSource) Content() ([]byte, error) {
+func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	content, err := startest.Reindent(tss.content)
 	if err != nil {
 		return nil, err
@@ -59,7 +65,7 @@ func TestOptionsValidation(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := starform.NewScriptSet(test.opts)
+			_, err := starform.NewScriptSet(context.Background(), test.opts)
 			if test.expected == "" && err != nil {
 				t.Errorf("unexpected error: %v", err)
 			} else if test.expected != "" && err == nil {
@@ -179,7 +185,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 				PrintHandler: printHandler,
 				Sources:      test.sources,
 			}
-			scripts, err := starform.NewScriptSet(opts)
+			scripts, err := starform.NewScriptSet(context.Background(), opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -191,5 +197,23 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
 			}
 		})
+	}
+}
+
+func TestCancelLoad(t *testing.T) {
+	opts := &starform.ScriptSetOptions{
+		Sources: []starform.ScriptSource{&testScriptSource{
+			name: "test.star",
+			content: `
+				def init():
+					print("test")
+			`,
+		}},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := starform.NewScriptSet(ctx, opts)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("unexpected error: expected %v got %v", context.Canceled, err)
 	}
 }
