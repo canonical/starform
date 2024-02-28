@@ -1,8 +1,10 @@
 package starform
 
 import (
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
@@ -46,6 +48,13 @@ func NewExtensionSet(options *ExtensionSetOptions) (*ExtensionSet, error) {
 func (es *ExtensionSet) makeThread() *starlark.Thread {
 	thread := &starlark.Thread{
 		Print: es.printHandler,
+		Load: func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
+			// Dumb hack to fix tests.
+			// TODO: Remove this in favour of a proper load implementation.
+			return starlark.StringDict{
+				"unused": starlark.None,
+			}, nil
+		},
 	}
 	thread.RequireSafety(es.requiredSafety)
 	thread.SetMaxSteps(es.maxSteps)
@@ -82,8 +91,11 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		if err != nil {
 			return nil, err
 		}
-		if prog.NumLoads() > 0 {
-			return nil, fmt.Errorf("load statements are not yet supported")
+		for i := 0; i < prog.NumLoads(); i++ {
+			loadPath, _ := prog.Load(i)
+			if err := checkLoadPath(loadPath); err != nil {
+				return nil, err
+			}
 		}
 
 		module, err := prog.Init(es.makeThread(), nil)
@@ -112,4 +124,94 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 		Name:    name,
 		modules: modules,
 	}, nil
+}
+
+func checkLoadPath(path string) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("cannot load %q: %v", path, err)
+		}
+	}()
+
+	if path == "" {
+		return errors.New("path is empty")
+	}
+	if path[0] == '/' {
+		return errors.New("path is absolute")
+	}
+	if !strings.HasSuffix(path, ".star") {
+		return errors.New("path must have '.star' extension")
+	}
+
+	parsingPathOperator := false
+	componentStartIndex := 0
+	normalComponentFound := false
+	midwayDotFound := false
+	prevR := rune(0)
+	for i, r := range path {
+		rIsAlnum := ('a' <= r && r <= 'z') || ('0' <= r && r <= '9')
+
+		if !(rIsAlnum || r == '_' || r == '.' || r == '/') {
+			return fmt.Errorf("path contains nonstandard character %c", r)
+		}
+
+		if parsingPathOperator {
+			if r == '_' || rIsAlnum {
+				return fmt.Errorf("path includes hidden files")
+			}
+			if r == '.' && i-componentStartIndex > 2 {
+				return fmt.Errorf("path includes more than two successive dots")
+			}
+			if r == '/' && normalComponentFound {
+				return fmt.Errorf("path mixes path-operators and normal components")
+			}
+		}
+
+		if r == '/' {
+			if midwayDotFound {
+				return fmt.Errorf("path must only use dots in file extensions")
+			}
+			if i-componentStartIndex < 3 {
+				return fmt.Errorf("path components must be at least 3 characters")
+			}
+
+			componentStartIndex = i
+			parsingPathOperator = false
+		}
+
+		switch prevR {
+		case '_':
+			switch r {
+			case '_':
+				return fmt.Errorf("path includes `__`")
+			case '.':
+				return fmt.Errorf("path includes `_.`")
+			case '/':
+				return fmt.Errorf("path has component which ends with underscore")
+			}
+		case '/':
+			if rIsAlnum {
+				normalComponentFound = true
+			}
+			switch r {
+			case '_':
+				return fmt.Errorf("path has component which starts with underscore")
+			case '.':
+				parsingPathOperator = true
+			case '/':
+				return fmt.Errorf("paths contains successive slashes")
+			}
+		default:
+			if r == '.' {
+				if !parsingPathOperator && i-componentStartIndex < 3 {
+					return fmt.Errorf("path file stem too short")
+				}
+
+				midwayDotFound = true
+			}
+		}
+		prevR = r
+	}
+
+	return nil
 }
