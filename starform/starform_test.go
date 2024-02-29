@@ -180,7 +180,11 @@ func TestCheckLoadPath(t *testing.T) {
 	}, {
 		name:   "extra-starting-current-dir",
 		path:   "././aaa.star",
-		expect: `cannot load "././aaa.star": path contains "./" after start`,
+		expect: `cannot load "././aaa.star": path contains late "./"`,
+	}, {
+		name:   "current-dir-in-parent-dir",
+		path:   ".././aaa.star",
+		expect: `cannot load ".././aaa.star": path contains late "./"`,
 	}, {
 		name:   "parent-op-in-current-dir",
 		path:   "./../aaa.star",
@@ -188,7 +192,7 @@ func TestCheckLoadPath(t *testing.T) {
 	}, {
 		name:   "midway-current-dir",
 		path:   "aaa/./bbb.star",
-		expect: `cannot load "aaa/./bbb.star": path contains "./" after start`,
+		expect: `cannot load "aaa/./bbb.star": path contains late "./"`,
 	}, {
 		name:   "midway-parent-dir",
 		path:   "aaa/../bbb.star",

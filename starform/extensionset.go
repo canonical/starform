@@ -154,9 +154,9 @@ func checkLoadPath(path string) (err error) {
 		return errors.New(`path is directory`)
 	}
 
-	isParentDirPath := strings.HasPrefix(path, "../")
-	if isParentDirPath {
-		path = path[3:]
+	if strings.HasPrefix(path, "./") {
+		path = path[2:]
+	} else {
 		for strings.HasPrefix(path, "../") {
 			path = path[3:]
 		}
@@ -208,9 +208,10 @@ func checkLoadPath(path string) (err error) {
 				}
 				component.startsDotDot = true
 			case '/':
-				if i != 1 {
-					return errors.New(`path contains "./" after start`)
+				if component.startsDotDot {
+					return errors.New(`path contains late "../"`)
 				}
+				return errors.New(`path contains late "./"`)
 			default:
 				// Precondition: r is alphanumeric, '_' or '\0'
 				return errors.New(`path contains extra "."`)
