@@ -49,18 +49,17 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	isPredeclared := func(string) bool { return false }
 	modules := make([]starlark.StringDict, 0, len(options.Sources))
 	for _, source := range options.Sources {
-		content, err := source.Content()
-		if err != nil {
-			return nil, err
-		}
-		// TODO: check for proper naming convention here
-		if path := source.Path(); !strings.HasSuffix(path, ".star") {
+		path := source.Path()
+		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
-
-		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, source.Path(), content, isPredeclared)
+		content, err := source.Content()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
+		}
+		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
 		if prog.NumLoads() > 0 {
 			return nil, fmt.Errorf("load statements not supported")
@@ -68,7 +67,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 
 		module, err := prog.Init(makeThread(options), nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
 		modules = append(modules, module)
 	}
@@ -84,7 +83,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 
 		_, err := starlark.Call(makeThread(options), init, nil, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot load script: %w", err)
 		}
 	}
 

@@ -1,11 +1,11 @@
 package starform
 
 type ScriptCache interface {
-	sealed() // This will be removed once this interface is stable.
+	private() // This will be removed once this interface is stable.
 }
 
 type noopScriptCache struct{}
 
-func (*noopScriptCache) sealed() {}
+func (*noopScriptCache) private() {}
 
 var NoopScriptCache ScriptCache = &noopScriptCache{}
