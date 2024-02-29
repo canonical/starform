@@ -107,19 +107,19 @@ func TestCheckLoadPath(t *testing.T) {
 		path   string
 		expect string
 	}{{
-		name: "simple",
+		name: "toplevel",
 		path: "abcdefghijklmnopqrstuvwxyz_0123456789.star",
 	}, {
-		name: "complex",
+		name: "nested",
 		path: "aaa/bbb/ccc.star",
 	}, {
-		name: "relative-simple",
+		name: "relative-toplevel",
 		path: "./aaa.star",
 	}, {
-		name: "parent-simple",
+		name: "parent-nested",
 		path: "../aaa.star",
 	}, {
-		name: "parent-complex",
+		name: "parent-nested",
 		path: "../../../aaa/bbb/ccc.star",
 	}, {
 		name:   "empty",
