@@ -146,6 +146,10 @@ func TestCheckLoadPath(t *testing.T) {
 		path:   "aaa/bbb/cc.star",
 		expect: `cannot load "aaa/bbb/cc.star": file name too short`,
 	}, {
+		name:   "uppercase-forbidden",
+		path:   "AAA.star",
+		expect: `cannot load "AAA.star": path contains nonstandard character "A"`,
+	}, {
 		name:   "invalid-rune-dash",
 		path:   "---.star",
 		expect: `cannot load "---.star": path contains nonstandard character "-"`,
