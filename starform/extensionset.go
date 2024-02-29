@@ -127,9 +127,10 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 }
 
 func checkLoadPath(path string) (err error) {
+	inputPath := path
 	defer func() {
 		if err != nil {
-			err = fmt.Errorf("cannot load %q: %v", path, err)
+			err = fmt.Errorf("cannot load %q: %v", inputPath, err)
 		}
 	}()
 
@@ -140,77 +141,96 @@ func checkLoadPath(path string) (err error) {
 		return errors.New("path is absolute")
 	}
 	if !strings.HasSuffix(path, ".star") {
-		return errors.New("path must have '.star' extension")
+		return errors.New(`path must have ".star" extension`)
+	}
+	path = path[:len(path)-len(".star")]
+
+	switch path[len(path)-1] {
+	case '_':
+		return errors.New(`path contains "_."`)
+	case '.':
+		return errors.New(`path contains extra "."`)
+	case '/':
+		return errors.New(`path is directory`)
 	}
 
-	parsingPathOperator := false
-	componentStartIndex := 0
-	normalComponentFound := false
-	midwayDotFound := false
+	isParentDirPath := strings.HasPrefix(path, "../")
+	if isParentDirPath {
+		path = path[3:]
+		for strings.HasPrefix(path, "../") {
+			path = path[3:]
+		}
+	}
+
+	type componentInfo struct {
+		startIndex   int
+		startsDotDot bool
+	}
+	var component = componentInfo{}
+	var prevComponent componentInfo
 	prevR := rune(0)
 	for i, r := range path {
-		rIsAlnum := ('a' <= r && r <= 'z') || ('0' <= r && r <= '9')
-
-		if !(rIsAlnum || r == '_' || r == '.' || r == '/') {
-			return fmt.Errorf("path contains nonstandard character %c", r)
-		}
-
-		if parsingPathOperator {
-			if r == '_' || rIsAlnum {
-				return fmt.Errorf("path includes hidden files")
-			}
-			if r == '.' && i-componentStartIndex > 2 {
-				return fmt.Errorf("path includes more than two successive dots")
-			}
-			if r == '/' && normalComponentFound {
-				return fmt.Errorf("path mixes path-operators and normal components")
-			}
+		if !(('a' <= r && r <= 'z') || r == '_' || r == '.' || r == '/') {
+			return fmt.Errorf(`path contains nonstandard character "%c"`, r)
 		}
 
 		if r == '/' {
-			if midwayDotFound {
-				return fmt.Errorf("path must only use dots in file extensions")
-			}
-			if i-componentStartIndex < 3 {
-				return fmt.Errorf("path components must be at least 3 characters")
+			if component.startsDotDot {
+				return errors.New(`path contains late "../"`)
 			}
 
-			componentStartIndex = i
-			parsingPathOperator = false
+			prevComponent = component
+			component = componentInfo{
+				startIndex: i + 1,
+			}
 		}
 
 		switch prevR {
 		case '_':
 			switch r {
 			case '_':
-				return fmt.Errorf("path includes `__`")
-			case '.':
-				return fmt.Errorf("path includes `_.`")
+				return errors.New(`path contains "__"`)
 			case '/':
-				return fmt.Errorf("path has component which ends with underscore")
+				return errors.New("path has component which ends with underscore")
 			}
-		case '/':
-			if rIsAlnum {
-				normalComponentFound = true
-			}
+		case '/', rune(0):
 			switch r {
 			case '_':
-				return fmt.Errorf("path has component which starts with underscore")
-			case '.':
-				parsingPathOperator = true
+				return errors.New("path has component which starts with underscore")
 			case '/':
-				return fmt.Errorf("paths contains successive slashes")
+				return errors.New(`path contains "//"`)
+			}
+		case '.':
+			switch r {
+			case '.':
+				if component.startsDotDot {
+					return errors.New(`path contains "..."`)
+				}
+				component.startsDotDot = true
+			case '/':
+				if i != 1 {
+					return errors.New(`path contains "./" after start`)
+				}
+			default:
+				// Precondition: r is alphanumeric, '_' or '\0'
+				return errors.New(`path contains extra "."`)
 			}
 		default:
+			// Precondition: prevR is alphanumeric or '\0'.
 			if r == '.' {
-				if !parsingPathOperator && i-componentStartIndex < 3 {
-					return fmt.Errorf("path file stem too short")
-				}
-
-				midwayDotFound = true
+				return errors.New(`path contains extra "."`)
 			}
 		}
+
+		if r == '/' && prevR != '.' && i-prevComponent.startIndex < 3 {
+			return fmt.Errorf("path component %q too short", path[prevComponent.startIndex:i])
+		}
+
 		prevR = r
+	}
+
+	if len(path)-component.startIndex < 3 {
+		return errors.New("file name too short")
 	}
 
 	return nil

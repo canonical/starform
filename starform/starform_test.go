@@ -113,11 +113,8 @@ func TestCheckLoadPath(t *testing.T) {
 		name: "complex",
 		path: "aaa/bbb/ccc.star",
 	}, {
-		// 	name: "relative-simple",
-		// 	path: "./aaa.star",
-		// }, {
-		name: "relative-complex",
-		path: "./aaa/bbb/ccc.star",
+		name: "relative-simple",
+		path: "./aaa.star",
 	}, {
 		name: "parent-simple",
 		path: "../aaa.star",
@@ -127,71 +124,99 @@ func TestCheckLoadPath(t *testing.T) {
 	}, {
 		name:   "empty",
 		path:   "",
-		expect: "cannot load '': path is empty",
+		expect: `cannot load "": path is empty`,
 	}, {
 		name:   "absolute",
 		path:   "/aaa.star",
-		expect: "cannot load '/aaa.star': path is absolute",
+		expect: `cannot load "/aaa.star": path is absolute`,
 	}, {
 		name:   "wrong-extension",
 		path:   "aaa.png",
-		expect: "cannot load 'aaa.png': path must have '.star' extension",
+		expect: `cannot load "aaa.png": path must have ".star" extension`,
 	}, {
 		name:   "short-components",
 		path:   "aa/bb/ccc.star",
-		expect: "cannot load 'a/b/ccc.star': ",
+		expect: `cannot load "aa/bb/ccc.star": path component "aa" too short`,
 	}, {
 		name:   "short-stem",
+		path:   "aa.star",
+		expect: `cannot load "aa.star": file name too short`,
+	}, {
+		name:   "nested-short-stem",
 		path:   "aaa/bbb/cc.star",
-		expect: "cannot load 'aaa/bbb/cc.star': ",
+		expect: `cannot load "aaa/bbb/cc.star": file name too short`,
 	}, {
 		name:   "invalid-rune-dash",
 		path:   "---.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "---.star": path contains nonstandard character "-"`,
 	}, {
 		name:   "invalid-rune-emoji",
 		path:   "🤸🪑🏌️.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "🤸🪑🏌️.star": path contains nonstandard character "🤸"`,
 	}, {
 		name:   "hidden-files",
 		path:   ".secret.star",
-		expect: "cannot load '': ",
+		expect: `cannot load ".secret.star": path contains extra "."`,
+	}, {
+		name:   "hidden-dirs",
+		path:   "aaa/.secret/bbb.star",
+		expect: `cannot load "aaa/.secret/bbb.star": path contains extra "."`,
 	}, {
 		name:   "midway-dots",
 		path:   "aaa/b.b/ccc.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "aaa/b.b/ccc.star": path contains extra "."`,
 	}, {
-		name:   "successive-dots",
+		name:   "many-extensions",
+		path:   "aaa/bbb.tar.star",
+		expect: `cannot load "aaa/bbb.tar.star": path contains extra "."`,
+	}, {
+		name:   "successive-dots-as-component",
 		path:   "aaa/.../bbb.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "aaa/.../bbb.star": path contains "..."`,
+	}, {
+		name:   "successive-dots-in-component",
+		path:   "aaa..bbb.star",
+		expect: `cannot load "aaa..bbb.star": path contains extra "."`,
+	}, {
+		name:   "extra-starting-current-dir",
+		path:   "././aaa.star",
+		expect: `cannot load "././aaa.star": path contains "./" after start`,
+	}, {
+		name:   "parent-op-in-current-dir",
+		path:   "./../aaa.star",
+		expect: `cannot load "./../aaa.star": path contains late "../"`,
 	}, {
 		name:   "midway-current-dir",
-		path:   "aaa/../bbb.star",
-		expect: "cannot load '': ",
+		path:   "aaa/./bbb.star",
+		expect: `cannot load "aaa/./bbb.star": path contains "./" after start`,
 	}, {
 		name:   "midway-parent-dir",
 		path:   "aaa/../bbb.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "aaa/../bbb.star": path contains late "../"`,
 	}, {
 		name:   "successive-slashes",
 		path:   "aaa//bbb.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "aaa//bbb.star": path contains "//"`,
 	}, {
 		name:   "successive-underscores",
 		path:   "a__a.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "a__a.star": path contains "__"`,
 	}, {
 		name:   "leading-underscore",
+		path:   "_aaa.star",
+		expect: `cannot load "_aaa.star": path has component which starts with underscore`,
+	}, {
+		name:   "midway-leading-underscore",
 		path:   "aaa/_bbb.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "aaa/_bbb.star": path has component which starts with underscore`,
 	}, {
 		name:   "trailing-underscore",
 		path:   "aaa_/bbb.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "aaa_/bbb.star": path has component which ends with underscore`,
 	}, {
 		name:   "trailing-underscore-before-extension",
 		path:   "aaa/bbb_.star",
-		expect: "cannot load '': ",
+		expect: `cannot load "aaa/bbb_.star": path contains "_."`,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
