@@ -170,7 +170,7 @@ func checkLoadPath(path string) (err error) {
 	var prevComponent componentInfo
 	prevR := rune(0)
 	for i, r := range path {
-		if !(('a' <= r && r <= 'z') || r == '_' || r == '.' || r == '/') {
+		if !(('a' <= r && r <= 'z') || ('0' <= r && r <= '9') || r == '_' || r == '.' || r == '/') {
 			return fmt.Errorf(`path contains nonstandard character "%c"`, r)
 		}
 
