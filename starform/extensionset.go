@@ -127,12 +127,11 @@ func (es *ExtensionSet) Load(name string) (*Extension, error) {
 }
 
 func checkLoadPath(path string) (err error) {
-	inputPath := path
-	defer func() {
+	defer func(path string) {
 		if err != nil {
-			err = fmt.Errorf("cannot load %q: %v", inputPath, err)
+			err = fmt.Errorf("cannot load %q: %v", path, err)
 		}
-	}()
+	}(path)
 
 	if path == "" {
 		return errors.New("path is empty")
