@@ -77,8 +77,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		if !ok {
 			continue
 		}
-		if _, ok := init.(starlark.Callable); !ok {
-			continue
+		if _, ok := init.(*starlark.Function); !ok {
+			return nil, fmt.Errorf("cannot call non-function init")
 		}
 
 		_, err := starlark.Call(makeThread(options), init, nil, nil)
