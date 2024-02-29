@@ -190,13 +190,15 @@ func checkLoadPath(path string) (err error) {
 			switch r {
 			case '_':
 				return errors.New(`path contains "__"`)
+			case '.':
+				return errors.New(`path contains "_."`)
 			case '/':
-				return errors.New("path has component which ends with underscore")
+				return errors.New(`path has component which ends with "_"`)
 			}
 		case '/', rune(0):
 			switch r {
 			case '_':
-				return errors.New("path has component which starts with underscore")
+				return errors.New(`path has component which starts with "_"`)
 			case '/':
 				return errors.New(`path contains "//"`)
 			}

@@ -208,19 +208,23 @@ func TestCheckLoadPath(t *testing.T) {
 	}, {
 		name:   "leading-underscore",
 		path:   "_aaa.star",
-		expect: `cannot load "_aaa.star": path has component which starts with underscore`,
+		expect: `cannot load "_aaa.star": path has component which starts with "_"`,
 	}, {
 		name:   "midway-leading-underscore",
 		path:   "aaa/_bbb.star",
-		expect: `cannot load "aaa/_bbb.star": path has component which starts with underscore`,
+		expect: `cannot load "aaa/_bbb.star": path has component which starts with "_"`,
 	}, {
 		name:   "trailing-underscore",
 		path:   "aaa_/bbb.star",
-		expect: `cannot load "aaa_/bbb.star": path has component which ends with underscore`,
+		expect: `cannot load "aaa_/bbb.star": path has component which ends with "_"`,
 	}, {
 		name:   "trailing-underscore-before-extension",
 		path:   "aaa/bbb_.star",
 		expect: `cannot load "aaa/bbb_.star": path contains "_."`,
+	}, {
+		name:   "underscore-before-dot",
+		path:   "aaa/b_.b.star",
+		expect: `cannot load "aaa/b_.b.star": path contains "_."`,
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
