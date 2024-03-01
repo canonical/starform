@@ -200,7 +200,6 @@ func checkLoadPath(path string) (err error) {
 			case '_':
 				return errors.New(`path has component which starts with "_"`)
 			case '/':
-				// Precondition: path is not absolute.
 				return errors.New(`path contains "//"`)
 			}
 		case '.':
