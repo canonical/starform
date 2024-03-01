@@ -158,6 +158,10 @@ func TestCheckLoadPath(t *testing.T) {
 		path:   "🤸🪑🏌️.star",
 		expect: `cannot load "🤸🪑🏌️.star": path contains nonstandard character "🤸"`,
 	}, {
+		name:   "no-stem",
+		path:   ".star",
+		expect: `cannot load ".star": file name too short`,
+	}, {
 		name:   "hidden-files",
 		path:   ".secret.star",
 		expect: `cannot load ".secret.star": path contains extra "."`,

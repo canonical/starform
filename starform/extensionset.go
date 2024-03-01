@@ -144,13 +144,14 @@ func checkLoadPath(path string) (err error) {
 	}
 	path = path[:len(path)-len(".star")]
 
+	if path == "" {
+		return errors.New("file name too short")
+	}
 	switch path[len(path)-1] {
 	case '_':
 		return errors.New(`path contains "_."`)
 	case '.':
 		return errors.New(`path contains extra "."`)
-	case '/':
-		return errors.New(`path is directory`)
 	}
 
 	if strings.HasPrefix(path, "./") {
