@@ -34,6 +34,15 @@ var starlarkDialect = syntax.FileOptions{
 	Recursion:       false,
 }
 
+type module struct { // TODO rename
+	path         string
+	loadPriority int
+	source       ScriptSource
+	file         *syntax.File
+	program      *starlark.Program
+	globals      starlark.StringDict
+}
+
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
@@ -48,13 +57,11 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 }
 
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
-	sort.Slice(sources, func(i, j int) bool {
-		return sources[i].Path() < sources[j].Path()
-	})
-
+	moduleStorage := make([]module, len(sources))
+	moduleFs := make(map[string]*module, len(sources))
+	modules := make([]*module, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
-	modules := make([]starlark.StringDict, 0, len(sources))
-	for _, source := range sources {
+	for i, source := range sources {
 		path := source.Path()
 		if !strings.HasSuffix(path, ".star") {
 			continue
@@ -63,28 +70,50 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if err != nil {
 			return fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
-		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+		file, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
 		if err != nil {
 			return fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
-		if prog.NumLoads() > 0 {
-			return fmt.Errorf("load statements not supported")
+		moduleStorage[i] = module{
+			path:    path,
+			source:  source,
+			file:    file,
+			program: program,
 		}
+		modules = append(modules, &moduleStorage[i])
+		moduleFs[moduleStorage[i].path] = &moduleStorage[i]
+	}
+	if err := computeLoadPriority(modules, moduleFs); err != nil {
+		return err
+	}
+	sort.Slice(modules, func(i, j int) bool {
+		if modules[i].loadPriority == modules[j].loadPriority {
+			return modules[i].path < modules[j].path
+		}
+		return modules[i].loadPriority < modules[j].loadPriority
+	})
 
-		module, err := prog.Init(makeThread(ctx, ss.options), nil)
-		if err != nil {
-			return fmt.Errorf("cannot load script: %s: %w", path, err)
+	// Load phase
+	for _, m := range modules {
+		thread := makeThread(ctx, ss.options)
+		thread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
+			return moduleFs[module].globals, nil
 		}
-		modules = append(modules, module)
+		globals, err := m.program.Init(thread, nil)
+		if err != nil {
+			return fmt.Errorf("cannot load script: %s: %w", m.path, err)
+		}
+		m.globals = globals
 	}
 
-	for _, module := range modules {
-		init, ok := module["init"]
+	// Init phase
+	for _, m := range modules {
+		init, ok := m.globals["init"]
 		if !ok {
 			continue
 		}
 		if _, ok := init.(*starlark.Function); !ok {
-			return fmt.Errorf("cannot call non-function init")
+			return fmt.Errorf("init: expected Starlark function, got %s", init.Type())
 		}
 
 		_, err := starlark.Call(makeThread(ctx, ss.options), init, nil, nil)
@@ -104,4 +133,41 @@ func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	return thread
+}
+
+func computeLoadPriority(modules []*module, moduleFs map[string]*module) error {
+	var visit func(m *module) (int, error)
+	visit = func(m *module) (int, error) {
+		if m.loadPriority > 0 {
+			return m.loadPriority, nil // already visited
+		}
+		if m.loadPriority < 0 {
+			// TODO: trace
+			return 0, fmt.Errorf("load loop detected")
+		}
+		m.loadPriority = -1 // for loop detection
+		maxChildPriority := 1
+		if numLoads := m.program.NumLoads(); numLoads > 0 {
+			for i := 0; i < numLoads; i++ {
+				loadPath, pos := m.program.Load(i)
+				loadModule, ok := moduleFs[loadPath]
+				if !ok {
+					return 0, fmt.Errorf("%s: can't find load target %s", pos, loadPath)
+				}
+				if childPriority, err := visit(loadModule); err != nil {
+					return 0, err
+				} else if childPriority > maxChildPriority {
+					maxChildPriority = childPriority
+				}
+			}
+		}
+		m.loadPriority = maxChildPriority + 1
+		return m.loadPriority, nil
+	}
+	for _, module := range modules {
+		if _, err := visit(module); err != nil {
+			return err
+		}
+	}
+	return nil
 }
