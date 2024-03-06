@@ -16,11 +16,10 @@ type ScriptSet struct {
 
 type ScriptSource interface {
 	Path() string
-	Content(context.Context) ([]byte, error)
+	Content(ctx context.Context) ([]byte, error)
 }
 
 type ScriptSetOptions struct {
-	Sources             []ScriptSource
 	Cache               ScriptCache
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
@@ -35,40 +34,45 @@ var starlarkDialect = syntax.FileOptions{
 	Recursion:       false,
 }
 
-func NewScriptSet(ctx context.Context, options *ScriptSetOptions) (*ScriptSet, error) {
+func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
 	}
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
 		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
 	}
+	return &ScriptSet{
+		options: options,
+	}, nil
+}
 
-	sort.Slice(options.Sources, func(i, j int) bool {
-		return options.Sources[i].Path() < options.Sources[j].Path()
+func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
+	sort.Slice(sources, func(i, j int) bool {
+		return sources[i].Path() < sources[j].Path()
 	})
 
 	isPredeclared := func(string) bool { return false }
-	modules := make([]starlark.StringDict, 0, len(options.Sources))
-	for _, source := range options.Sources {
+	modules := make([]starlark.StringDict, 0, len(sources))
+	for _, source := range sources {
 		path := source.Path()
 		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
 		content, err := source.Content(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
+			return fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
 		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
 		if err != nil {
-			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
+			return fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
 		if prog.NumLoads() > 0 {
-			return nil, fmt.Errorf("load statements not supported")
+			return fmt.Errorf("load statements not supported")
 		}
 
-		module, err := prog.Init(makeThread(ctx, options), nil)
+		module, err := prog.Init(makeThread(ctx, ss.options), nil)
 		if err != nil {
-			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
+			return fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
 		modules = append(modules, module)
 	}
@@ -79,18 +83,16 @@ func NewScriptSet(ctx context.Context, options *ScriptSetOptions) (*ScriptSet, e
 			continue
 		}
 		if _, ok := init.(*starlark.Function); !ok {
-			return nil, fmt.Errorf("cannot call non-function init")
+			return fmt.Errorf("cannot call non-function init")
 		}
 
-		_, err := starlark.Call(makeThread(ctx, options), init, nil, nil)
+		_, err := starlark.Call(makeThread(ctx, ss.options), init, nil, nil)
 		if err != nil {
-			return nil, fmt.Errorf("cannot load script: %w", err)
+			return fmt.Errorf("cannot load script: %w", err)
 		}
 	}
 
-	return &ScriptSet{
-		options: options,
-	}, nil
+	return nil
 }
 
 func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
