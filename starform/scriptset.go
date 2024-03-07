@@ -36,10 +36,10 @@ var starlarkDialect = syntax.FileOptions{
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
-		return nil, fmt.Errorf("cannot run starlark with unbounded MaxAllocs")
+		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
 	}
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
-		return nil, fmt.Errorf("cannot run starlark with unbounded MaxSteps")
+		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
 	}
 
 	sort.Slice(options.Sources, func(i, j int) bool {
@@ -53,6 +53,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
+
 		content, err := source.Content()
 		if err != nil {
 			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)

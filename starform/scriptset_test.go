@@ -37,7 +37,7 @@ func TestOptionsValidation(t *testing.T) {
 		opts: &starform.ScriptSetOptions{
 			RequiredSafety: starlark.MemSafe,
 		},
-		expected: "cannot run starlark with unbounded MaxAllocs",
+		expected: "cannot run MemSafe Starlark with unbounded MaxAllocs",
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
@@ -49,7 +49,7 @@ func TestOptionsValidation(t *testing.T) {
 		opts: &starform.ScriptSetOptions{
 			RequiredSafety: starlark.CPUSafe,
 		},
-		expected: "cannot run starlark with unbounded MaxSteps",
+		expected: "cannot run CPUSafe Starlark with unbounded MaxSteps",
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
@@ -86,10 +86,11 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			&testScriptSource{
 				name: "single.star",
 				content: `
-				print("single")
-				def do_not_call():
-					fail('unexpectedly called')
-			`},
+					print("single")
+					def do_not_call():
+						fail('unexpectedly called')
+				`,
+			},
 		},
 		expectedLog: "single\n",
 	}, {
@@ -98,16 +99,18 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			&testScriptSource{
 				name: "2.star",
 				content: `
-				print("second")
-				def do_not_call():
-					fail('unexpectedly called')
-			`}, &testScriptSource{
+					print("second")
+					def do_not_call():
+						fail('unexpectedly called')
+				`,
+			}, &testScriptSource{
 				name: "1.star",
 				content: `
-				print("first")
-				def do_not_call():
-					fail('unexpectedly called')
-			`},
+					print("first")
+					def do_not_call():
+						fail('unexpectedly called')
+				`,
+			},
 		},
 		expectedLog: "first\nsecond\n",
 	}, {
@@ -116,10 +119,11 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			&testScriptSource{
 				name: "single.star",
 				content: `
-				print("Hello,")
-				def init():
-					print("world!")
-			`},
+					print("Hello,")
+					def init():
+						print("world!")
+				`,
+			},
 		},
 		expectedLog: "Hello,\nworld!\n",
 	}, {
@@ -128,16 +132,18 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			&testScriptSource{
 				name: "lib.star",
 				content: `
-				print("second")
-				def do_not_call():
-					fail('unexpectedly called')
-			`}, &testScriptSource{
+					print("second")
+					def do_not_call():
+						fail('unexpectedly called')
+				`,
+			}, &testScriptSource{
 				name: "init.star",
 				content: `
-				def init():
-					print("third")
-				print("first")
-			`},
+					def init():
+						print("third")
+					print("first")
+				`,
+			},
 		},
 		expectedLog: "first\nsecond\nthird\n",
 	}, {
@@ -146,16 +152,19 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			&testScriptSource{
 				name: "index.html",
 				content: `
-				<b>not a script</b>
-			`}, &testScriptSource{
+					<b>not a script</b>
+				`,
+			}, &testScriptSource{
 				name: "lib.star.swp",
 				content: `
-				print("vim cache file")
-			`}, &testScriptSource{
+					print("vim cache file")
+				`,
+			}, &testScriptSource{
 				name: "README.md",
 				content: `
-				# Docs
-			`},
+					# Docs
+				`,
+			},
 		},
 		expectedLog: "",
 	}}
