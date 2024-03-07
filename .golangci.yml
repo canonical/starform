@@ -1,0 +1,15 @@
+run:
+  allow-parallel-runners: true
+  # TODO(kcza): just use the defaults
+  # enable-all: true
+  # disable:
+  #   - depguard
+  #   - exhaustruct
+  #   - scopelint
+  #   - wsl
+  #   - paralleltest
+linters-settings:
+  nakedret:
+    max-func-lines: 0
+  # revive:
+  #   enable-all-rules: true
