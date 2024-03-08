@@ -7,5 +7,3 @@ type ScriptCache interface {
 type noopScriptCache struct{}
 
 func (*noopScriptCache) private() {}
-
-var NoopScriptCache ScriptCache = &noopScriptCache{}
