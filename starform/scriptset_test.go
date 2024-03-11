@@ -217,6 +217,7 @@ func TestCancelLoad(t *testing.T) {
 				print("test")
 		`,
 	}})
+
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("unexpected error: expected %v got %v", context.Canceled, err)
 	}

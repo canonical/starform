@@ -41,6 +41,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
 		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
 	}
+
 	return &ScriptSet{
 		options: options,
 	}, nil
