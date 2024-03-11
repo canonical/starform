@@ -100,9 +100,9 @@ func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread
 	thread := &starlark.Thread{
 		Print: options.PrintHandler,
 	}
+	thread.SetContext(ctx)
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetContext(ctx)
 	return thread
 }

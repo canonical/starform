@@ -210,14 +210,14 @@ func TestCancelLoad(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+
 	err = scripts.LoadSources(ctx, []starform.ScriptSource{&testScriptSource{
 		name: "test.star",
 		content: `
 			def init():
-				print("test")
+				fail('unexpectedly called')
 		`,
 	}})
-
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("unexpected error: expected %v got %v", context.Canceled, err)
 	}
