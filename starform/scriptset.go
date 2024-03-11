@@ -97,10 +97,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 }
 
 func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
-	thread := &starlark.Thread{
-		Print: options.PrintHandler,
-	}
+	thread := &starlark.Thread{}
 	thread.SetContext(ctx)
+	thread.Print = options.PrintHandler
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
