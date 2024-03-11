@@ -38,7 +38,6 @@ type module struct { // TODO rename
 	path         string
 	loadPriority int
 	source       ScriptSource
-	file         *syntax.File
 	program      *starlark.Program
 	globals      starlark.StringDict
 }
@@ -70,14 +69,13 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if err != nil {
 			return fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
-		file, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+		_, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
 		if err != nil {
 			return fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
 		moduleStorage[i] = module{
 			path:    path,
 			source:  source,
-			file:    file,
 			program: program,
 		}
 		modules = append(modules, &moduleStorage[i])
@@ -139,26 +137,24 @@ func computeLoadPriority(modules []*module, moduleFs map[string]*module) error {
 	var visit func(m *module) (int, error)
 	visit = func(m *module) (int, error) {
 		if m.loadPriority > 0 {
-			return m.loadPriority, nil // already visited
+			return m.loadPriority, nil // Already visited.
 		}
 		if m.loadPriority < 0 {
 			// TODO: trace
 			return 0, fmt.Errorf("load loop detected")
 		}
-		m.loadPriority = -1 // for loop detection
+		m.loadPriority = -1
 		maxChildPriority := 1
-		if numLoads := m.program.NumLoads(); numLoads > 0 {
-			for i := 0; i < numLoads; i++ {
-				loadPath, pos := m.program.Load(i)
-				loadModule, ok := moduleFs[loadPath]
-				if !ok {
-					return 0, fmt.Errorf("%s: can't find load target %s", pos, loadPath)
-				}
-				if childPriority, err := visit(loadModule); err != nil {
-					return 0, err
-				} else if childPriority > maxChildPriority {
-					maxChildPriority = childPriority
-				}
+		for i, numLoads := 0, m.program.NumLoads(); i < numLoads; i++ {
+			loadPath, pos := m.program.Load(i)
+			loadModule, ok := moduleFs[loadPath]
+			if !ok {
+				return 0, fmt.Errorf("%s: can't find load target %s", pos, loadPath)
+			}
+			if childPriority, err := visit(loadModule); err != nil {
+				return 0, err
+			} else if childPriority > maxChildPriority {
+				maxChildPriority = childPriority
 			}
 		}
 		m.loadPriority = maxChildPriority + 1

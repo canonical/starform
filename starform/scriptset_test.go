@@ -229,7 +229,7 @@ func TestLoadStatement(t *testing.T) {
 		sources     []starform.ScriptSource
 		expectedLog string
 	}{{
-		name: "ordered",
+		name: "sorted",
 		sources: []starform.ScriptSource{&testScriptSource{
 			name: "1.star",
 			content: `
@@ -252,7 +252,7 @@ func TestLoadStatement(t *testing.T) {
 		}},
 		expectedLog: "first\nsecond\nthird\nfourth\nfifth\n",
 	}, {
-		name: "unordered",
+		name: "unsorted",
 		sources: []starform.ScriptSource{&testScriptSource{
 			name: "2.star",
 			content: `
@@ -307,7 +307,7 @@ func TestLoadStatement(t *testing.T) {
 		})
 	}
 
-	t.Run("missing-path", func(t *testing.T) {
+	t.Run("nonexistent", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
@@ -316,7 +316,7 @@ func TestLoadStatement(t *testing.T) {
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
 			content: `
-				load("missing.star", "missing")
+				load("nonexistent.star", "foo")
 				fail("unexpectedly called")
 			`,
 		}}
@@ -329,7 +329,7 @@ func TestLoadStatement(t *testing.T) {
 		}
 	})
 
-	t.Run("load-loop", func(t *testing.T) {
+	t.Run("load-cycle", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
