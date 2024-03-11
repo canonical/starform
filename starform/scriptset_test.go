@@ -1,6 +1,8 @@
 package starform_test
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -16,7 +18,11 @@ type testScriptSource struct {
 var _ starform.ScriptSource = &testScriptSource{}
 
 func (tss *testScriptSource) Path() string { return tss.name }
-func (tss *testScriptSource) Content() ([]byte, error) {
+func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	content, err := startest.Reindent(tss.content)
 	if err != nil {
 		return nil, err
@@ -177,7 +183,6 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			}
 			opts := &starform.ScriptSetOptions{
 				PrintHandler: printHandler,
-				Sources:      test.sources,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -187,9 +192,33 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 				t.Fatalf("returned set should not be nil")
 			}
 
+			if err := scripts.LoadSources(context.Background(), test.sources); err != nil {
+				t.Error(err)
+			}
 			if actualLog := log.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
 			}
 		})
+	}
+}
+
+func TestCancelLoad(t *testing.T) {
+	opts := &starform.ScriptSetOptions{}
+	scripts, err := starform.NewScriptSet(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = scripts.LoadSources(ctx, []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				fail('unexpectedly called')
+		`,
+	}})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("unexpected error: expected %v got %v", context.Canceled, err)
 	}
 }

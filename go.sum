@@ -1,7 +1,7 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/canonical/starlark v0.0.0-20240124111205-3339db969c96 h1:esNA439FX/rvZ9pNHZF4uHT0yxraU77ErW5uwJxNCWU=
-github.com/canonical/starlark v0.0.0-20240124111205-3339db969c96/go.mod h1:o326pjKdpULwvH6RvmkfZM88jUkNEnKMp9PM23X9A6Q=
+github.com/canonical/starlark v0.0.0-20240214134040-054a05390b9f h1:2nuexoCAJEVMIVCJhYjL97RPi/svBxb4B8yzplh14+Y=
+github.com/canonical/starlark v0.0.0-20240214134040-054a05390b9f/go.mod h1:o326pjKdpULwvH6RvmkfZM88jUkNEnKMp9PM23X9A6Q=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
