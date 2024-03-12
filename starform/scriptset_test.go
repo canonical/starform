@@ -234,7 +234,7 @@ func TestLoadStatement(t *testing.T) {
 			name: "1.star",
 			content: `
 				print("first")
-				var = "third"
+				third_str = "third"
 
 				def init():
 					print("fourth")
@@ -243,8 +243,8 @@ func TestLoadStatement(t *testing.T) {
 			name: "2.star",
 			content: `
 				print("second")
-				load("1.star", "var")
-				print(var)
+				load("1.star", "third_str")
+				print(third_str)
 
 				def init():
 					print("fifth")
@@ -256,18 +256,50 @@ func TestLoadStatement(t *testing.T) {
 		sources: []starform.ScriptSource{&testScriptSource{
 			name: "2.star",
 			content: `
+				print("second")
+				third_str = "third"
+
+				def init():
+					print("sixth")
+			`,
+		}, &testScriptSource{
+			name: "1.star",
+			content: `
 				print("first")
-				var = "fourth"
+				load("2.star", "third_str")
+				print(third_str)
 
 				def init():
 					print("fifth")
 			`,
 		}, &testScriptSource{
+			name: "3.star",
+			content: `
+				print("fourth")
+
+				def init():
+					print("seventh")
+			`,
+		}},
+		expectedLog: "first\nsecond\nthird\nfourth\nfifth\nsixth\nseventh\n",
+	}, {
+		name: "multiple loads",
+		sources: []starform.ScriptSource{&testScriptSource{
 			name: "1.star",
 			content: `
-				print("third")
-				load("2.star", "var")
-				print(var)
+				print("first")
+				load("2.star", "third_str")
+				print(third_str)
+
+				def init():
+					print("sixth")
+			`,
+		}, &testScriptSource{
+			name: "2.star",
+			content: `
+				print("second")
+				third_str = "third"
+				fifth_str = "fifth"
 
 				def init():
 					print("seventh")
@@ -275,13 +307,15 @@ func TestLoadStatement(t *testing.T) {
 		}, &testScriptSource{
 			name: "3.star",
 			content: `
-				print("second")
+				print("fourth")
+				load("2.star", "fifth_str")
+				print(fifth_str)
 
 				def init():
-					print("sixth")
+					print("eighth")
 			`,
 		}},
-		expectedLog: "first\nsecond\nthird\nfourth\nfifth\nsixth\nseventh\n",
+		expectedLog: "first\nsecond\nthird\nfourth\nfifth\nsixth\nseventh\neighth\n",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -354,6 +388,8 @@ func TestLoadStatement(t *testing.T) {
 		}
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatalf("expected error, got success")
+		} else {
+			t.Log(err)
 		}
 	})
 }
