@@ -81,7 +81,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	thread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
 		info, ok := scriptByPath[module]
 		if !ok {
-			return nil, fmt.Errorf("can't find load target %s", module)
+			return nil, fmt.Errorf("%s not found", module)
 		}
 		if err := ss.globalInitScript(thread, info); err != nil {
 			return nil, err
@@ -145,7 +145,7 @@ func (ss *ScriptSet) globalInitScript(thread *starlark.Thread, script *scriptLoa
 		script.status = scriptInitializing
 		globalEnv, err := script.program.Init(thread, nil)
 		if err != nil {
-			return fmt.Errorf("cannot load script: %s: %w", script.path, err)
+			return err
 		}
 		script.globalEnv = globalEnv
 		script.status = scriptInitialized

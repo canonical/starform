@@ -388,8 +388,6 @@ func TestLoadStatement(t *testing.T) {
 		}
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatalf("expected error, got success")
-		} else {
-			t.Log(err)
 		}
 	})
 }
