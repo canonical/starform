@@ -30,6 +30,33 @@ func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
 	return []byte(content), nil
 }
 
+type testScriptCache struct {
+	starform.TestCacheBase
+	cache      map[starform.ProgramKey]*starlark.Program
+	Hits, Miss int
+}
+
+var _ starform.ScriptCache = &testScriptCache{}
+
+func (tsc *testScriptCache) GetProgram(key starform.ProgramKey, load func() (*starlark.Program, error)) (*starlark.Program, error) {
+	if tsc.cache == nil {
+		tsc.cache = make(map[starform.ProgramKey]*starlark.Program)
+	}
+	if program, ok := tsc.cache[key]; ok {
+		tsc.Hits++
+		return program, nil
+	}
+	program, err := load()
+	if err != nil {
+		return nil, err
+	}
+	tsc.Miss++
+	tsc.cache[key] = program
+	return program, nil
+}
+
+func (tsc *testScriptCache) reset() { *tsc = testScriptCache{} }
+
 func TestOptionsValidation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -388,6 +415,85 @@ func TestLoadStatement(t *testing.T) {
 		}
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatalf("expected error, got success")
+		}
+	})
+}
+
+func TestProgramCache(t *testing.T) {
+	t.Run("same-scriptset", func(t *testing.T) {
+		cache := &testScriptCache{}
+		opts := &starform.ScriptSetOptions{
+			PrintHandler: func(thread *starlark.Thread, msg string) {},
+			Cache:        cache,
+		}
+		sources := []starform.ScriptSource{&testScriptSource{
+			name: "test.star",
+			content: `
+				def init():
+					print('foo')
+			`,
+		}}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), sources); err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), sources); err != nil {
+			t.Fatal(err)
+		}
+		if cache.Hits != 1 {
+			t.Error("unexpected cache miss")
+		}
+	})
+
+	t.Run("partial-reuse", func(t *testing.T) {
+		cache := &testScriptCache{}
+		opts := &starform.ScriptSetOptions{
+			PrintHandler: func(thread *starlark.Thread, msg string) {},
+			Cache:        cache,
+		}
+		sets := [][]starform.ScriptSource{{&testScriptSource{
+			name: "2.star",
+			content: `
+				bar = 'bar'
+				def init():
+					print('foo')
+			`,
+		}, &testScriptSource{
+			name: "1.star",
+			content: `
+				load('2.star', 'bar')
+				def init():
+					print(bar)
+			`,
+		}}, {&testScriptSource{
+			name: "2.star",
+			content: `
+				bar = 'baz'
+				def init():
+					print('foo')
+			`,
+		}, &testScriptSource{
+			name: "1.star",
+			content: `
+				load('2.star', 'bar')
+				def init():
+					print(bar)
+			`,
+		}}}
+		for _, set := range sets {
+			scripts, err := starform.NewScriptSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := scripts.LoadSources(context.Background(), set); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if cache.Hits != 1 || cache.Miss != 3 {
+			t.Error("unexpected cache miss")
 		}
 	})
 }

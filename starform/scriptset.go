@@ -2,6 +2,7 @@ package starform
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"strings"
@@ -44,6 +45,7 @@ const (
 
 type scriptState struct {
 	path        string
+	programKey  ProgramKey
 	program     *starlark.Program
 	status      scriptStatus
 	toplevelEnv starlark.StringDict
@@ -122,6 +124,10 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 	scriptStateStorage := make([]scriptState, 0, len(sources))
 	striptStates := make([]*scriptState, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
+	cache := ss.options.Cache
+	if cache == nil {
+		cache = &noopScriptCache{}
+	}
 	for _, source := range sources {
 		path := source.Path()
 		if !strings.HasSuffix(path, ".star") {
@@ -134,13 +140,18 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if err != nil {
 			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
-		_, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+		programKey := sha256.Sum256(content)
+		program, err := cache.GetProgram(programKey, func() (*starlark.Program, error) {
+			_, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+			return program, err
+		})
 		if err != nil {
 			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
 		scriptStateStorage = append(scriptStateStorage, scriptState{
-			path:    path,
-			program: program,
+			path:       path,
+			programKey: programKey,
+			program:    program,
 		})
 		striptStates = append(striptStates, &scriptStateStorage[len(scriptStateStorage)-1])
 	}
