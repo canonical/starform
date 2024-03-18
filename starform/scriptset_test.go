@@ -38,21 +38,25 @@ type testScriptCache struct {
 
 var _ starform.ScriptCache = &testScriptCache{}
 
-func (tsc *testScriptCache) GetProgram(key starform.ProgramKey, load func() (*starlark.Program, error)) (*starlark.Program, error) {
+func (tsc *testScriptCache) GetProgram(key starform.ProgramKey) *starlark.Program {
 	if tsc.cache == nil {
 		tsc.cache = make(map[starform.ProgramKey]*starlark.Program)
 	}
 	if program, ok := tsc.cache[key]; ok {
 		tsc.Hits++
-		return program, nil
-	}
-	program, err := load()
-	if err != nil {
-		return nil, err
+		return program
 	}
 	tsc.Miss++
-	tsc.cache[key] = program
-	return program, nil
+	return nil
+}
+
+func (tsc *testScriptCache) CacheProgram(key starform.ProgramKey, prog *starlark.Program) {
+	if tsc.cache == nil {
+		tsc.cache = make(map[starform.ProgramKey]*starlark.Program)
+	}
+	if _, ok := tsc.cache[key]; !ok {
+		tsc.cache[key] = prog
+	}
 }
 
 func (tsc *testScriptCache) reset() { *tsc = testScriptCache{} }
