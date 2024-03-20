@@ -341,7 +341,7 @@ func TestLoadStatement(t *testing.T) {
 		})
 	}
 
-	t.Run("nonexistent", func(t *testing.T) {
+	t.Run("nonexistent loads", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)

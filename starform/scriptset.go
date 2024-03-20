@@ -37,17 +37,17 @@ var starlarkDialect = syntax.FileOptions{
 type scriptStatus int
 
 const (
-	scriptNotInitialized scriptStatus = iota
-	scriptInitializing
-	scriptInitialized
+	scriptUninitialised scriptStatus = iota
+	scriptInitialising
+	scriptInitialised
 )
 
-type scriptLoadInfo struct {
-	path      string
-	source    ScriptSource
-	program   *starlark.Program
-	status    scriptStatus
-	globalEnv starlark.StringDict
+type loadingScript struct {
+	status         scriptStatus
+	path           string
+	source         ScriptSource
+	compiledSource *starlark.Program
+	globalEnv      starlark.StringDict
 }
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
@@ -64,45 +64,47 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 }
 
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
-	scripts, err := ss.compileSources(ctx, sources)
+	loadingScripts, err := ss.compileSources(ctx, sources)
 	if err != nil {
 		return err
 	}
-	scriptByPath := make(map[string]*scriptLoadInfo, len(scripts))
-	for _, m := range scripts {
-		scriptByPath[m.path] = m
+	loadingScriptByPath := make(map[string]*loadingScript, len(loadingScripts))
+	for _, m := range loadingScripts {
+		loadingScriptByPath[m.path] = m
 	}
-	sort.Slice(scripts, func(i, j int) bool {
-		return scripts[i].path < scripts[j].path
+	sort.Slice(loadingScripts, func(i, j int) bool {
+		return loadingScripts[i].path < loadingScripts[j].path
 	})
 
 	thread := ss.options.makeThread()
 	thread.SetContext(ctx)
 	thread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
-		info, ok := scriptByPath[module]
+		script, ok := loadingScriptByPath[module]
 		if !ok {
 			return nil, fmt.Errorf("%s not found", module)
 		}
-		if err := ss.globalInitScript(thread, info); err != nil {
+		if err := script.runTopLevel(thread); err != nil {
 			return nil, err
 		}
-		return info.globalEnv, nil
+		return script.globalEnv, nil
 	}
-	for _, module := range scripts {
-		if err := ss.globalInitScript(thread, module); err != nil {
+
+	for _, script := range loadingScripts {
+		if err := script.runTopLevel(thread); err != nil {
 			return err
 		}
 	}
-	for _, m := range scripts {
-		init, ok := m.globalEnv["init"]
+
+	for _, script := range loadingScripts {
+		init, ok := script.globalEnv["init"]
 		if !ok {
 			continue
 		}
 		if _, ok := init.(*starlark.Function); !ok {
 			return fmt.Errorf("init must be a Starlark function, got %s", init.Type())
 		}
-		_, err := starlark.Call(thread, init, nil, nil)
-		if err != nil {
+
+		if _, err := starlark.Call(thread, init, nil, nil); err != nil {
 			return fmt.Errorf("cannot load script: %w", err)
 		}
 	}
@@ -110,9 +112,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	return nil
 }
 
-func (ss *ScriptSet) compileSources(ctx context.Context, sources []ScriptSource) ([]*scriptLoadInfo, error) {
-	moduleStorage := make([]scriptLoadInfo, 0, len(sources))
-	modules := make([]*scriptLoadInfo, 0, len(sources))
+func (ss *ScriptSet) compileSources(ctx context.Context, sources []ScriptSource) ([]*loadingScript, error) {
+	loadingScriptStorage := make([]loadingScript, 0, len(sources))
+	loadingScripts := make([]*loadingScript, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
 	for _, source := range sources {
 		path := source.Path()
@@ -127,28 +129,28 @@ func (ss *ScriptSet) compileSources(ctx context.Context, sources []ScriptSource)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
-		moduleStorage = append(moduleStorage, scriptLoadInfo{
-			path:    path,
-			source:  source,
-			program: program,
+		loadingScriptStorage = append(loadingScriptStorage, loadingScript{
+			path:           path,
+			source:         source,
+			compiledSource: program,
 		})
-		modules = append(modules, &moduleStorage[len(moduleStorage)-1])
+		loadingScripts = append(loadingScripts, &loadingScriptStorage[len(loadingScriptStorage)-1])
 	}
-	return modules, nil
+	return loadingScripts, nil
 }
 
-func (ss *ScriptSet) globalInitScript(thread *starlark.Thread, script *scriptLoadInfo) error {
-	if script.status == scriptInitializing {
-		return fmt.Errorf("load cycle detected") // TODO: trace
-	}
-	if script.status == scriptNotInitialized {
-		script.status = scriptInitializing
-		globalEnv, err := script.program.Init(thread, nil)
+func (script *loadingScript) runTopLevel(thread *starlark.Thread) error {
+	switch script.status {
+	case scriptInitialising:
+		return fmt.Errorf("load cycle detected")
+	case scriptUninitialised:
+		script.status = scriptInitialising
+		globalEnv, err := script.compiledSource.Init(thread, nil)
 		if err != nil {
 			return err
 		}
 		script.globalEnv = globalEnv
-		script.status = scriptInitialized
+		script.status = scriptInitialised
 	}
 	return nil
 }
