@@ -47,7 +47,7 @@ type loadingScript struct {
 	path           string
 	source         ScriptSource
 	compiledSource *starlark.Program
-	globalEnv      starlark.StringDict
+	toplevelEnv    starlark.StringDict
 }
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
@@ -86,7 +86,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if err := script.runTopLevel(thread); err != nil {
 			return nil, err
 		}
-		return script.globalEnv, nil
+		return script.toplevelEnv, nil
 	}
 
 	for _, script := range loadingScripts {
@@ -96,7 +96,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	}
 
 	for _, script := range loadingScripts {
-		init, ok := script.globalEnv["init"]
+		init, ok := script.toplevelEnv["init"]
 		if !ok {
 			continue
 		}
@@ -145,11 +145,11 @@ func (script *loadingScript) runTopLevel(thread *starlark.Thread) error {
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
-		globalEnv, err := script.compiledSource.Init(thread, nil)
+		toplevelEnv, err := script.compiledSource.Init(thread, nil)
 		if err != nil {
 			return err
 		}
-		script.globalEnv = globalEnv
+		script.toplevelEnv = toplevelEnv
 		script.status = scriptInitialised
 	}
 	return nil
