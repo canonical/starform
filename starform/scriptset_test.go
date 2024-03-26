@@ -32,22 +32,22 @@ func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
 
 type testScriptCache struct {
 	starform.TestCacheBase
-	cache      map[starform.ProgramKey]*starlark.Program
-	Hits, Miss int
+	cache        map[starform.ProgramKey]*starlark.Program
+	Hits, Misses int
 }
 
 var _ starform.ScriptCache = &testScriptCache{}
 
-func (tsc *testScriptCache) GetProgram(key starform.ProgramKey) *starlark.Program {
+func (tsc *testScriptCache) GetProgram(key starform.ProgramKey) (*starlark.Program, error) {
 	if tsc.cache == nil {
 		tsc.cache = make(map[starform.ProgramKey]*starlark.Program)
 	}
 	if program, ok := tsc.cache[key]; ok {
 		tsc.Hits++
-		return program
+		return program, nil
 	}
-	tsc.Miss++
-	return nil
+	tsc.Misses++
+	return nil, starform.ErrNotInCache
 }
 
 func (tsc *testScriptCache) CacheProgram(key starform.ProgramKey, prog *starlark.Program) {
@@ -58,8 +58,6 @@ func (tsc *testScriptCache) CacheProgram(key starform.ProgramKey, prog *starlark
 		tsc.cache[key] = prog
 	}
 }
-
-func (tsc *testScriptCache) reset() { *tsc = testScriptCache{} }
 
 func TestOptionsValidation(t *testing.T) {
 	tests := []struct {
@@ -496,7 +494,8 @@ func TestProgramCache(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if cache.Hits != 1 || cache.Miss != 3 {
+		// same name but different content leads to a cache miss.
+		if cache.Hits != 1 || cache.Misses != 3 {
 			t.Error("unexpected cache miss")
 		}
 	})

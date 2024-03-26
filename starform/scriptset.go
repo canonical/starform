@@ -141,14 +141,15 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
 		programKey := sha256.Sum256(content)
-		program := cache.GetProgram(programKey)
-		if program == nil {
-			_, program2, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+		program, err := cache.GetProgram(programKey)
+		if err == ErrNotInCache {
+			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
 			if err != nil {
 				return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 			}
-			cache.CacheProgram(programKey, program2)
-			program = program2
+			cache.CacheProgram(programKey, program)
+		} else if err != nil {
+			return nil, err
 		}
 		scriptStateStorage = append(scriptStateStorage, scriptState{
 			path:       path,
