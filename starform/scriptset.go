@@ -42,12 +42,12 @@ const (
 	scriptInitialised
 )
 
-type loadingScript struct {
-	status         scriptStatus
-	path           string
-	source         ScriptSource
-	compiledSource *starlark.Program
-	toplevelEnv    starlark.StringDict
+type scriptState struct {
+	path        string
+	source      ScriptSource
+	program     *starlark.Program
+	status      scriptStatus
+	toplevelEnv starlark.StringDict
 }
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
@@ -64,22 +64,21 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 }
 
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
-	loadingScripts, err := ss.compileSources(ctx, sources)
+	scripts, err := ss.compilePrograms(ctx, sources)
 	if err != nil {
 		return err
 	}
-	loadingScriptByPath := make(map[string]*loadingScript, len(loadingScripts))
-	for _, m := range loadingScripts {
-		loadingScriptByPath[m.path] = m
+	scriptByPath := make(map[string]*scriptState, len(scripts))
+	for _, m := range scripts {
+		scriptByPath[m.path] = m
 	}
-	sort.Slice(loadingScripts, func(i, j int) bool {
-		return loadingScripts[i].path < loadingScripts[j].path
+	sort.Slice(scripts, func(i, j int) bool {
+		return scripts[i].path < scripts[j].path
 	})
 
 	thread := ss.options.makeThread()
-	thread.SetContext(ctx)
 	thread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
-		script, ok := loadingScriptByPath[module]
+		script, ok := scriptByPath[module]
 		if !ok {
 			return nil, fmt.Errorf("%s not found", module)
 		}
@@ -88,14 +87,22 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 		return script.toplevelEnv, nil
 	}
-
-	for _, script := range loadingScripts {
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			thread.Cancel("operation canceled")
+		case <-done:
+		}
+	}()
+	for _, script := range scripts {
 		if err := script.runTopLevel(thread); err != nil {
 			return err
 		}
 	}
 
-	for _, script := range loadingScripts {
+	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
 			continue
@@ -112,14 +119,17 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	return nil
 }
 
-func (ss *ScriptSet) compileSources(ctx context.Context, sources []ScriptSource) ([]*loadingScript, error) {
-	loadingScriptStorage := make([]loadingScript, 0, len(sources))
-	loadingScripts := make([]*loadingScript, 0, len(sources))
+func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]*scriptState, error) {
+	scriptStateStorage := make([]scriptState, 0, len(sources))
+	striptStates := make([]*scriptState, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
 	for _, source := range sources {
 		path := source.Path()
 		if !strings.HasSuffix(path, ".star") {
 			continue
+		}
+		if strings.Contains(path, "..") {
+			return nil, fmt.Errorf("can't load path with navigation operators")
 		}
 		content, err := source.Content(ctx)
 		if err != nil {
@@ -129,23 +139,23 @@ func (ss *ScriptSet) compileSources(ctx context.Context, sources []ScriptSource)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 		}
-		loadingScriptStorage = append(loadingScriptStorage, loadingScript{
-			path:           path,
-			source:         source,
-			compiledSource: program,
+		scriptStateStorage = append(scriptStateStorage, scriptState{
+			path:    path,
+			source:  source,
+			program: program,
 		})
-		loadingScripts = append(loadingScripts, &loadingScriptStorage[len(loadingScriptStorage)-1])
+		striptStates = append(striptStates, &scriptStateStorage[len(scriptStateStorage)-1])
 	}
-	return loadingScripts, nil
+	return striptStates, nil
 }
 
-func (script *loadingScript) runTopLevel(thread *starlark.Thread) error {
+func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
 	switch script.status {
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
-		toplevelEnv, err := script.compiledSource.Init(thread, nil)
+		toplevelEnv, err := script.program.Init(thread, nil)
 		if err != nil {
 			return err
 		}
