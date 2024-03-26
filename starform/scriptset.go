@@ -44,7 +44,6 @@ const (
 
 type scriptState struct {
 	path        string
-	source      ScriptSource
 	program     *starlark.Program
 	status      scriptStatus
 	toplevelEnv starlark.StringDict
@@ -141,7 +140,6 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		}
 		scriptStateStorage = append(scriptStateStorage, scriptState{
 			path:    path,
-			source:  source,
 			program: program,
 		})
 		striptStates = append(striptStates, &scriptStateStorage[len(scriptStateStorage)-1])
