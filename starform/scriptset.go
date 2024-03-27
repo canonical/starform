@@ -68,18 +68,18 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return err
 	}
 	scriptByPath := make(map[string]*scriptState, len(scripts))
-	for _, m := range scripts {
-		scriptByPath[m.path] = m
+	for _, script := range scripts {
+		scriptByPath[script.path] = script
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
 	})
 
 	thread := ss.options.makeThread()
-	thread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
-		script, ok := scriptByPath[module]
+	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
+		script, ok := scriptByPath[path]
 		if !ok {
-			return nil, fmt.Errorf("%s not found", module)
+			return nil, fmt.Errorf("%s not found", path)
 		}
 		if err := script.runTopLevel(thread); err != nil {
 			return nil, err
@@ -120,7 +120,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]*scriptState, error) {
 	scriptStateStorage := make([]scriptState, 0, len(sources))
-	striptStates := make([]*scriptState, 0, len(sources))
+	scriptStates := make([]*scriptState, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
 	for _, source := range sources {
 		path := source.Path()
@@ -128,7 +128,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			continue
 		}
 		if strings.Contains(path, "..") {
-			return nil, fmt.Errorf("can't load path with navigation operators")
+			return nil, fmt.Errorf("cannot load path with reletive operators")
 		}
 		content, err := source.Content(ctx)
 		if err != nil {
@@ -142,9 +142,9 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			path:    path,
 			program: program,
 		})
-		striptStates = append(striptStates, &scriptStateStorage[len(scriptStateStorage)-1])
+		scriptStates = append(scriptStates, &scriptStateStorage[len(scriptStateStorage)-1])
 	}
-	return striptStates, nil
+	return scriptStates, nil
 }
 
 func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
@@ -159,8 +159,11 @@ func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
 		}
 		script.toplevelEnv = toplevelEnv
 		script.status = scriptInitialised
+		return nil
+	case scriptInitialised:
+		return nil
 	}
-	return nil
+	return fmt.Errorf("internal error: invalid script state")
 }
 
 func (options *ScriptSetOptions) makeThread() *starlark.Thread {
