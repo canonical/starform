@@ -222,3 +222,172 @@ func TestCancelLoad(t *testing.T) {
 		t.Fatalf("unexpected error: expected %v got %v", context.Canceled, err)
 	}
 }
+
+func TestLoadStatement(t *testing.T) {
+	tests := []struct {
+		name        string
+		sources     []starform.ScriptSource
+		expectedLog string
+	}{{
+		name: "sorted",
+		sources: []starform.ScriptSource{&testScriptSource{
+			name: "1.star",
+			content: `
+				print("first")
+				third_str = "third"
+
+				def init():
+					print("fourth")
+			`,
+		}, &testScriptSource{
+			name: "2.star",
+			content: `
+				print("second")
+				load("1.star", "third_str")
+				print(third_str)
+
+				def init():
+					print("fifth")
+			`,
+		}},
+		expectedLog: "first\nsecond\nthird\nfourth\nfifth\n",
+	}, {
+		name: "unsorted",
+		sources: []starform.ScriptSource{&testScriptSource{
+			name: "2.star",
+			content: `
+				print("second")
+				third_str = "third"
+
+				def init():
+					print("sixth")
+			`,
+		}, &testScriptSource{
+			name: "1.star",
+			content: `
+				print("first")
+				load("2.star", "third_str")
+				print(third_str)
+
+				def init():
+					print("fifth")
+			`,
+		}, &testScriptSource{
+			name: "3.star",
+			content: `
+				print("fourth")
+
+				def init():
+					print("seventh")
+			`,
+		}},
+		expectedLog: "first\nsecond\nthird\nfourth\nfifth\nsixth\nseventh\n",
+	}, {
+		name: "multiple loads",
+		sources: []starform.ScriptSource{&testScriptSource{
+			name: "1.star",
+			content: `
+				print("first")
+				load("2.star", "third_str")
+				print(third_str)
+
+				def init():
+					print("sixth")
+			`,
+		}, &testScriptSource{
+			name: "2.star",
+			content: `
+				print("second")
+				third_str = "third"
+				fifth_str = "fifth"
+
+				def init():
+					print("seventh")
+			`,
+		}, &testScriptSource{
+			name: "3.star",
+			content: `
+				print("fourth")
+				load("2.star", "fifth_str")
+				print(fifth_str)
+
+				def init():
+					print("eighth")
+			`,
+		}},
+		expectedLog: "first\nsecond\nthird\nfourth\nfifth\nsixth\nseventh\neighth\n",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			log := &strings.Builder{}
+			printHandler := func(thread *starlark.Thread, msg string) {
+				log.WriteString(msg)
+				log.WriteByte('\n')
+			}
+			opts := &starform.ScriptSetOptions{
+				PrintHandler: printHandler,
+			}
+			scripts, err := starform.NewScriptSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := scripts.LoadSources(context.Background(), test.sources); err != nil {
+				t.Error(err)
+			}
+
+			if actualLog := log.String(); actualLog != test.expectedLog {
+				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
+			}
+		})
+	}
+
+	t.Run("nonexistent loads", func(t *testing.T) {
+		opts := &starform.ScriptSetOptions{
+			PrintHandler: func(thread *starlark.Thread, msg string) {
+				t.Errorf("unexpected print call: %s", msg)
+			},
+		}
+		sources := []starform.ScriptSource{&testScriptSource{
+			name: "test.star",
+			content: `
+				load("nonexistent.star", "foo")
+				fail("unexpectedly called")
+			`,
+		}}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), sources); err == nil {
+			t.Fatal("expected error, got success")
+		}
+	})
+
+	t.Run("load-cycle", func(t *testing.T) {
+		opts := &starform.ScriptSetOptions{
+			PrintHandler: func(thread *starlark.Thread, msg string) {
+				t.Errorf("unexpected print call: %s", msg)
+			},
+		}
+		sources := []starform.ScriptSource{&testScriptSource{
+			name: "chicken.star",
+			content: `
+				load("egg.star", "x")
+				fail("egg came first")
+			`,
+		}, &testScriptSource{
+			name: "egg.star",
+			content: `
+				load("chicken.star", "x")
+				fail("chicken came first")
+			`,
+		}}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), sources); err == nil {
+			t.Fatalf("expected error, got success")
+		}
+	})
+}
