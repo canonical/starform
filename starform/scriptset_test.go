@@ -31,31 +31,49 @@ func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
 }
 
 type testScriptCache struct {
-	starform.TestCacheBase
-	cache        map[starform.ProgramKey]*starlark.Program
+	cache        map[interface{}]interface{}
 	Hits, Misses int
 }
 
 var _ starform.ScriptCache = &testScriptCache{}
 
-func (tsc *testScriptCache) GetProgram(key starform.ProgramKey) (*starlark.Program, error) {
+func (tsc *testScriptCache) Get(key interface{}) (interface{}, error) {
 	if tsc.cache == nil {
-		tsc.cache = make(map[starform.ProgramKey]*starlark.Program)
+		tsc.cache = make(map[interface{}]interface{})
 	}
 	if program, ok := tsc.cache[key]; ok {
 		tsc.Hits++
 		return program, nil
 	}
 	tsc.Misses++
-	return nil, starform.ErrNotInCache
+	return nil, starform.ErrNoCache
 }
 
-func (tsc *testScriptCache) CacheProgram(key starform.ProgramKey, prog *starlark.Program) {
+func (tsc *testScriptCache) Put(key, value interface{}, source starform.ScriptSource) error {
 	if tsc.cache == nil {
-		tsc.cache = make(map[starform.ProgramKey]*starlark.Program)
+		tsc.cache = make(map[interface{}]interface{})
 	}
 	if _, ok := tsc.cache[key]; !ok {
-		tsc.cache[key] = prog
+		tsc.cache[key] = value
+	}
+	return nil
+}
+
+func (tsc *testScriptCache) Drop(key interface{}) {
+	if tsc.cache != nil {
+		delete(tsc.cache, key)
+	}
+}
+
+func (tsc *testScriptCache) Len() int {
+	return len(tsc.cache)
+}
+
+func (tsc *testScriptCache) Visit(f func(key interface{}, value interface{}) bool) {
+	for k, v := range tsc.cache {
+		if !f(k, v) {
+			break
+		}
 	}
 }
 

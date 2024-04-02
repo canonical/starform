@@ -45,7 +45,7 @@ const (
 
 type scriptState struct {
 	path        string
-	programKey  ProgramKey
+	programKey  [sha256.Size]byte
 	program     *starlark.Program
 	status      scriptStatus
 	toplevelEnv starlark.StringDict
@@ -141,15 +141,17 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
 		programKey := sha256.Sum256(content)
-		program, err := cache.GetProgram(programKey)
-		if err == ErrNotInCache {
+		var program *starlark.Program
+		if entry, err := cache.Get(programKey); err == ErrNoCache {
 			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
 			if err != nil {
 				return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
 			}
-			cache.CacheProgram(programKey, program)
+			cache.Put(programKey, program, source)
 		} else if err != nil {
 			return nil, err
+		} else if entry, ok := entry.(*starlark.Program); ok {
+			program = entry
 		}
 		scriptStateStorage = append(scriptStateStorage, scriptState{
 			path:       path,

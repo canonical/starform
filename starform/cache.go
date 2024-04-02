@@ -1,31 +1,32 @@
 package starform
 
 import (
-	"crypto/sha256"
 	"errors"
-
-	"github.com/canonical/starlark/starlark"
 )
 
-var ErrNotInCache error = errors.New("key not found")
-
-type ProgramKey [sha256.Size]byte
+var ErrNoCache error = errors.New("key not found")
 
 type ScriptCache interface {
-	GetProgram(key ProgramKey) (*starlark.Program, error)
-	CacheProgram(key ProgramKey, prog *starlark.Program)
-
-	private() // This will be removed once this interface is stable.
+	Get(key interface{}) (interface{}, error)
+	Put(key, value interface{}, source ScriptSource) error
+	Drop(key interface{})
+	Len() int
+	Visit(f func(key, value interface{}) bool)
 }
 
 type noopScriptCache struct{}
 
 var _ ScriptCache = &noopScriptCache{}
 
-func (n *noopScriptCache) GetProgram(key ProgramKey) (*starlark.Program, error) {
-	return nil, ErrNotInCache
+func (n *noopScriptCache) Get(key interface{}) (interface{}, error) {
+	return nil, ErrNoCache
 }
 
-func (n *noopScriptCache) CacheProgram(key ProgramKey, prog *starlark.Program) {}
+func (n *noopScriptCache) Put(key, value interface{}, source ScriptSource) error {
+	return nil
+}
 
-func (n *noopScriptCache) private() {}
+func (n *noopScriptCache) Drop(key interface{}) {}
+func (n *noopScriptCache) Len() int             { return 0 }
+
+func (n *noopScriptCache) Visit(f func(key interface{}, value interface{}) bool) {}
