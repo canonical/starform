@@ -9,7 +9,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
-
       - name: woke
         uses: get-woke/woke-action@v0
         with:
