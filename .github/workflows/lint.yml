@@ -9,17 +9,35 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    name: lint
+  mod-tody:
+    name: mod-tody
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go-version: '1.16'
+          cache: false
+      - name: Check go mod tidy
+        run: |
+          cp go.mod go.mod.untidy
+          cp go.sum go.sum.untidy
+          go mod tidy
+          diff -w go.mod.untidy go.mod || { echo "go.mod is not tidy"; exit 1 }
+          diff -w go.sum.untidy go.sum || { echo "go.mod is not tidy"; exit 1 }
+  golangci:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           go-version: '1.16'
           cache: false
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
           version: v1.54
-          args: --timeout=30m # --config=/my/path/.golangci.yml --issues-exit-code=0
+          # args: --timeout=30m --config=/my/path/.golangci.yml --issues-exit-code=0
