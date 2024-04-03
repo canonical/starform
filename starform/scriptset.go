@@ -2,7 +2,7 @@ package starform
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/sha512"
 	"fmt"
 	"sort"
 	"strings"
@@ -45,7 +45,7 @@ const (
 
 type scriptState struct {
 	path        string
-	programKey  [sha256.Size]byte
+	programKey  [sha512.Size384]byte
 	program     *starlark.Program
 	status      scriptStatus
 	toplevelEnv starlark.StringDict
@@ -140,7 +140,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if err != nil {
 			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
 		}
-		programKey := sha256.Sum256(content)
+		programKey := sha512.Sum384(content)
 		var program *starlark.Program
 		if entry, err := cache.Get(programKey); err == ErrNoCache {
 			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
@@ -150,8 +150,10 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			cache.Put(programKey, program, source)
 		} else if err != nil {
 			return nil, err
-		} else if entry, ok := entry.(*starlark.Program); ok {
-			program = entry
+		} else if prog, ok := entry.(*starlark.Program); ok {
+			program = prog
+		} else {
+			return nil, fmt.Errorf("unknown cache value: %v", entry)
 		}
 		scriptStateStorage = append(scriptStateStorage, scriptState{
 			path:       path,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/canonical/starform/starform"
@@ -31,15 +32,19 @@ func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
 }
 
 type testScriptCache struct {
-	cache        map[interface{}]interface{}
+	mu           sync.RWMutex
+	cache        map[starform.CacheKey]starform.CacheValue
 	Hits, Misses int
 }
 
 var _ starform.ScriptCache = &testScriptCache{}
 
-func (tsc *testScriptCache) Get(key interface{}) (interface{}, error) {
+func (tsc *testScriptCache) Get(key starform.CacheKey) (starform.CacheValue, error) {
+	tsc.mu.RLock()
+	defer tsc.mu.RUnlock()
+
 	if tsc.cache == nil {
-		tsc.cache = make(map[interface{}]interface{})
+		tsc.cache = make(map[starform.CacheKey]starform.CacheValue)
 	}
 	if program, ok := tsc.cache[key]; ok {
 		tsc.Hits++
@@ -49,9 +54,12 @@ func (tsc *testScriptCache) Get(key interface{}) (interface{}, error) {
 	return nil, starform.ErrNoCache
 }
 
-func (tsc *testScriptCache) Put(key, value interface{}, source starform.ScriptSource) error {
+func (tsc *testScriptCache) Put(key starform.CacheKey, value starform.CacheValue, source starform.ScriptSource) error {
+	tsc.mu.Lock()
+	defer tsc.mu.Unlock()
+
 	if tsc.cache == nil {
-		tsc.cache = make(map[interface{}]interface{})
+		tsc.cache = make(map[starform.CacheKey]starform.CacheValue)
 	}
 	if _, ok := tsc.cache[key]; !ok {
 		tsc.cache[key] = value
@@ -59,19 +67,32 @@ func (tsc *testScriptCache) Put(key, value interface{}, source starform.ScriptSo
 	return nil
 }
 
-func (tsc *testScriptCache) Drop(key interface{}) {
+func (tsc *testScriptCache) Drop(key starform.CacheKey) {
+	tsc.mu.Lock()
+	defer tsc.mu.Unlock()
+
 	if tsc.cache != nil {
 		delete(tsc.cache, key)
 	}
 }
 
 func (tsc *testScriptCache) Len() int {
+	tsc.mu.RLock()
+	defer tsc.mu.RUnlock()
+
 	return len(tsc.cache)
 }
 
-func (tsc *testScriptCache) Visit(f func(key interface{}, value interface{}) bool) {
+func (tsc *testScriptCache) Visit(f func(key starform.CacheKey, value starform.CacheValue) bool) {
+	tsc.mu.RLock()
+	defer tsc.mu.RUnlock()
+
 	for k, v := range tsc.cache {
-		if !f(k, v) {
+		tsc.mu.RUnlock()
+		keepGoing := f(k, v)
+		tsc.mu.RLock()
+
+		if !keepGoing {
 			break
 		}
 	}
