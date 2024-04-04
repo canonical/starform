@@ -269,8 +269,8 @@ func TestCheckLoadPath(t *testing.T) {
 		expect: miscError("/aaa.star"),
 	}, {
 		name:   "wrong-extension",
-		path:   "aaa.png",
-		expect: miscError("aaa.png"),
+		path:   "aaa.starlark",
+		expect: miscError("aaa.starlark"),
 	}, {
 		name:   "short-components",
 		path:   "aa/bb/ccc.star",
