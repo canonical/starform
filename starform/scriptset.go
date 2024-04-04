@@ -110,7 +110,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	return nil
 }
 
-var validCleanPath = regexp.MustCompile(`^(./|(\.\./)*)([a-z0-9][a-z0-9_]+[a-z0-9]/)*[a-z0-9][a-z0-9_]+[a-z0-9]\.star`)
+var validCleanPath = regexp.MustCompile(`^(\./|(\.\./)*)([a-z0-9][a-z0-9_]+[a-z0-9]/)*[a-z0-9][a-z0-9_]+[a-z0-9]\.star`)
 var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
 
 func checkLoadPath(loadPath string) (err error) {
