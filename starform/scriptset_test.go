@@ -104,14 +104,14 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 		name: "no-init (multiple)",
 		sources: []starform.ScriptSource{
 			&testScriptSource{
-				name: "2.star",
+				name: "222.star",
 				content: `
 					print("second")
 					def do_not_call():
 						fail('unexpectedly called')
 				`,
 			}, &testScriptSource{
-				name: "1.star",
+				name: "111.star",
 				content: `
 					print("first")
 					def do_not_call():
@@ -205,7 +205,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 
 func TestCheckLoadPath(t *testing.T) {
 	miscError := func(path string) string {
-		return fmt.Sprintf("cannot load %q: path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md", path)
+		return fmt.Sprintf("cannot load %s: path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md", path)
 	}
 
 	tests := []struct {
@@ -230,35 +230,35 @@ func TestCheckLoadPath(t *testing.T) {
 	}, {
 		name:   "invalid-rune-dash",
 		path:   "---.star",
-		expect: `cannot load "---.star": path contains "-", use "_" instead`,
+		expect: `cannot load ---.star: path contains "-", use "_" instead`,
 	}, {
 		name:   "backslashes",
 		path:   `.\\.\\aaa.star`,
-		expect: `cannot load ".\.\aaa.star": path contains "\", use "/" instead`,
+		expect: `cannot load .\\.\\aaa.star: path contains "\", use "/" instead`,
 	}, {
 		name:   "extra-starting-current-dir",
 		path:   "././aaa.star",
-		expect: `cannot load "././aaa.star": path contains redundant components`,
+		expect: `cannot load ././aaa.star: path contains redundant components`,
 	}, {
 		name:   "current-dir-in-parent-dir",
 		path:   ".././aaa.star",
-		expect: `cannot load ".././aaa.star": path contains redundant components`,
+		expect: `cannot load .././aaa.star: path contains redundant components`,
 	}, {
 		name:   "parent-op-in-current-dir",
 		path:   "./../aaa.star",
-		expect: `cannot load "./../aaa.star": path contains redundant components`,
+		expect: `cannot load ./../aaa.star: path contains redundant components`,
 	}, {
 		name:   "midway-current-dir",
 		path:   "aaa/./bbb.star",
-		expect: `cannot load "aaa/./bbb.star": path contains redundant components`,
+		expect: `cannot load aaa/./bbb.star: path contains redundant components`,
 	}, {
 		name:   "midway-parent-dir",
 		path:   "aaa/../bbb.star",
-		expect: `cannot load "aaa/../bbb.star": path contains redundant components`,
+		expect: `cannot load aaa/../bbb.star: path contains redundant components`,
 	}, {
 		name:   "successive-slashes",
 		path:   "aaa//bbb.star",
-		expect: `cannot load "aaa//bbb.star": path contains redundant components`,
+		expect: `cannot load aaa//bbb.star: path contains redundant components`,
 	}, {
 		name:   "empty",
 		path:   "",
@@ -404,7 +404,7 @@ func TestLoadStatement(t *testing.T) {
 	}{{
 		name: "sorted",
 		sources: []starform.ScriptSource{&testScriptSource{
-			name: "1.star",
+			name: "111.star",
 			content: `
 				print("first")
 				third_str = "third"
@@ -413,10 +413,10 @@ func TestLoadStatement(t *testing.T) {
 					print("fourth")
 			`,
 		}, &testScriptSource{
-			name: "2.star",
+			name: "222.star",
 			content: `
 				print("second")
-				load("1.star", "third_str")
+				load("111.star", "third_str")
 				print(third_str)
 
 				def init():
@@ -427,7 +427,7 @@ func TestLoadStatement(t *testing.T) {
 	}, {
 		name: "unsorted",
 		sources: []starform.ScriptSource{&testScriptSource{
-			name: "2.star",
+			name: "222.star",
 			content: `
 				print("second")
 				third_str = "third"
@@ -436,17 +436,17 @@ func TestLoadStatement(t *testing.T) {
 					print("sixth")
 			`,
 		}, &testScriptSource{
-			name: "1.star",
+			name: "111.star",
 			content: `
 				print("first")
-				load("2.star", "third_str")
+				load("222.star", "third_str")
 				print(third_str)
 
 				def init():
 					print("fifth")
 			`,
 		}, &testScriptSource{
-			name: "3.star",
+			name: "333.star",
 			content: `
 				print("fourth")
 
@@ -458,17 +458,17 @@ func TestLoadStatement(t *testing.T) {
 	}, {
 		name: "multiple loads",
 		sources: []starform.ScriptSource{&testScriptSource{
-			name: "1.star",
+			name: "111.star",
 			content: `
 				print("first")
-				load("2.star", "third_str")
+				load("222.star", "third_str")
 				print(third_str)
 
 				def init():
 					print("sixth")
 			`,
 		}, &testScriptSource{
-			name: "2.star",
+			name: "222.star",
 			content: `
 				print("second")
 				third_str = "third"
@@ -478,10 +478,10 @@ func TestLoadStatement(t *testing.T) {
 					print("seventh")
 			`,
 		}, &testScriptSource{
-			name: "3.star",
+			name: "333.star",
 			content: `
 				print("fourth")
-				load("2.star", "fifth_str")
+				load("222.star", "fifth_str")
 				print(fifth_str)
 
 				def init():

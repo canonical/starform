@@ -135,15 +135,15 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			continue
 		}
 		if err := checkLoadPath(path); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
 		content, err := source.Content(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
 		_, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
 		if err != nil {
-			return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
 		scriptStateStorage = append(scriptStateStorage, scriptState{
 			path:    path,
@@ -183,12 +183,6 @@ func init() {
 var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
 
 func checkLoadPath(loadPath string) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf(`cannot load "%s": %v`, loadPath, err)
-		}
-	}()
-
 	if len(loadPath) == 0 {
 		return miscInvalidPathError // Special case to simplify valid path regex.
 	}
