@@ -2,7 +2,10 @@ package starform
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"path"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -77,6 +80,10 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 	thread := ss.options.makeThread()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
+		if err := checkLoadPath(path); err != nil {
+			return nil, err
+		}
+
 		script, ok := scriptByPath[path]
 		if !ok {
 			return nil, fmt.Errorf("%s not found", path)
@@ -127,8 +134,8 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
-		if strings.Contains(path, "..") {
-			return nil, fmt.Errorf("cannot load path with reletive operators")
+		if err := checkLoadPath(path); err != nil {
+			return nil, err
 		}
 		content, err := source.Content(ctx)
 		if err != nil {
@@ -164,6 +171,53 @@ func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
 		return nil
 	}
 	return fmt.Errorf("internal error: invalid script state")
+}
+
+var validCleanPath *regexp.Regexp
+
+func init() {
+	validComponent := "[a-z0-9][a-z0-9_]+[a-z0-9]"
+	validCleanPath = regexp.MustCompile(fmt.Sprintf(`^(\./|(\.\./)+)?(%s/)*%s\.star$`, validComponent, validComponent))
+}
+
+var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
+
+func checkLoadPath(loadPath string) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf(`cannot load "%s": %v`, loadPath, err)
+		}
+	}()
+
+	if len(loadPath) == 0 {
+		return miscInvalidPathError // Special case to simplify valid path regex.
+	}
+	if strings.ContainsRune(loadPath, '-') {
+		return errors.New(`path contains "-", use "_" instead`)
+	}
+	if strings.ContainsRune(loadPath, '\\') {
+		return errors.New(`path contains "\", use "/" instead`)
+	}
+	if strings.Contains(loadPath, "__") {
+		return miscInvalidPathError // Special case to simplify valid path regex.
+	}
+	if strings.HasPrefix(loadPath, "./../") {
+		return errors.New("path contains redundant components")
+	}
+
+	toCheck := loadPath
+	if strings.HasPrefix(loadPath, "./") {
+		toCheck = loadPath[2:] // Ignore leading, non-redundant "./".
+	}
+	if cleaned := path.Clean(loadPath); toCheck != cleaned {
+		return errors.New("path contains redundant components")
+	}
+
+	if !validCleanPath.MatchString(loadPath) {
+		return miscInvalidPathError
+	}
+
+	return nil
 }
 
 func (options *ScriptSetOptions) makeThread() *starlark.Thread {
