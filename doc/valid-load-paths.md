@@ -20,7 +20,7 @@ NB: ‘path operator’ refers to either `./` or `../`.
 | must have the `.star` file extension                                                                   | `i_am_banned.png`          |
 | must contain only components with at least three characters                                            | `i/am/banned.star`         |
 | must have a file stem with at least three characters                                                   | `banned/aa.star`           |
-| must comprise only: unaccented latin lowercase letters, numbers, underscores, forward slashes and dots | `AAAA/-/🗑️/🔥.star`        |
+| must comprise only: unaccented latin lowercase letters, numbers, underscores, forward slashes and dots | `AAAA/-/🗑️/🔥.star`         |
 | must only use dots in path operators and file extension delimiters                                     | `.i/a.m/.../banned.star.`  |
 | must use zero or more path operators only at the start                                                 | `i/am/ok/.././banned.star` |
 | must only use `./` at the very start                                                                   | `././banned.star`          |
