@@ -14,7 +14,6 @@ Following the UNIX style, the `/` symbol is always taken to be a path operator, 
 
 NB: ‘path operator’ refers to either `./` or `../`.
 
-|--------------------------------------------------------------------------------------------------------|----------------------------|
 | Valid `load` files...                                                                                  | This avoids loading...     |
 |--------------------------------------------------------------------------------------------------------|----------------------------|
 | must have the `.star` file extension                                                                   | `i_am_banned.png`          |
