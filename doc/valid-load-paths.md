@@ -8,11 +8,11 @@ The intention here is to enforce uniform, reasonable-looking, human-intelligible
 Paths which start with `./` or `../` are interpreted relative to the current file.
 Paths which do _not_ start with `./` or `../` are interpreted relative to the base of the extension directory.
 
-Following the UNIX style, the `/` symbol is always taken to be a path operator, regardless of host OS.
+Following the UNIX style, the `/` symbol is always taken to be a path separator, regardless of host OS.
 
 ## Constraints
 
-NB: ‘path operator’ refers to either `./` or `../`.
+NB: Below, ‘path operator’ refers to either `./` or `../`.
 
 | Valid `load` files...                                                                                  | This avoids loading...     |
 | :------------------------------------------------------------------------------------------------------| :------------------------- |
