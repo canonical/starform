@@ -47,8 +47,8 @@ const (
 
 type scriptState struct {
 	path        string
-	program     *starlark.Program
 	status      scriptStatus
+	program     *starlark.Program
 	toplevelEnv starlark.StringDict
 }
 
@@ -70,9 +70,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	if err != nil {
 		return err
 	}
-	scriptByPath := make(map[string]*scriptState, len(scripts))
+	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
-		scriptByPath[script.path] = script
+		scriptsByPath[script.path] = script
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
@@ -84,7 +84,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			return nil, err
 		}
 
-		script, ok := scriptByPath[path]
+		script, ok := scriptsByPath[path]
 		if !ok {
 			return nil, fmt.Errorf("%s not found", path)
 		}
@@ -114,7 +114,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			continue
 		}
 		if _, ok := init.(*starlark.Function); !ok {
-			return fmt.Errorf("init must be a Starlark function, got %s", init.Type())
+			return fmt.Errorf("init must be a function")
 		}
 
 		if _, err := starlark.Call(thread, init, nil, nil); err != nil {
@@ -137,6 +137,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if err := checkLoadPath(path); err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
+
 		content, err := source.Content(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
@@ -165,6 +166,7 @@ func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
 			return err
 		}
 		script.toplevelEnv = toplevelEnv
+
 		script.status = scriptInitialised
 		return nil
 	case scriptInitialised:
