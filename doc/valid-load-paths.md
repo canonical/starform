@@ -8,7 +8,7 @@ The intention here is to enforce uniform, reasonable-looking, human-intelligible
 Paths which start with `./` or `../` are interpreted relative to the current file.
 Paths which do _not_ start with `./` or `../` are interpreted relative to the base of the extension directory.
 
-Following the UNIX style, the `/` symbol is always taken to be a path separator, regardless of host OS.
+Regardless of host OS, the `/` symbol is always interpreted as a path separator.
 
 ## Constraints
 
