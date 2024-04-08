@@ -14,6 +14,10 @@ jobs:
           go-version: ${{ matrix.go-version }}
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Run Tests
+      - name: Configure git ssh token
+        run: git config --global url."ssh://$GH_ACCESS_TOKEN@github.com/".insteadOf https://github.com/
+        env:
+          GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+      - name: Run tests
         shell: bash
         run: 'internal/test.sh'
