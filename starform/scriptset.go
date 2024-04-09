@@ -37,6 +37,21 @@ var starlarkDialect = syntax.FileOptions{
 	Recursion:       false,
 }
 
+type scriptStatus int
+
+const (
+	scriptUninitialised scriptStatus = iota
+	scriptInitialising
+	scriptInitialised
+)
+
+type scriptState struct {
+	path        string
+	status      scriptStatus
+	program     *starlark.Program
+	toplevelEnv starlark.StringDict
+}
+
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
@@ -51,63 +66,115 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 }
 
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
-	sort.Slice(sources, func(i, j int) bool {
-		return sources[i].Path() < sources[j].Path()
+	scriptStates, err := ss.compilePrograms(ctx, sources)
+	if err != nil {
+		return err
+	}
+	scripts := make([]*scriptState, len(scriptStates))
+	for i := range scriptStates {
+		scripts[i] = &scriptStates[i]
+	}
+	scriptsByPath := make(map[string]*scriptState, len(scripts))
+	for _, script := range scripts {
+		scriptsByPath[script.path] = script
+	}
+	sort.Slice(scripts, func(i, j int) bool {
+		return scripts[i].path < scripts[j].path
 	})
 
-	isPredeclared := func(string) bool { return false }
-	modules := make([]starlark.StringDict, 0, len(sources))
-	for _, source := range sources {
-		path := source.Path()
-		if !strings.HasSuffix(path, ".star") {
-			continue
-		}
-		content, err := source.Content(ctx)
-		if err != nil {
-			return fmt.Errorf("cannot read script: %s: %w", path, err)
-		}
-		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
-		if err != nil {
-			return fmt.Errorf("cannot load script: %s: %w", path, err)
-		}
-		for i := 0; i < prog.NumLoads(); i++ {
-			loadPath, _ := prog.Load(i)
-			if err := checkLoadPath(loadPath); err != nil {
-				return err
-			}
+	thread := makeThread(ss.options)
+	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
+		if err := checkLoadPath(path); err != nil {
+			return nil, err
 		}
 
-		initThread := makeThread(ctx, ss.options)
-		initThread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
-			// Dumb hack to appease tests.
-			// TODO(marco6): remove me!
-			return starlark.StringDict{
-				"unused": starlark.None,
-			}, nil
+		script, ok := scriptsByPath[path]
+		if !ok {
+			return nil, fmt.Errorf("%s not found", path)
 		}
-		module, err := prog.Init(initThread, nil)
-		if err != nil {
-			return fmt.Errorf("cannot load script: %s: %w", path, err)
+		if err := script.runTopLevel(thread); err != nil {
+			return nil, err
 		}
-		modules = append(modules, module)
+		return script.toplevelEnv, nil
+	}
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			thread.Cancel("operation canceled")
+		case <-done:
+		}
+	}()
+	for _, script := range scripts {
+		if err := script.runTopLevel(thread); err != nil {
+			return err
+		}
 	}
 
-	for _, module := range modules {
-		init, ok := module["init"]
+	for _, script := range scripts {
+		init, ok := script.toplevelEnv["init"]
 		if !ok {
 			continue
 		}
 		if _, ok := init.(*starlark.Function); !ok {
-			return fmt.Errorf("cannot call non-function init")
+			return fmt.Errorf("init must be a function")
 		}
 
-		_, err := starlark.Call(makeThread(ctx, ss.options), init, nil, nil)
-		if err != nil {
+		if _, err := starlark.Call(thread, init, nil, nil); err != nil {
 			return fmt.Errorf("cannot load script: %w", err)
 		}
 	}
 
 	return nil
+}
+
+func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]scriptState, error) {
+	scriptStates := make([]scriptState, 0, len(sources))
+	isPredeclared := func(string) bool { return false }
+	for _, source := range sources {
+		path := source.Path()
+		if !strings.HasSuffix(path, ".star") {
+			continue
+		}
+		if err := checkLoadPath(path); err != nil {
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
+		}
+
+		content, err := source.Content(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
+		}
+		_, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+		if err != nil {
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
+		}
+		scriptStates = append(scriptStates, scriptState{
+			path:    path,
+			program: program,
+		})
+	}
+	return scriptStates, nil
+}
+
+func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
+	switch script.status {
+	case scriptInitialising:
+		return fmt.Errorf("load cycle detected")
+	case scriptUninitialised:
+		script.status = scriptInitialising
+		toplevelEnv, err := script.program.Init(thread, nil)
+		if err != nil {
+			return err
+		}
+		script.toplevelEnv = toplevelEnv
+
+		script.status = scriptInitialised
+		return nil
+	case scriptInitialised:
+		return nil
+	}
+	return fmt.Errorf("internal error: invalid script state")
 }
 
 var validCleanPath *regexp.Regexp
@@ -120,12 +187,6 @@ func init() {
 var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
 
 func checkLoadPath(loadPath string) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf(`cannot load "%s": %v`, loadPath, err)
-		}
-	}()
-
 	if len(loadPath) == 0 {
 		return miscInvalidPathError // Special case to simplify valid path regex.
 	}
@@ -157,9 +218,8 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
+func makeThread(options *ScriptSetOptions) *starlark.Thread {
 	thread := &starlark.Thread{}
-	thread.SetContext(ctx)
 	thread.Print = options.PrintHandler
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
