@@ -3,7 +3,10 @@ package starform
 import (
 	"context"
 	"crypto/sha512"
+	"errors"
 	"fmt"
+	"path"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -65,23 +68,31 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 }
 
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
-	scripts, err := ss.compilePrograms(ctx, sources)
+	scriptStates, err := ss.compilePrograms(ctx, sources)
 	if err != nil {
 		return err
 	}
-	scriptByPath := make(map[string]*scriptState, len(scripts))
-	for _, m := range scripts {
-		scriptByPath[m.path] = m
+	scripts := make([]*scriptState, len(scriptStates))
+	for i := range scriptStates {
+		scripts[i] = &scriptStates[i]
+	}
+	scriptsByPath := make(map[string]*scriptState, len(scripts))
+	for _, script := range scripts {
+		scriptsByPath[script.path] = script
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
 	})
 
-	thread := ss.options.makeThread()
-	thread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
-		script, ok := scriptByPath[module]
+	thread := makeThread(ss.options)
+	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
+		if err := checkLoadPath(path); err != nil {
+			return nil, err
+		}
+
+		script, ok := scriptsByPath[path]
 		if !ok {
-			return nil, fmt.Errorf("%s not found", module)
+			return nil, fmt.Errorf("%s not found", path)
 		}
 		if err := script.runTopLevel(thread); err != nil {
 			return nil, err
@@ -109,7 +120,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			continue
 		}
 		if _, ok := init.(*starlark.Function); !ok {
-			return fmt.Errorf("init must be a Starlark function, got %s", init.Type())
+			return fmt.Errorf("init must be a function")
 		}
 
 		if _, err := starlark.Call(thread, init, nil, nil); err != nil {
@@ -120,9 +131,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	return nil
 }
 
-func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]*scriptState, error) {
-	scriptStateStorage := make([]scriptState, 0, len(sources))
-	striptStates := make([]*scriptState, 0, len(sources))
+func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]scriptState, error) {
+	scriptStates := make([]scriptState, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
 	cache := ss.options.Cache
 	if cache == nil {
@@ -133,12 +143,13 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
-		if strings.Contains(path, "..") {
-			return nil, fmt.Errorf("can't load path with navigation operators")
+		if err := checkLoadPath(path); err != nil {
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
+
 		content, err := source.Content(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read script: %s: %w", path, err)
+			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
 		programKey := sha512.Sum384(content)
 		var program *starlark.Program
@@ -155,14 +166,12 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		} else {
 			return nil, fmt.Errorf("unknown cache value: %v", entry)
 		}
-		scriptStateStorage = append(scriptStateStorage, scriptState{
-			path:       path,
-			programKey: programKey,
-			program:    program,
+		scriptStates = append(scriptStates, scriptState{
+			path:    path,
+			program: program,
 		})
-		striptStates = append(striptStates, &scriptStateStorage[len(scriptStateStorage)-1])
 	}
-	return striptStates, nil
+	return scriptStates, nil
 }
 
 func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
@@ -176,12 +185,57 @@ func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
 			return err
 		}
 		script.toplevelEnv = toplevelEnv
+
 		script.status = scriptInitialised
+		return nil
+	case scriptInitialised:
+		return nil
 	}
+	return fmt.Errorf("internal error: invalid script state")
+}
+
+var validCleanPath *regexp.Regexp
+
+func init() {
+	validComponent := "[a-z0-9][a-z0-9_]+[a-z0-9]"
+	validCleanPath = regexp.MustCompile(fmt.Sprintf(`^(\./|(\.\./)+)?(%s/)*%s\.star$`, validComponent, validComponent))
+}
+
+var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
+
+func checkLoadPath(loadPath string) (err error) {
+	if len(loadPath) == 0 {
+		return miscInvalidPathError // Special case to simplify valid path regex.
+	}
+	if strings.ContainsRune(loadPath, '-') {
+		return errors.New(`path contains "-", use "_" instead`)
+	}
+	if strings.ContainsRune(loadPath, '\\') {
+		return errors.New(`path contains "\", use "/" instead`)
+	}
+	if strings.Contains(loadPath, "__") {
+		return miscInvalidPathError // Special case to simplify valid path regex.
+	}
+	if strings.HasPrefix(loadPath, "./../") {
+		return errors.New("path contains redundant components")
+	}
+
+	toCheck := loadPath
+	if strings.HasPrefix(loadPath, "./") {
+		toCheck = loadPath[2:] // Ignore leading, non-redundant "./".
+	}
+	if cleaned := path.Clean(loadPath); toCheck != cleaned {
+		return errors.New("path contains redundant components")
+	}
+
+	if !validCleanPath.MatchString(loadPath) {
+		return miscInvalidPathError
+	}
+
 	return nil
 }
 
-func (options *ScriptSetOptions) makeThread() *starlark.Thread {
+func makeThread(options *ScriptSetOptions) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = options.PrintHandler
 	thread.RequireSafety(options.RequiredSafety)
