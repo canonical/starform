@@ -66,9 +66,13 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 }
 
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
-	scripts, err := ss.compilePrograms(ctx, sources)
+	scriptStates, err := ss.compilePrograms(ctx, sources)
 	if err != nil {
 		return err
+	}
+	scripts := make([]*scriptState, len(scriptStates))
+	for i := range scriptStates {
+		scripts[i] = &scriptStates[i]
 	}
 	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
@@ -125,9 +129,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	return nil
 }
 
-func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]*scriptState, error) {
-	scriptStateStorage := make([]scriptState, 0, len(sources))
-	scriptStates := make([]*scriptState, 0, len(sources))
+func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]scriptState, error) {
+	scriptStates := make([]scriptState, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
 	for _, source := range sources {
 		path := source.Path()
@@ -146,11 +149,10 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
-		scriptStateStorage = append(scriptStateStorage, scriptState{
+		scriptStates = append(scriptStates, scriptState{
 			path:    path,
 			program: program,
 		})
-		scriptStates = append(scriptStates, &scriptStateStorage[len(scriptStateStorage)-1])
 	}
 	return scriptStates, nil
 }
