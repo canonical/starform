@@ -48,7 +48,6 @@ const (
 
 type scriptState struct {
 	path        string
-	programKey  [sha512.Size384]byte
 	program     *starlark.Program
 	status      scriptStatus
 	toplevelEnv starlark.StringDict
