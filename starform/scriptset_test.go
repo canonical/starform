@@ -14,6 +14,24 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+type testLogger struct {
+	builder strings.Builder
+	format  func(starform.LogEntry) string
+}
+
+var _ starform.Logger = &testLogger{}
+
+func (tl *testLogger) Log(ctx context.Context, entry starform.LogEntry) {
+	message := entry.Message
+	if tl.format != nil {
+		message = tl.format(entry)
+	}
+	tl.builder.WriteString(message)
+	tl.builder.WriteByte('\n')
+}
+
+func (tl *testLogger) String() string { return tl.builder.String() }
+
 type testScriptSource struct {
 	name, content string
 }
@@ -242,13 +260,9 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := &strings.Builder{}
-			printHandler := func(thread *starlark.Thread, msg string) {
-				log.WriteString(msg)
-				log.WriteByte('\n')
-			}
+			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				PrintHandler: printHandler,
+				Logger: logger,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -261,7 +275,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			if err := scripts.LoadSources(context.Background(), test.sources); err != nil {
 				t.Error(err)
 			}
-			if actualLog := log.String(); actualLog != test.expectedLog {
+			if actualLog := logger.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
 			}
 		})
@@ -557,13 +571,9 @@ func TestLoadStatement(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := &strings.Builder{}
-			printHandler := func(thread *starlark.Thread, msg string) {
-				log.WriteString(msg)
-				log.WriteByte('\n')
-			}
+			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				PrintHandler: printHandler,
+				Logger: logger,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -573,17 +583,16 @@ func TestLoadStatement(t *testing.T) {
 				t.Error(err)
 			}
 
-			if actualLog := log.String(); actualLog != test.expectedLog {
+			if actualLog := logger.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
 			}
 		})
 	}
 
 	t.Run("nonexistent loads", func(t *testing.T) {
+		logger := &testLogger{}
 		opts := &starform.ScriptSetOptions{
-			PrintHandler: func(thread *starlark.Thread, msg string) {
-				t.Errorf("unexpected print call: %s", msg)
-			},
+			Logger: logger,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
@@ -599,13 +608,15 @@ func TestLoadStatement(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatal("expected error, got success")
 		}
+		if log := logger.String(); log != "" {
+			t.Errorf("unexpected log output: %s", log)
+		}
 	})
 
 	t.Run("load-cycle", func(t *testing.T) {
+		logger := &testLogger{}
 		opts := &starform.ScriptSetOptions{
-			PrintHandler: func(thread *starlark.Thread, msg string) {
-				t.Errorf("unexpected print call: %s", msg)
-			},
+			Logger: logger,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "chicken.star",
@@ -627,6 +638,9 @@ func TestLoadStatement(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatalf("expected error, got success")
 		}
+		if log := logger.String(); log != "" {
+			t.Errorf("unexpected log output: %s", log)
+		}
 	})
 }
 
@@ -634,8 +648,7 @@ func TestProgramCache(t *testing.T) {
 	t.Run("total-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			PrintHandler: func(thread *starlark.Thread, msg string) {},
-			Cache:        cache,
+			Cache: cache,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
@@ -662,8 +675,7 @@ func TestProgramCache(t *testing.T) {
 	t.Run("partial-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			PrintHandler: func(thread *starlark.Thread, msg string) {},
-			Cache:        cache,
+			Cache: cache,
 		}
 		sets := [][]starform.ScriptSource{{
 			&testScriptSource{

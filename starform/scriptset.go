@@ -25,7 +25,7 @@ type ScriptSource interface {
 
 type ScriptSetOptions struct {
 	Cache               ScriptCache
-	PrintHandler        func(thread *starlark.Thread, msg string)
+	Logger              Logger
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
 }
@@ -240,7 +240,20 @@ func checkLoadPath(loadPath string) (err error) {
 
 func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 	thread := &starlark.Thread{}
-	thread.Print = options.PrintHandler
+	if options.Logger != nil {
+		thread.Print = func(thread *starlark.Thread, msg string) {
+			frame := thread.CallFrame(0)
+			path := frame.Pos.Filename()
+			line := frame.Pos.Line
+			options.Logger.Log(thread.Context(), LogEntry{
+				Message:   msg,
+				Level:     PrintLevel,
+				EventName: LoadEventName,
+				Path:      path,
+				Line:      line,
+			})
+		}
+	}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
