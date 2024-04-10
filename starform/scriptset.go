@@ -83,6 +83,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	})
 
 	thread := makeThread(ss.options)
+	putRunData(thread, &runData{eventName: LoadEventName})
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
@@ -112,6 +113,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
+	putRunData(thread, &runData{eventName: InitEventName})
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
