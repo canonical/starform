@@ -243,16 +243,22 @@ func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 	if options.Logger != nil {
 		thread.Print = func(thread *starlark.Thread, msg string) {
 			frame := thread.CallFrame(0)
-			path := frame.Pos.Filename()
-			line := frame.Pos.Line
+			level := PrintLevel
+			if frame.Name == "debug" {
+				level = DebugLevel
+			}
 			options.Logger.Log(thread.Context(), LogEntry{
 				Message:   msg,
-				Level:     PrintLevel,
+				Level:     level,
 				EventName: LoadEventName,
-				Path:      path,
-				Line:      line,
+				Path:      frame.Pos.Filename(),
+				Line:      frame.Pos.Line,
 			})
 		}
+	} else {
+		// This is necessary, otherwise the `print` builtin directly writes
+		// to os.Stderr, which is clearly not what we want.
+		thread.Print = func(thread *starlark.Thread, msg string) {}
 	}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)

@@ -725,3 +725,7 @@ func TestProgramCache(t *testing.T) {
 		}
 	})
 }
+
+func TestDebugBuiltin(t *testing.T) {
+
+}

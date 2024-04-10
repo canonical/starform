@@ -3,6 +3,8 @@ package starform
 import (
 	"context"
 	"fmt"
+
+	"github.com/canonical/starlark/starlark"
 )
 
 type LogLevel int
@@ -12,8 +14,6 @@ const (
 	DebugLevel
 	PrintLevel
 )
-
-const LoadEventName = "<load>"
 
 type LogEntry struct {
 	Message   string
@@ -34,3 +34,47 @@ func (le *LogEntry) String() string {
 
 	return fmt.Sprintf("%s:%d: %s", le.Path, le.Line, le.Message)
 }
+
+var debugBuiltin = starlark.NewBuiltinWithSafety(
+	"debug",
+	starlark.MemSafe|starlark.CPUSafe|starlark.TimeSafe|starlark.IOSafe,
+	func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		if thread.Print == nil {
+			return starlark.None, nil
+		}
+
+		sep := " "
+		if err := starlark.UnpackArgs("debug", nil, kwargs, "sep?", &sep); err != nil {
+			return nil, err
+		}
+
+		buf := starlark.NewSafeStringBuilder(thread)
+		for i, v := range args {
+			if i > 0 {
+				if _, err := buf.WriteString(sep); err != nil {
+					return nil, err
+				}
+			}
+			if s, ok := starlark.AsString(v); ok {
+				if _, err := buf.WriteString(s); err != nil {
+					return nil, err
+				}
+			} else if b, ok := v.(starlark.Bytes); ok {
+				if _, err := buf.WriteString(string(b)); err != nil {
+					return nil, err
+				}
+			} else if stringer, ok := v.(starlark.SafeStringer); ok {
+				if err := stringer.SafeString(thread, buf); err != nil {
+					return nil, err
+				}
+			} else {
+				if err := starlark.CheckSafety(thread, starlark.NotSafe); err != nil {
+					return nil, err
+				}
+				buf.WriteString(v.String())
+			}
+		}
+
+		thread.Print(thread, buf.String())
+		return starlark.None, nil
+	})
