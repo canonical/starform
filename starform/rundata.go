@@ -13,18 +13,18 @@ type runData struct {
 	eventName string
 }
 
-const runDataKey = "starform.RunData"
+const runDataLocalKey = "starform.runData"
 
 func getRunData(thread *starlark.Thread) (*runData, error) {
-	ret, ok := thread.Local(runDataKey).(*runData)
+	ret, ok := thread.Local(runDataLocalKey).(*runData)
 	if !ok {
-		return nil, fmt.Errorf("local key %q has been overwritten", runDataKey)
+		return nil, fmt.Errorf("local key %q has been overwritten", runDataLocalKey)
 	}
 	return ret, nil
 }
 
 func putRunData(thread *starlark.Thread, data *runData) {
-	thread.SetLocal(runDataKey, data)
+	thread.SetLocal(runDataLocalKey, data)
 }
 
 func CheckAvailable(thread *starlark.Thread, availableDuring []string) error {
