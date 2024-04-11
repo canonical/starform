@@ -57,9 +57,6 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.AppObject == nil {
 		return nil, fmt.Errorf("cannot create script set without app object")
 	}
-	if err := options.AppObject.validate(); err != nil {
-		return nil, err
-	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
 	}

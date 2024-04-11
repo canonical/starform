@@ -14,13 +14,6 @@ func NewAppObject(name string) *AppObject {
 	return &AppObject{name: name}
 }
 
-func (ao *AppObject) validate() error {
-	if ao.name == "" {
-		return fmt.Errorf("app object name empty")
-	}
-	return nil
-}
-
 var _ starlark.Value = &AppObject{}
 
 func (ao *AppObject) String() string       { return ao.name }
