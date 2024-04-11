@@ -14,12 +14,12 @@ type runData struct {
 
 const runDataLocalKey = "starform.runData"
 
-var errMissingRunData = fmt.Errorf("%s missing", runDataLocalKey)
+var errRunDataMissing = fmt.Errorf("%s missing", runDataLocalKey)
 
 func getRunData(thread *starlark.Thread) (*runData, error) {
 	ret, ok := thread.Local(runDataLocalKey).(*runData)
 	if !ok {
-		return nil, errMissingRunData
+		return nil, errRunDataMissing
 	}
 	return ret, nil
 }
