@@ -12,6 +12,12 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+var testAppObject = starform.NewAppObject("test")
+
+func init() {
+	testAppObject.Freeze()
+}
+
 type testScriptSource struct {
 	name, content string
 }
@@ -38,28 +44,34 @@ func TestOptionsValidation(t *testing.T) {
 		expected string
 	}{{
 		name: "NotSafe",
-		opts: &starform.ScriptSetOptions{},
+		opts: &starform.ScriptSetOptions{
+			AppObject: testAppObject,
+		},
 	}, {
 		name: "MemSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      testAppObject,
 			RequiredSafety: starlark.MemSafe,
 		},
 		expected: "cannot run MemSafe Starlark with unbounded MaxAllocs",
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      testAppObject,
 			RequiredSafety: starlark.MemSafe,
 			MaxAllocs:      100,
 		},
 	}, {
 		name: "CPUSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      testAppObject,
 			RequiredSafety: starlark.CPUSafe,
 		},
 		expected: "cannot run CPUSafe Starlark with unbounded MaxSteps",
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      testAppObject,
 			RequiredSafety: starlark.CPUSafe,
 			MaxSteps:       100,
 		},
@@ -183,6 +195,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 				log.WriteByte('\n')
 			}
 			opts := &starform.ScriptSetOptions{
+				AppObject:    testAppObject,
 				PrintHandler: printHandler,
 			}
 			scripts, err := starform.NewScriptSet(opts)
@@ -346,7 +359,9 @@ func TestCheckLoadPath(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &starform.ScriptSetOptions{}
+			opts := &starform.ScriptSetOptions{
+				AppObject: testAppObject,
+			}
 			set, err := starform.NewScriptSet(opts)
 			if err != nil {
 				t.Fatal(err)
@@ -376,7 +391,9 @@ func TestCheckLoadPath(t *testing.T) {
 }
 
 func TestCancelLoad(t *testing.T) {
-	opts := &starform.ScriptSetOptions{}
+	opts := &starform.ScriptSetOptions{
+		AppObject: testAppObject,
+	}
 	scripts, err := starform.NewScriptSet(opts)
 	if err != nil {
 		t.Fatal(err)
@@ -498,6 +515,7 @@ func TestLoadStatement(t *testing.T) {
 				log.WriteByte('\n')
 			}
 			opts := &starform.ScriptSetOptions{
+				AppObject:    testAppObject,
 				PrintHandler: printHandler,
 			}
 			scripts, err := starform.NewScriptSet(opts)
@@ -516,6 +534,7 @@ func TestLoadStatement(t *testing.T) {
 
 	t.Run("nonexistent loads", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
+			AppObject: testAppObject,
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
 			},
@@ -538,6 +557,7 @@ func TestLoadStatement(t *testing.T) {
 
 	t.Run("load-cycle", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
+			AppObject: testAppObject,
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
 			},
