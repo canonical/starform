@@ -1,7 +1,6 @@
 package starform
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/canonical/starlark/starlark"
@@ -15,7 +14,7 @@ type runData struct {
 
 const runDataLocalKey = "starform.runData"
 
-var errMissingRunData = errors.New("runData missing")
+var errMissingRunData = fmt.Errorf("%s missing", runDataLocalKey)
 
 func getRunData(thread *starlark.Thread) (*runData, error) {
 	ret, ok := thread.Local(runDataLocalKey).(*runData)
