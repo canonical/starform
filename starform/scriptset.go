@@ -82,7 +82,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return scripts[i].path < scripts[j].path
 	})
 
-	thread := makeThread(ss.options)
+	data := &runData{eventName: LoadEventName}
+	thread := makeThread(ss.options, data)
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
@@ -218,11 +219,12 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions) *starlark.Thread {
+func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = options.PrintHandler
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
+	thread.SetLocal(runDataLocalKey, data)
 	return thread
 }
