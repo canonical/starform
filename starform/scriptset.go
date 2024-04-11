@@ -159,7 +159,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			}
 			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
 			if err != nil {
-				return nil, fmt.Errorf("cannot load script: %s: %w", path, err)
+				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
 			}
 			cache.Put(programKey, program, source)
 		} else if p, ok := entry.(*starlark.Program); ok {
