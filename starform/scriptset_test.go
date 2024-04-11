@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/canonical/starform/starform"
@@ -36,7 +37,7 @@ type testScriptCache struct {
 	starform.TestCacheBase
 	mu     sync.RWMutex
 	cache  map[interface{}]interface{}
-	Misses int
+	Misses int32
 }
 
 var _ starform.ScriptCache = &testScriptCache{}
@@ -45,13 +46,10 @@ func (tsc *testScriptCache) Get(key interface{}) (interface{}, error) {
 	tsc.mu.RLock()
 	defer tsc.mu.RUnlock()
 
-	if tsc.cache == nil {
-		tsc.cache = make(map[interface{}]interface{})
-	}
 	if program, ok := tsc.cache[key]; ok {
 		return program, nil
 	}
-	tsc.Misses++
+	atomic.AddInt32(&tsc.Misses, 1)
 	return nil, starform.ErrNotCached
 }
 
@@ -72,9 +70,7 @@ func (tsc *testScriptCache) Drop(key interface{}) {
 	tsc.mu.Lock()
 	defer tsc.mu.Unlock()
 
-	if tsc.cache != nil {
-		delete(tsc.cache, key)
-	}
+	delete(tsc.cache, key)
 }
 
 func (tsc *testScriptCache) Len() int {
