@@ -52,7 +52,7 @@ func (tsc *testScriptCache) Get(key interface{}) (interface{}, error) {
 		return program, nil
 	}
 	tsc.Misses++
-	return nil, starform.ErrNoCache
+	return nil, starform.ErrNotCached
 }
 
 func (tsc *testScriptCache) Put(key, value interface{}, source starform.ScriptSource) error {

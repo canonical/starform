@@ -4,7 +4,7 @@ import (
 	"errors"
 )
 
-var ErrNoCache error = errors.New("not cached")
+var ErrNotCached error = errors.New("not cached")
 
 // ScriptCache is a cache for use with ScriptSet values. All methods are
 // required to be thread-safe.
@@ -33,7 +33,7 @@ type noopScriptCache struct{}
 var _ ScriptCache = &noopScriptCache{}
 
 func (n *noopScriptCache) private()                                              {}
-func (n *noopScriptCache) Get(key interface{}) (interface{}, error)              { return nil, ErrNoCache }
+func (n *noopScriptCache) Get(key interface{}) (interface{}, error)              { return nil, ErrNotCached }
 func (n *noopScriptCache) Put(key, value interface{}, source ScriptSource) error { return nil }
 func (n *noopScriptCache) Drop(key interface{})                                  {}
 func (n *noopScriptCache) Len() int                                              { return 0 }

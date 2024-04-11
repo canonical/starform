@@ -154,7 +154,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		var program *starlark.Program
 		programKey := sha512.Sum384(content)
 		if entry, err := cache.Get(programKey); err != nil {
-			if err != ErrNoCache {
+			if err != ErrNotCached {
 				return nil, err
 			}
 			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
