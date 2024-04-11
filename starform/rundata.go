@@ -26,16 +26,3 @@ func getRunData(thread *starlark.Thread) (*runData, error) {
 func putRunData(thread *starlark.Thread, data *runData) {
 	thread.SetLocal(runDataLocalKey, data)
 }
-
-func CheckAvailable(thread *starlark.Thread, availableDuring []string) error {
-	rd, err := getRunData(thread)
-	if err != nil {
-		return err
-	}
-	for _, event := range availableDuring {
-		if event == rd.eventName {
-			return nil
-		}
-	}
-	return fmt.Errorf("feature unavailable during %s", rd.eventName)
-}
