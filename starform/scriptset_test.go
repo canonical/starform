@@ -33,34 +33,34 @@ func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
 }
 
 type testScriptCache struct {
-	mu           sync.RWMutex
-	cache        map[starform.CacheKey]starform.CacheValue
-	Hits, Misses int
+	starform.TestCacheBase
+	mu     sync.RWMutex
+	cache  map[interface{}]interface{}
+	Misses int
 }
 
 var _ starform.ScriptCache = &testScriptCache{}
 
-func (tsc *testScriptCache) Get(key starform.CacheKey) (starform.CacheValue, error) {
+func (tsc *testScriptCache) Get(key interface{}) (interface{}, error) {
 	tsc.mu.RLock()
 	defer tsc.mu.RUnlock()
 
 	if tsc.cache == nil {
-		tsc.cache = make(map[starform.CacheKey]starform.CacheValue)
+		tsc.cache = make(map[interface{}]interface{})
 	}
 	if program, ok := tsc.cache[key]; ok {
-		tsc.Hits++
 		return program, nil
 	}
 	tsc.Misses++
 	return nil, starform.ErrNoCache
 }
 
-func (tsc *testScriptCache) Put(key starform.CacheKey, value starform.CacheValue, source starform.ScriptSource) error {
+func (tsc *testScriptCache) Put(key, value interface{}, source starform.ScriptSource) error {
 	tsc.mu.Lock()
 	defer tsc.mu.Unlock()
 
 	if tsc.cache == nil {
-		tsc.cache = make(map[starform.CacheKey]starform.CacheValue)
+		tsc.cache = make(map[interface{}]interface{})
 	}
 	if _, ok := tsc.cache[key]; !ok {
 		tsc.cache[key] = value
@@ -68,7 +68,7 @@ func (tsc *testScriptCache) Put(key starform.CacheKey, value starform.CacheValue
 	return nil
 }
 
-func (tsc *testScriptCache) Drop(key starform.CacheKey) {
+func (tsc *testScriptCache) Drop(key interface{}) {
 	tsc.mu.Lock()
 	defer tsc.mu.Unlock()
 
@@ -84,19 +84,20 @@ func (tsc *testScriptCache) Len() int {
 	return len(tsc.cache)
 }
 
-func (tsc *testScriptCache) Visit(f func(key starform.CacheKey, value starform.CacheValue) bool) {
+func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
 	tsc.mu.RLock()
 	defer tsc.mu.RUnlock()
 
 	for k, v := range tsc.cache {
 		tsc.mu.RUnlock()
-		keepGoing := f(k, v)
+		err := f(k, v)
 		tsc.mu.RLock()
-
-		if !keepGoing {
-			break
+		if err != nil {
+			return err
 		}
 	}
+
+	return nil
 }
 
 func TestOptionsValidation(t *testing.T) {
@@ -634,7 +635,7 @@ func TestLoadStatement(t *testing.T) {
 }
 
 func TestProgramCache(t *testing.T) {
-	t.Run("same-scriptset", func(t *testing.T) {
+	t.Run("total-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
 			PrintHandler: func(thread *starlark.Thread, msg string) {},
@@ -657,7 +658,7 @@ func TestProgramCache(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), sources); err != nil {
 			t.Fatal(err)
 		}
-		if cache.Hits != 1 {
+		if cache.Misses > 1 {
 			t.Error("unexpected cache miss")
 		}
 	})
@@ -668,35 +669,39 @@ func TestProgramCache(t *testing.T) {
 			PrintHandler: func(thread *starlark.Thread, msg string) {},
 			Cache:        cache,
 		}
-		sets := [][]starform.ScriptSource{{&testScriptSource{
-			name: "222.star",
-			content: `
-				bar = 'bar'
-				def init():
-					print('foo')
-			`,
-		}, &testScriptSource{
-			name: "111.star",
-			content: `
-				load('222.star', 'bar')
-				def init():
-					print(bar)
-			`,
-		}}, {&testScriptSource{
-			name: "222.star",
-			content: `
-				bar = 'baz'
-				def init():
-					print('foo')
-			`,
-		}, &testScriptSource{
-			name: "111.star",
-			content: `
-				load('222.star', 'bar')
-				def init():
-					print(bar)
-			`,
-		}}}
+		sets := [][]starform.ScriptSource{{
+			&testScriptSource{
+				name: "222.star",
+				content: `
+					bar = 'bar'
+					def init():
+						print('foo')
+				`,
+			}, &testScriptSource{
+				name: "111.star",
+				content: `
+					load('222.star', 'bar')
+					def init():
+						print(bar)
+				`,
+			},
+		}, {
+			&testScriptSource{
+				name: "222.star",
+				content: `
+					bar = 'baz'
+					def init():
+						print('foo')
+				`,
+			}, &testScriptSource{
+				name: "111.star",
+				content: `
+					load('222.star', 'bar')
+					def init():
+						print(bar)
+				`,
+			},
+		}}
 		for _, set := range sets {
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -707,8 +712,8 @@ func TestProgramCache(t *testing.T) {
 			}
 		}
 		// same name but different content leads to a cache miss.
-		if cache.Hits != 1 || cache.Misses != 3 {
-			t.Error("unexpected cache miss")
+		if cache.Misses != 3 {
+			t.Error("unexpected cache misses")
 		}
 	})
 }

@@ -6,34 +6,35 @@ import (
 
 var ErrNoCache error = errors.New("not cached")
 
-type CacheKey interface{}
-type CacheValue interface{}
-
-// ScriptCache interface lists the requirements for a ScriptSet cache.
-// All methods of this interface are expected to work when called from
-// more than one goroutine.
+// ScriptCache is a cache for use with ScriptSet values. All methods are
+// required to be thread-safe.
 type ScriptCache interface {
+	private() // This will be removed once this interface is stable.
+
 	// Get returns the CacheValue for key, if present. Otherwise, it returns ErrNoCache.
-	Get(key CacheKey) (CacheValue, error)
-	// Put inserts the value associated with key in the cache, following the cache
-	// retention policies. The last parameter is the source which generated this cache
-	// entry.
-	Put(key CacheKey, value CacheValue, source ScriptSource) error
+	Get(key interface{}) (interface{}, error)
+
+	// Put associates the given key with the given value in the cache.
+	Put(key, value interface{}, source ScriptSource) error
+
 	// Drop removes the value associated with key.
-	Drop(key CacheKey)
-	// Len returns the current number of keys in the cache.
+	Drop(key interface{})
+
+	// Len returns the current number of entries in the cache.
 	Len() int
+
 	// Visit calls f for every key-value pair in the cache. The visitation order is unspecfied.
 	// Returning false from f stops the iteration.
-	Visit(f func(key CacheKey, value CacheValue) bool)
+	Visit(f func(key, value interface{}) error) error
 }
 
 type noopScriptCache struct{}
 
 var _ ScriptCache = &noopScriptCache{}
 
-func (n *noopScriptCache) Get(key CacheKey) (CacheValue, error)                          { return nil, ErrNoCache }
-func (n *noopScriptCache) Put(key CacheKey, value CacheValue, source ScriptSource) error { return nil }
-func (n *noopScriptCache) Drop(key CacheKey)                                             {}
-func (n *noopScriptCache) Len() int                                                      { return 0 }
-func (n *noopScriptCache) Visit(f func(key CacheKey, value CacheValue) bool)             {}
+func (n *noopScriptCache) private()                                              {}
+func (n *noopScriptCache) Get(key interface{}) (interface{}, error)              { return nil, ErrNoCache }
+func (n *noopScriptCache) Put(key, value interface{}, source ScriptSource) error { return nil }
+func (n *noopScriptCache) Drop(key interface{})                                  {}
+func (n *noopScriptCache) Len() int                                              { return 0 }
+func (n *noopScriptCache) Visit(f func(key, value interface{}) error) error      { return nil }
