@@ -23,6 +23,7 @@ type ScriptSource interface {
 }
 
 type ScriptSetOptions struct {
+	AppObject           *AppObject
 	Cache               ScriptCache
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
@@ -53,6 +54,12 @@ type scriptState struct {
 }
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
+	if options.AppObject == nil {
+		return nil, fmt.Errorf("cannot create script set without app object")
+	}
+	if err := options.AppObject.validate(); err != nil {
+		return nil, err
+	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
 	}
@@ -92,7 +99,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if !ok {
 			return nil, fmt.Errorf("%s not found", path)
 		}
-		if err := script.runTopLevel(thread); err != nil {
+		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
 			return nil, err
 		}
 		return script.toplevelEnv, nil
@@ -107,7 +114,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}()
 	for _, script := range scripts {
-		if err := script.runTopLevel(thread); err != nil {
+		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
 			return err
 		}
 	}
@@ -131,7 +138,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]scriptState, error) {
 	scriptStates := make([]scriptState, 0, len(sources))
-	isPredeclared := func(string) bool { return false }
+	isPredeclared := func(name string) bool { return name == ss.options.AppObject.name }
 	for _, source := range sources {
 		path := source.Path()
 		if !strings.HasSuffix(path, ".star") {
@@ -157,13 +164,16 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 	return scriptStates, nil
 }
 
-func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
+func (script *scriptState) runTopLevel(thread *starlark.Thread, appObject *AppObject) error {
 	switch script.status {
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
-		toplevelEnv, err := script.program.Init(thread, nil)
+		predeclared := starlark.StringDict{
+			appObject.name: appObject,
+		}
+		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
 			return err
 		}
