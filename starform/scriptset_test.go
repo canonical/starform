@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/canonical/starform/starform"
@@ -29,6 +31,69 @@ func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 	return []byte(content), nil
+}
+
+type testScriptCache struct {
+	starform.TestCacheBase
+	mu     sync.RWMutex
+	cache  map[interface{}]interface{}
+	Misses int32
+}
+
+var _ starform.ScriptCache = &testScriptCache{}
+
+func (tsc *testScriptCache) Get(key interface{}) (interface{}, error) {
+	tsc.mu.RLock()
+	defer tsc.mu.RUnlock()
+
+	if program, ok := tsc.cache[key]; ok {
+		return program, nil
+	}
+	atomic.AddInt32(&tsc.Misses, 1)
+	return nil, starform.ErrNotCached
+}
+
+func (tsc *testScriptCache) Put(key, value interface{}, source starform.ScriptSource) error {
+	tsc.mu.Lock()
+	defer tsc.mu.Unlock()
+
+	if tsc.cache == nil {
+		tsc.cache = make(map[interface{}]interface{})
+	}
+	if _, ok := tsc.cache[key]; !ok {
+		tsc.cache[key] = value
+	}
+	return nil
+}
+
+func (tsc *testScriptCache) Drop(key interface{}) {
+	tsc.mu.Lock()
+	defer tsc.mu.Unlock()
+
+	delete(tsc.cache, key)
+}
+
+func (tsc *testScriptCache) Len() int {
+	tsc.mu.RLock()
+	defer tsc.mu.RUnlock()
+
+	return len(tsc.cache)
+}
+
+func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
+	tsc.mu.RLock()
+	defer tsc.mu.RUnlock()
+
+	for k, v := range tsc.cache {
+		tsc.mu.RUnlock()
+		err := f(k, v)
+		tsc.mu.RLock()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func TestOptionsValidation(t *testing.T) {
@@ -561,6 +626,90 @@ func TestLoadStatement(t *testing.T) {
 		}
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatalf("expected error, got success")
+		}
+	})
+}
+
+func TestProgramCache(t *testing.T) {
+	t.Run("total-reuse", func(t *testing.T) {
+		cache := &testScriptCache{}
+		opts := &starform.ScriptSetOptions{
+			PrintHandler: func(thread *starlark.Thread, msg string) {},
+			Cache:        cache,
+		}
+		sources := []starform.ScriptSource{&testScriptSource{
+			name: "test.star",
+			content: `
+				def init():
+					print('foo')
+			`,
+		}}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), sources); err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), sources); err != nil {
+			t.Fatal(err)
+		}
+		if cache.Misses > 1 {
+			t.Error("unexpected cache miss")
+		}
+	})
+
+	t.Run("partial-reuse", func(t *testing.T) {
+		cache := &testScriptCache{}
+		opts := &starform.ScriptSetOptions{
+			PrintHandler: func(thread *starlark.Thread, msg string) {},
+			Cache:        cache,
+		}
+		sets := [][]starform.ScriptSource{{
+			&testScriptSource{
+				name: "222.star",
+				content: `
+					bar = 'bar'
+					def init():
+						print('foo')
+				`,
+			}, &testScriptSource{
+				name: "111.star",
+				content: `
+					load('222.star', 'bar')
+					def init():
+						print(bar)
+				`,
+			},
+		}, {
+			&testScriptSource{
+				name: "222.star",
+				content: `
+					bar = 'baz'
+					def init():
+						print('foo')
+				`,
+			}, &testScriptSource{
+				name: "111.star",
+				content: `
+					load('222.star', 'bar')
+					def init():
+						print(bar)
+				`,
+			},
+		}}
+		for _, set := range sets {
+			scripts, err := starform.NewScriptSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := scripts.LoadSources(context.Background(), set); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// same name but different content leads to a cache miss.
+		if cache.Misses != 3 {
+			t.Error("unexpected cache misses")
 		}
 	})
 }

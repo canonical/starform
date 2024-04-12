@@ -2,6 +2,7 @@ package starform
 
 import (
 	"context"
+	"crypto/sha512"
 	"errors"
 	"fmt"
 	"path"
@@ -133,6 +134,10 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]scriptState, error) {
 	scriptStates := make([]scriptState, 0, len(sources))
 	isPredeclared := func(string) bool { return false }
+	cache := ss.options.Cache
+	if cache == nil {
+		cache = &noopScriptCache{}
+	}
 	for _, source := range sources {
 		path := source.Path()
 		if !strings.HasSuffix(path, ".star") {
@@ -146,10 +151,24 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
-		_, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
-		if err != nil {
-			return nil, fmt.Errorf("cannot load %s: %w", path, err)
+
+		var program *starlark.Program
+		programKey := sha512.Sum384(content)
+		if entry, err := cache.Get(programKey); err != nil {
+			if err != ErrNotCached {
+				return nil, err
+			}
+			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+			if err != nil {
+				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
+			}
+			cache.Put(programKey, program, source)
+		} else if p, ok := entry.(*starlark.Program); ok {
+			program = p
+		} else {
+			return nil, fmt.Errorf("unknown cache value: %v", entry)
 		}
+
 		scriptStates = append(scriptStates, scriptState{
 			path:    path,
 			program: program,
