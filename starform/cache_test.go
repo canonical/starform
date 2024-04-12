@@ -90,9 +90,11 @@ func TestLRUCache(t *testing.T) {
 			for i := 0; i < entryNum; i++ {
 				cache.Put(i, i, nil)
 			}
+			// Make sure multiples of 10 have been recently used.
 			for i := 0; i < entryNum; i += 10 {
 				cache.Get(i)
 			}
+			// Add enough element to fulsh everything except the recently used ones.
 			for i := 1; i <= (entryNum - entryNum/10); i++ {
 				cache.Put(-i, -i, nil)
 			}
