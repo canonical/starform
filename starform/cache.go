@@ -45,13 +45,22 @@ type lruEntry struct {
 	next, prev *lruEntry
 }
 
-func (le *lruEntry) remove() {
+func (le *lruEntry) removeFrom(list **lruEntry) {
 	le.prev.next = le.next
 	le.next.prev = le.prev
+	if le == *list {
+		if le.next == le {
+			*list = nil
+		} else {
+			*list = le.next
+		}
+	}
 }
 
 func (le *lruEntry) addTo(list **lruEntry) {
 	if *list != nil {
+		le.prev = (*list).prev
+		le.next = *list
 		(*list).prev.next = le
 		(*list).prev = le
 	}
@@ -67,17 +76,15 @@ type LRUCache struct {
 
 var _ ScriptCache = &LRUCache{}
 
-func MakeLruCache(maxSize int) *LRUCache {
+func NewLruCache(maxSize int) *LRUCache {
 	return &LRUCache{maxSize: maxSize}
 }
 
 func (lc *LRUCache) private() {}
 
 func (lc *LRUCache) touch(entry *lruEntry) {
-	if lc.maxSize > 1 && lc.mostRecent != entry {
-		entry.remove()
-		entry.addTo(&lc.mostRecent)
-	}
+	entry.removeFrom(&lc.mostRecent)
+	entry.addTo(&lc.mostRecent)
 }
 
 func (lc *LRUCache) Get(key interface{}) (interface{}, error) {
@@ -108,10 +115,10 @@ func (lc *LRUCache) Put(key, value interface{}, source ScriptSource) error {
 		}
 		entry.next = entry
 		entry.prev = entry
-
 		if len(lc.storage) >= lc.maxSize {
 			lc.dropEntry(lc.mostRecent.prev)
 		}
+		lc.storage[key] = entry
 	}
 	lc.touch(entry)
 
@@ -119,7 +126,7 @@ func (lc *LRUCache) Put(key, value interface{}, source ScriptSource) error {
 }
 
 func (lc *LRUCache) dropEntry(entry *lruEntry) {
-	entry.remove()
+	entry.removeFrom(&lc.mostRecent)
 	delete(lc.storage, entry.key)
 }
 
