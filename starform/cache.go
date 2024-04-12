@@ -11,10 +11,10 @@ var ErrNotCached error = errors.New("not cached")
 type ScriptCache interface {
 	private() // This will be removed once this interface is stable.
 
-	// Get returns the CacheValue for key, if present. Otherwise, it returns ErrNoCache.
+	// Get returns the CacheValue for key, if present. Otherwise, it returns ErrNotCached.
 	Get(key interface{}) (interface{}, error)
 
-	// Put associates the given key with the given value in the cache.
+	// Put adds the given key and value to the cache.
 	Put(key, value interface{}, source ScriptSource) error
 
 	// Drop removes the value associated with key.
@@ -23,8 +23,8 @@ type ScriptCache interface {
 	// Len returns the current number of entries in the cache.
 	Len() int
 
-	// Visit calls f for every key-value pair in the cache. The visitation order is unspecfied.
-	// Returning false from f stops the iteration.
+	// Visit calls f for every key-value pair in the cache. The visiting order is unspecfied.
+	// If f returns an error, the iteration stops and Visit returns the given error.
 	Visit(f func(key, value interface{}) error) error
 }
 
