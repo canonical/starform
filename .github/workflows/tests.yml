@@ -18,4 +18,5 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          GITHUB_USER: ${{secrets.GITHUB_USER}}
         run: 'internal/test.sh'
