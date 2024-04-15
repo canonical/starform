@@ -2,6 +2,7 @@ package starform
 
 import (
 	"context"
+	"crypto/sha512"
 	"errors"
 	"fmt"
 	"path"
@@ -86,7 +87,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return scripts[i].path < scripts[j].path
 	})
 
-	thread := makeThread(ss.options)
+	data := &runData{eventName: LoadEventName}
+	thread := makeThread(ss.options, data)
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
@@ -135,6 +137,10 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]scriptState, error) {
 	scriptStates := make([]scriptState, 0, len(sources))
+	cache := ss.options.Cache
+	if cache == nil {
+		cache = &noopScriptCache{}
+	}
 	isPredeclared := func(name string) bool { return name == ss.options.AppObject.name }
 	for _, source := range sources {
 		path := source.Path()
@@ -149,10 +155,24 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
-		_, program, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
-		if err != nil {
-			return nil, fmt.Errorf("cannot load %s: %w", path, err)
+
+		var program *starlark.Program
+		programKey := sha512.Sum384(content)
+		if entry, err := cache.Get(programKey); err != nil {
+			if err != ErrNotCached {
+				return nil, err
+			}
+			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+			if err != nil {
+				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
+			}
+			cache.Put(programKey, program, source)
+		} else if p, ok := entry.(*starlark.Program); ok {
+			program = p
+		} else {
+			return nil, fmt.Errorf("unknown cache value: %v", entry)
 		}
+
 		scriptStates = append(scriptStates, scriptState{
 			path:    path,
 			program: program,
@@ -225,11 +245,12 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions) *starlark.Thread {
+func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = options.PrintHandler
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
+	thread.SetLocal(runDataLocalKey, data)
 	return thread
 }
