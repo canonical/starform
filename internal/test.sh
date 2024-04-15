@@ -14,7 +14,7 @@ false || \
 
 echo "Now trying with netrc"
 
-echo "machine github.com login $GITHUB_USER password $GITHUB_TOKEN" > ~/.netrc
+echo "machine github.com login oauth2 password $GITHUB_TOKEN" > ~/.netrc
 git clone https://github.com/canonical/starlark.git 
 
 # git config --global url."https://x-access-token:$GITHUB_TOKEN@github.com/".insteadOf https://github.com/        
