@@ -133,7 +133,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource) ([]scriptState, error) {
 	scriptStates := make([]scriptState, 0, len(sources))
-	isPredeclared := func(string) bool { return false }
+	isPredeclared := func(name string) bool {
+		return name == "debug"
+	}
 	cache := ss.options.Cache
 	if cache == nil {
 		cache = &noopScriptCache{}
@@ -183,7 +185,10 @@ func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
-		toplevelEnv, err := script.program.Init(thread, nil)
+		predeclared := starlark.StringDict{
+			"debug": debugBuiltin,
+		}
+		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
 			return err
 		}
@@ -240,29 +245,39 @@ func checkLoadPath(loadPath string) (err error) {
 
 func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 	thread := &starlark.Thread{}
-	if options.Logger != nil {
-		thread.Print = func(thread *starlark.Thread, msg string) {
-			frame := thread.CallFrame(0)
-			level := PrintLevel
-			if frame.Name == "debug" {
-				level = DebugLevel
-			}
-			options.Logger.Log(thread.Context(), LogEntry{
-				Message:   msg,
-				Level:     level,
-				EventName: LoadEventName,
-				Path:      frame.Pos.Filename(),
-				Line:      frame.Pos.Line,
-			})
-		}
-	} else {
-		// This is necessary, otherwise the `print` builtin directly writes
-		// to os.Stderr, which is clearly not what we want.
-		thread.Print = func(thread *starlark.Thread, msg string) {}
-	}
+	thread.Print = makePrintFunction(options.Logger)
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(runDataLocalKey, data)
 	return thread
+}
+
+func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) {
+	if logger == nil {
+		// This is necessary, otherwise the `print` builtin directly writes
+		// to os.Stderr, which is clearly not what we want.
+		return func(thread *starlark.Thread, msg string) {}
+	}
+
+	return func(thread *starlark.Thread, msg string) {
+		frame := thread.CallFrame(0)
+		level := PrintLevel
+		if frame.Name == "debug" {
+			level = DebugLevel
+		}
+		var eventName string
+		if data, err := getRunData(thread); err != nil {
+			eventName = "<unknown>"
+		} else {
+			eventName = data.eventName
+		}
+		logger.Log(thread.Context(), LogEntry{
+			Message:   msg,
+			Level:     level,
+			EventName: eventName,
+			Path:      frame.Pos.Filename(), // TODO translate filename
+			Line:      frame.Pos.Line,
+		})
+	}
 }

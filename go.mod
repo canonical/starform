@@ -2,4 +2,4 @@ module github.com/canonical/starform
 
 go 1.16
 
-require github.com/canonical/starlark v0.0.0-20240326140811-e9a17ef864c0
+require github.com/canonical/starlark v0.0.0-20240415121040-0871f896c39d
