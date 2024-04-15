@@ -10,8 +10,8 @@ func TestLRUCache(t *testing.T) {
 	t.Run("single-entry", func(t *testing.T) {
 		t.Run("replace-key", func(t *testing.T) {
 			cache := starform.NewLruCache(1)
-			cache.Put(1, "one", nil)
-			cache.Put(2, "two", nil)
+			cache.Put(1, "one", &testScriptSource{})
+			cache.Put(2, "two", &testScriptSource{})
 
 			if cache.Len() != 1 {
 				t.Errorf("unexpected cache length: want 1 got %d", cache.Len())
@@ -28,8 +28,8 @@ func TestLRUCache(t *testing.T) {
 
 		t.Run("replace-value", func(t *testing.T) {
 			cache := starform.NewLruCache(1)
-			cache.Put(2, "two-old", nil)
-			cache.Put(2, "two", nil)
+			cache.Put(2, "two-old", &testScriptSource{})
+			cache.Put(2, "two", &testScriptSource{})
 
 			if cache.Len() != 1 {
 				t.Errorf("unexpected cache length: want 1 got %d", cache.Len())
@@ -46,7 +46,7 @@ func TestLRUCache(t *testing.T) {
 
 		t.Run("drop-key", func(t *testing.T) {
 			cache := starform.NewLruCache(1)
-			cache.Put(2, "two", nil)
+			cache.Put(2, "two", &testScriptSource{})
 			cache.Drop(2)
 
 			if cache.Len() != 0 {
@@ -64,7 +64,7 @@ func TestLRUCache(t *testing.T) {
 		t.Run("replace-keys", func(t *testing.T) {
 			cache := starform.NewLruCache(entryNum)
 			for i := 0; i < entryNum*2; i++ {
-				cache.Put(i, i, nil)
+				cache.Put(i, i, &testScriptSource{})
 			}
 
 			if cache.Len() != entryNum {
@@ -88,7 +88,7 @@ func TestLRUCache(t *testing.T) {
 		t.Run("used-entries", func(t *testing.T) {
 			cache := starform.NewLruCache(entryNum)
 			for i := 0; i < entryNum; i++ {
-				cache.Put(i, i, nil)
+				cache.Put(i, i, &testScriptSource{})
 			}
 			// Make sure multiples of 10 have been recently used.
 			for i := 0; i < entryNum; i += 10 {
@@ -96,7 +96,7 @@ func TestLRUCache(t *testing.T) {
 			}
 			// Add enough element to fulsh everything except the recently used ones.
 			for i := 1; i <= (entryNum - entryNum/10); i++ {
-				cache.Put(-i, -i, nil)
+				cache.Put(-i, -i, &testScriptSource{})
 			}
 
 			if cache.Len() != entryNum {
@@ -118,7 +118,7 @@ func TestLRUCache(t *testing.T) {
 		t.Run("dropped-keys", func(t *testing.T) {
 			cache := starform.NewLruCache(entryNum)
 			for i := 0; i < entryNum; i++ {
-				cache.Put(i, i, nil)
+				cache.Put(i, i, &testScriptSource{})
 			}
 			for i := 0; i < entryNum; i++ {
 				cache.Drop(entryNum/2 + i)
