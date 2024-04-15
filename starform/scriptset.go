@@ -16,6 +16,7 @@ import (
 
 type ScriptSet struct {
 	options *ScriptSetOptions
+	scripts map[[sha512.Size384]byte]scriptState
 }
 
 type ScriptSource interface {
@@ -48,6 +49,7 @@ const (
 
 type scriptState struct {
 	path        string
+	programKey  [sha512.Size384]byte
 	status      scriptStatus
 	program     *starlark.Program
 	toplevelEnv starlark.StringDict
@@ -75,15 +77,18 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	for i := range scriptStates {
 		scripts[i] = &scriptStates[i]
 	}
+
+	scriptByKey := make(map[[48]byte]*scriptState, len(scripts))
 	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
 		scriptsByPath[script.path] = script
+		scriptByKey[script.programKey] = script
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{eventName: LoadEventName}
+	data := &runData{eventName: LoadEventName, scriptStates: scriptByKey}
 	thread := makeThread(ss.options, data)
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
@@ -160,7 +165,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			if err != ErrNotCached {
 				return nil, err
 			}
-			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, string(programKey[:]), content, isPredeclared)
 			if err != nil {
 				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
 			}
@@ -172,8 +177,9 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		}
 
 		scriptStates = append(scriptStates, scriptState{
-			path:    path,
-			program: program,
+			path:       path,
+			programKey: programKey,
+			program:    program,
 		})
 	}
 	return scriptStates, nil
@@ -268,16 +274,25 @@ func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) 
 			level = DebugLevel
 		}
 		var eventName string
-		if data, err := getRunData(thread); err != nil {
+		data, err := getRunData(thread)
+		if err != nil {
 			eventName = "<unknown>"
 		} else {
 			eventName = data.eventName
+		}
+		path := "<unknown>"
+		if filename := callerFrame.Pos.Filename(); len(filename) == sha512.Size384 {
+			var programKey [sha512.Size384]byte
+			copy(programKey[:], []byte(filename))
+			if state, ok := data.scriptStates[programKey]; ok {
+				path = state.path
+			}
 		}
 		logger.Log(thread.Context(), LogEntry{
 			Message:   msg,
 			Level:     level,
 			EventName: eventName,
-			Path:      callerFrame.Pos.Filename(), // TODO translate filename
+			Path:      path,
 			Line:      callerFrame.Pos.Line,
 		})
 	}

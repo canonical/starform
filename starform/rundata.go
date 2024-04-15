@@ -1,6 +1,7 @@
 package starform
 
 import (
+	"crypto/sha512"
 	"fmt"
 
 	"github.com/canonical/starlark/starlark"
@@ -9,7 +10,8 @@ import (
 var LoadEventName = "<load>"
 
 type runData struct {
-	eventName string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
+	eventName    string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
+	scriptStates map[[sha512.Size384]byte]*scriptState
 }
 
 const runDataLocalKey = "starform.runData"
