@@ -8,7 +8,7 @@ false || \
     git clone https://$GITHUB_TOKEN:@github.com/canonical/starlark.git || \
     git clone https://oauth2:$GITHUB_TOKEN@github.com/canonical/starlark.git || \
     git clone https://x-access-token:$GITHUB_TOKEN@github.com/canonical/starlark.git || \
-    git clone https://oauth2:$GITHUB_TOKEN@github.com/canonical/starlark.git || 
+    git clone https://oauth2:$GITHUB_TOKEN@github.com/canonical/starlark.git || \
     echo "All failed! :-("
 
 
