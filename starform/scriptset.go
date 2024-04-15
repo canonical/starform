@@ -261,9 +261,10 @@ func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) 
 	}
 
 	return func(thread *starlark.Thread, msg string) {
-		frame := thread.CallFrame(0)
+		builtinFrame := thread.CallFrame(0)
+		callerFrame := thread.CallFrame(1)
 		level := PrintLevel
-		if frame.Name == "debug" {
+		if builtinFrame.Name == "debug" {
 			level = DebugLevel
 		}
 		var eventName string
@@ -276,8 +277,8 @@ func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) 
 			Message:   msg,
 			Level:     level,
 			EventName: eventName,
-			Path:      frame.Pos.Filename(), // TODO translate filename
-			Line:      frame.Pos.Line,
+			Path:      callerFrame.Pos.Filename(), // TODO translate filename
+			Line:      callerFrame.Pos.Line,
 		})
 	}
 }

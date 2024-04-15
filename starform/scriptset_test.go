@@ -22,11 +22,12 @@ type testLogger struct {
 var _ starform.Logger = &testLogger{}
 
 func (tl *testLogger) Log(ctx context.Context, entry starform.LogEntry) {
-	message := entry.Message
 	if tl.format != nil {
-		message = tl.format(entry)
+		message := tl.format(entry)
+		tl.builder.WriteString(message)
+		return
 	}
-	tl.builder.WriteString(message)
+	tl.builder.WriteString(entry.Message)
 	tl.builder.WriteByte('\n')
 }
 
@@ -724,4 +725,103 @@ func TestProgramCache(t *testing.T) {
 			t.Error("unexpected cache misses")
 		}
 	})
+}
+
+func TestLog(t *testing.T) {
+	const testProgram = `
+		def init():
+			# app.on("event", on_event) # TODO: allow this after #11
+			print("print in init")
+			debug("debug in init")
+
+		def on_event():
+			print("print handling event")
+			debug("debug handling event")
+
+		print("print at toplevel")
+		debug("debug at toplevel")
+	`
+
+	expectedEntries := []starform.LogEntry{{
+		Level:     starform.PrintLevel,
+		EventName: starform.LoadEventName,
+		Message:   "print at toplevel",
+		Line:      10,
+	}, {
+		Level:     starform.DebugLevel,
+		EventName: starform.LoadEventName,
+		Message:   "debug at toplevel",
+		Line:      11,
+	}, {
+		Level:     starform.PrintLevel,
+		EventName: starform.LoadEventName,
+		Message:   "print in init",
+		Line:      3,
+	}, {
+		Level:     starform.DebugLevel,
+		EventName: starform.LoadEventName,
+		Message:   "debug in init",
+		Line:      4,
+	}, {
+		Level:     starform.PrintLevel,
+		EventName: "event",
+		Message:   "print handling event",
+		Line:      7,
+	}, {
+		Level:     starform.DebugLevel,
+		EventName: "event",
+		Message:   "debug handling event",
+		Line:      8,
+	}}[:4] // TODO: remove this slice when we can handle events
+	sources := []testScriptSource{{
+		name:    "foo.star",
+		content: testProgram,
+	}, {
+		name:    "bar.star",
+		content: testProgram,
+	}}
+	cache := &testScriptCache{}
+	for _, source := range sources {
+		expectedEntries := expectedEntries // shadow to keep the original entries available for next round
+		logger := &testLogger{
+			format: func(entry starform.LogEntry) string {
+				if len(expectedEntries) == 0 {
+					t.Errorf("unexpected log entry: %v", entry)
+				}
+				expectedEntry := expectedEntries[0]
+				expectedEntries = expectedEntries[1:]
+				if expectedEntry.Level != entry.Level {
+					t.Errorf("unexpected log level: want %v got %v", expectedEntry.Level, entry.Level)
+				}
+				if expectedEntry.EventName != entry.EventName {
+					t.Errorf("unexpected event name: want %s got %s", expectedEntry.EventName, entry.EventName)
+				}
+				if expectedEntry.Line != entry.Line {
+					t.Errorf("unexpected line reference: want %d got %d", expectedEntry.Line, entry.Line)
+				}
+				if source.name != entry.Path {
+					t.Errorf("unexpected path reference: want %s got %s", source.name, entry.Path)
+				}
+				if expectedEntry.Message != entry.Message {
+					t.Errorf("unexpected log level: want %s got %s", expectedEntry.Message, entry.Message)
+				}
+				return ""
+			},
+		}
+		opts := &starform.ScriptSetOptions{
+			Cache:  cache,
+			Logger: logger,
+		}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), []starform.ScriptSource{&source}); err != nil {
+			t.Fatal(err)
+		}
+		// TODO
+		// if err := scripts.Handle(context.Background(), "event"); err != nil {
+		// 	t.Fatal(err)
+		// }
+	}
 }
