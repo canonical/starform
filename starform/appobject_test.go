@@ -91,3 +91,106 @@ func TestAppObjectSafeString(t *testing.T) {
 		})
 	})
 }
+
+func TestAppObjectSafeAttr(t *testing.T) {
+	appObject := starform.NewAppObject("test")
+	appObject.Freeze()
+
+	t.Run("allocs-steps-io-safety", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			for i := 0; i < st.N; i++ {
+				result, err := appObject.SafeAttr(thread, "observe")
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(result)
+			}
+		})
+	})
+
+	t.Run("cancellaton", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+			for i := 0; i < st.N; i++ {
+				_, err := appObject.SafeAttr(thread, "observe")
+				if err != nil && !isStarlarkCancellation(err) {
+					st.Error(err)
+				}
+			}
+		})
+	})
+}
+
+func TestAppObjectObserveSafety(t *testing.T) {
+	t.Run("return-value", func(t *testing.T) {
+		appObject := starform.NewAppObject("test")
+		appObject.Freeze()
+		observe, err := appObject.Attr("observe")
+		if err != nil {
+			t.Fatal("no such method: test.observe")
+		}
+
+		thread := &starlark.Thread{}
+		args := starlark.Tuple{starlark.String("asdf"), observe}
+		result, err := starlark.Call(thread, observe, args, nil)
+		if err != nil {
+			t.Error(err)
+		}
+		if result != starlark.None {
+			t.Errorf("expected None return: got %v", result)
+		}
+	})
+
+	t.Run("allocs-steps-io-safety", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			appObject := starform.NewAppObject("test")
+			appObject.Freeze()
+			observe, err := appObject.Attr("observe")
+			if err != nil {
+				t.Fatal("no such method: test.observe")
+			}
+			// TODO(kcza): This is not nice! Fix it!
+			thread.SetLocal(starform.RunDataLocalKey, &starform.RunData{})
+			args := starlark.Tuple{starlark.String("asdf"), observe}
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, observe, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+			st.KeepAlive(thread.Local(starform.RunDataLocalKey))
+		})
+	})
+
+	t.Run("cancellaton", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.TimeSafe)
+		st.SetMaxSteps(0)
+		st.RunThread(func(thread *starlark.Thread) {
+			thread.Cancel("done")
+
+			appObject := starform.NewAppObject("test")
+			appObject.Freeze()
+			observe, err := appObject.Attr("observe")
+			if err != nil {
+				t.Fatal("no such method: test.observe")
+			}
+			args := starlark.Tuple{starlark.String("asdf"), observe}
+			for i := 0; i < st.N; i++ {
+				_, err := starlark.Call(thread, observe, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+			}
+		})
+	})
+}

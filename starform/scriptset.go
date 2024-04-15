@@ -92,6 +92,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		eventName: LoadEventName,
 	}
 	thread := makeThread(ss.options, data)
+	defer thread.Cancel("done")
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
@@ -255,6 +256,7 @@ func (ss *ScriptSet) Handle(eventName string) error {
 		eventName: eventName,
 	}
 	thread := makeThread(ss.options, data)
+	defer thread.Cancel("done")
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
 		if err != nil {

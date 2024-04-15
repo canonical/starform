@@ -46,20 +46,23 @@ func (ao *AppObject) Attr(name string) (starlark.Value, error) {
 }
 
 func (ao *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	if err := starlark.CheckSafety(thread, starlark.NotSafe); err != nil {
+	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe|starlark.TimeSafe); err != nil {
 		return nil, err
 	}
 
 	if name != "observe" {
 		return nil, nil
 	}
-	if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
-		return nil, err
+	if thread != nil {
+		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+			return nil, err
+		}
 	}
 	return observeBuiltin.BindReceiver(ao), nil
 }
 
-var observeBuiltin = starlark.NewBuiltinWithSafety("observe", starlark.NotSafe, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
+var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var eventName string
 	var observer starlark.Value
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 2, &eventName, &observer); err != nil {
@@ -74,6 +77,7 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", starlark.NotSafe, 
 		return nil, errors.New("unavailable")
 	}
 	observer.Freeze()
+	// TODO(kcza): count steps and allocs here!
 	data.observers[eventName] = append(data.observers[eventName], observer)
 
 	return starlark.None, nil
