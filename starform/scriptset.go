@@ -255,8 +255,7 @@ func (ss *ScriptSet) Handle(eventName string) error {
 		eventName: eventName,
 	}
 	thread := makeThread(ss.options, data)
-	for i, observer := range observers {
-		fmt.Printf("handling %s with observer #%d (%v)\n", eventName, i, observer) // TODO(kcza): replace me once the logger is in!
+	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
 		if err != nil {
 			return err
