@@ -11,7 +11,7 @@ func TestLRUCache(t *testing.T) {
 		t.Run("replace-key", func(t *testing.T) {
 			cache := starform.NewLruCache(1)
 			cache.Put(1, "one", &testScriptSource{})
-			cache.Put(2, "two", &testScriptSource{})
+			cache.Put(2, "two", &testScriptSource{}) // Expect eviction to occur here.
 
 			if cache.Len() != 1 {
 				t.Errorf("unexpected cache length: want 1 got %d", cache.Len())
@@ -59,50 +59,49 @@ func TestLRUCache(t *testing.T) {
 	})
 
 	t.Run("many-entries", func(t *testing.T) {
-		const entryNum = 100
+		const maxEntries = 100
 
 		t.Run("replace-keys", func(t *testing.T) {
-			cache := starform.NewLruCache(entryNum)
-			for i := 0; i < entryNum*2; i++ {
+			cache := starform.NewLruCache(maxEntries)
+			for i := 0; i < maxEntries*2; i++ {
 				cache.Put(i, i, &testScriptSource{})
 			}
 
-			if cache.Len() != entryNum {
-				t.Errorf("unexpected cache length: want %d got %d", entryNum, cache.Len())
+			if cache.Len() != maxEntries {
+				t.Errorf("unexpected cache length: want %d got %d", maxEntries, cache.Len())
 			}
-			for i := 0; i < entryNum*2; i++ {
-				if i < entryNum {
-					if _, err := cache.Get(i); err == nil {
-						t.Errorf("unexpected cache hit: %d", i)
-					}
-				} else {
-					if value, err := cache.Get(i); err != nil {
-						t.Errorf("unexpected cache miss: %d", i)
-					} else if value != i {
-						t.Errorf("unexpected value for entry")
-					}
+			for i := 0; i < maxEntries; i++ {
+				if _, err := cache.Get(i); err == nil {
+					t.Errorf("unexpected cache hit: %d", i)
+				}
+			}
+			for i := maxEntries; i < maxEntries*2; i++ {
+				if value, err := cache.Get(i); err != nil {
+					t.Errorf("unexpected cache miss: %d", i)
+				} else if value != i {
+					t.Errorf("unexpected value for entry")
 				}
 			}
 		})
 
 		t.Run("used-entries", func(t *testing.T) {
-			cache := starform.NewLruCache(entryNum)
-			for i := 0; i < entryNum; i++ {
+			cache := starform.NewLruCache(maxEntries)
+			for i := 0; i < maxEntries; i++ {
 				cache.Put(i, i, &testScriptSource{})
 			}
 			// Make sure multiples of 10 have been recently used.
-			for i := 0; i < entryNum; i += 10 {
+			for i := 0; i < maxEntries; i += 10 {
 				cache.Get(i)
 			}
-			// Add enough element to fulsh everything except the recently used ones.
-			for i := 1; i <= (entryNum - entryNum/10); i++ {
+			// Add enough elements to flush everything except the recently used ones.
+			for i := 1; i <= (maxEntries - maxEntries/10); i++ {
 				cache.Put(-i, -i, &testScriptSource{})
 			}
 
-			if cache.Len() != entryNum {
-				t.Errorf("unexpected cache length: want %d got %d", entryNum, cache.Len())
+			if cache.Len() != maxEntries {
+				t.Errorf("unexpected cache length: want %d got %d", maxEntries, cache.Len())
 			}
-			for i := 0; i < entryNum; i += 1 {
+			for i := 0; i < maxEntries; i += 1 {
 				if i%10 == 0 {
 					if value, err := cache.Get(i); err != nil {
 						t.Errorf("unexpected cache miss: %d", i)
@@ -116,18 +115,18 @@ func TestLRUCache(t *testing.T) {
 		})
 
 		t.Run("dropped-keys", func(t *testing.T) {
-			cache := starform.NewLruCache(entryNum)
-			for i := 0; i < entryNum; i++ {
+			cache := starform.NewLruCache(maxEntries)
+			for i := 0; i < maxEntries; i++ {
 				cache.Put(i, i, &testScriptSource{})
 			}
-			for i := 0; i < entryNum; i++ {
-				cache.Drop(entryNum/2 + i)
+			for i := 0; i < maxEntries; i++ {
+				cache.Drop(maxEntries/2 + i)
 			}
-			if cache.Len() != entryNum/2 {
-				t.Errorf("unexpected cache length: want %d got %d", entryNum/2, cache.Len())
+			if cache.Len() != maxEntries/2 {
+				t.Errorf("unexpected cache length: want %d got %d", maxEntries/2, cache.Len())
 			}
-			for i := 0; i < entryNum; i += 1 {
-				if i < entryNum/2 {
+			for i := 0; i < maxEntries; i += 1 {
+				if i < maxEntries/2 {
 					if value, err := cache.Get(i); err != nil {
 						t.Errorf("unexpected cache miss: %d", i)
 					} else if value != i {
