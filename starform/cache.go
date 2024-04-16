@@ -41,10 +41,10 @@ func (n *noopScriptCache) Len() int                                             
 func (n *noopScriptCache) Visit(f func(key, value interface{}) error) error      { return nil }
 
 type LRUCache struct {
-	mu         sync.Mutex
-	maxSize    int
-	store      map[interface{}]*lruEntry
-	latestUsed *lruEntry
+	mu      sync.Mutex
+	maxSize int
+	store   map[interface{}]*lruEntry
+	lruList lruList
 }
 
 var _ ScriptCache = &LRUCache{}
@@ -59,8 +59,8 @@ func NewLruCache(maxSize int) *LRUCache {
 func (lc *LRUCache) private() {} // TODO: remove once interface is stable
 
 func (lc *LRUCache) touch(entry *lruEntry) {
-	entry.removeFrom(&lc.latestUsed)
-	entry.addTo(&lc.latestUsed)
+	lc.lruList.remove(entry)
+	lc.lruList.add(entry)
 }
 
 func (lc *LRUCache) Get(key interface{}) (interface{}, error) {
@@ -89,17 +89,16 @@ func (lc *LRUCache) Put(key, value interface{}, source ScriptSource) error {
 		return nil
 	}
 
+	if len(lc.store) >= lc.maxSize {
+		lc.drop(lc.lruList.tail())
+	}
+
 	entry = &lruEntry{
 		key:   key,
 		value: value,
 	}
-	entry.next = entry
-	entry.prev = entry
-	if len(lc.store) >= lc.maxSize {
-		lc.drop(lc.latestUsed.prev)
-	}
 	lc.store[key] = entry
-	lc.touch(entry)
+	lc.lruList.add(entry)
 	return nil
 }
 
@@ -113,7 +112,7 @@ func (lc *LRUCache) Drop(key interface{}) {
 }
 
 func (lc *LRUCache) drop(entry *lruEntry) {
-	entry.removeFrom(&lc.latestUsed)
+	lc.lruList.remove(entry)
 	delete(lc.store, entry.key)
 }
 
@@ -140,30 +139,45 @@ func (lc *LRUCache) Visit(f func(key, value interface{}) error) error {
 	return nil
 }
 
+type lruList struct {
+	// lruList is implemented as a circular linked list
+	head *lruEntry
+}
+
 type lruEntry struct {
 	key, value interface{}
 	next, prev *lruEntry
 }
 
-func (le *lruEntry) removeFrom(list **lruEntry) {
-	le.prev.next = le.next
-	le.next.prev = le.prev
-	if le != *list {
+func (cll *lruList) remove(entry *lruEntry) {
+	entry.prev.next = entry.next
+	entry.next.prev = entry.prev
+	if entry != cll.head {
 		return
 	}
-	if le.next == le {
-		*list = nil
+	if entry.next == entry {
+		cll.head = nil
 	} else {
-		*list = le.next
+		cll.head = entry.next
 	}
 }
 
-func (le *lruEntry) addTo(list **lruEntry) {
-	if *list != nil {
-		le.prev = (*list).prev
-		le.next = *list
-		(*list).prev.next = le
-		(*list).prev = le
+func (cll *lruList) add(entry *lruEntry) {
+	if cll.head != nil {
+		entry.prev = cll.head.prev
+		entry.next = cll.head
+		cll.head.prev.next = entry
+		cll.head.prev = entry
+	} else {
+		entry.prev = entry
+		entry.next = entry
 	}
-	*list = le
+	cll.head = entry
+}
+
+func (cll *lruList) tail() *lruEntry {
+	if cll.head == nil {
+		return nil
+	}
+	return cll.head.prev
 }
