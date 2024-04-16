@@ -1,0 +1,457 @@
+diff --git a/starform/appobject.go b/starform/appobject.go
+new file mode 100644
+index 0000000..f095797
+--- /dev/null
++++ b/starform/appobject.go
+@@ -0,0 +1,96 @@
++package starform
++
++import (
++	"fmt"
++	"sort"
++	"sync"
++
++	"github.com/canonical/starlark/starlark"
++)
++
++type AppObject struct {
++	name             string
++	attrs            map[string]appObjectAttr
++	attrNames        []string
++	collateAttrNames sync.Once
++}
++
++type appObjectAttr struct {
++	availability []string
++	value        starlark.Value
++}
++
++func NewAppObject(name string) *AppObject {
++	return &AppObject{name: name}
++}
++
++func (ao *AppObject) AddAttr(name string, availability []string, value starlark.Value) {
++	if ao.attrs == nil {
++		ao.attrs = make(map[string]appObjectAttr)
++	}
++	ao.attrs[name] = appObjectAttr{
++		availability: availability,
++		value:        value,
++	}
++	ao.attrNames = append(ao.attrNames, name)
++}
++
++func (ao *AppObject) AddMethod(availability []string, method *starlark.Builtin) {
++	ao.AddAttr(method.Name(), availability, method)
++}
++
++var _ starlark.Value = &AppObject{}
++var _ starlark.HasSafeAttrs = &AppObject{}
++
++func (ao *AppObject) String() string { return ao.name }
++func (ao *AppObject) Type() string   { return ao.name }
++func (ao *AppObject) Freeze() {
++	for _, attr := range ao.attrs {
++		attr.value.Freeze()
++	}
++}
++func (ao *AppObject) Truth() starlark.Bool { return true }
++func (ao *AppObject) Hash() (uint32, error) {
++	return 0, fmt.Errorf("unhashable type: %s", ao.Type())
++}
++
++func (ao *AppObject) Attr(name string) (starlark.Value, error) {
++	return ao.SafeAttr(nil, name)
++}
++
++func (ao *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
++	if err := starlark.CheckSafety(thread, starlark.NotSafe); err != nil {
++		return nil, err
++	}
++
++	attr, ok := ao.attrs[name]
++	if !ok {
++		return nil, nil
++	}
++
++	data, err := getRunData(thread)
++	if err != nil {
++		return nil, err
++	}
++	if err = data.checkAvailable(attr.availability); err != nil {
++		return nil, err
++	}
++
++	ret := attr.value
++	if ret, ok := ret.(*starlark.Builtin); ok {
++		ret = ret.BindReceiver(ao)
++	}
++	return ret, nil
++}
++
++func (ao *AppObject) AttrNames() []string {
++	ao.collateAttrNames.Do(func() {
++		attrNames := make([]string, 0, len(ao.attrs))
++		for attrName := range ao.attrs {
++			attrNames = append(attrNames, attrName)
++		}
++		sort.Strings(attrNames)
++		ao.attrNames = attrNames
++	})
++	return ao.attrNames
++}
+diff --git a/starform/appobject_test.go b/starform/appobject_test.go
+new file mode 100644
+index 0000000..845d297
+--- /dev/null
++++ b/starform/appobject_test.go
+@@ -0,0 +1,126 @@
++package starform_test
++
++import (
++	"context"
++	"strings"
++	"testing"
++
++	"github.com/canonical/starform/starform"
++	"github.com/canonical/starlark/starlark"
++)
++
++func TestMissingAppObject(t *testing.T) {
++	const expected = "cannot create script set without app object"
++
++	opts := &starform.ScriptSetOptions{}
++	_, err := starform.NewScriptSet(opts)
++	if err == nil {
++		t.Errorf("expected error")
++	} else if err.Error() != expected {
++		t.Errorf("unexpected error: expected %q but got %q", expected, err)
++	}
++}
++
++func TestAppObjectAvailability(t *testing.T) {
++	log := &strings.Builder{}
++	printHandler := func(thread *starlark.Thread, msg string) {
++		log.WriteString(msg)
++		log.WriteByte('\n')
++	}
++	appObject := starform.NewAppObject("juju")
++	appObject.Freeze()
++	opts := &starform.ScriptSetOptions{
++		AppObject:    appObject,
++		PrintHandler: printHandler,
++	}
++	scripts, err := starform.NewScriptSet(opts)
++	if err != nil {
++		t.Fatal(err)
++	}
++
++	err = scripts.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
++		name: "test.star",
++		content: `
++			print('load-phase', juju)
++			def init():
++				print('init-phase', juju)
++		`,
++	}})
++	if err != nil {
++		t.Errorf("unexpected error: %v", err)
++	}
++
++	const expectedLog = "load-phase juju\ninit-phase juju\n"
++	if actualLog := log.String(); actualLog != expectedLog {
++		t.Errorf("output error: expected %q but got %q", expectedLog, actualLog)
++	}
++}
++
++func TestAppObjectFields(t *testing.T) {
++	t.Run("available", func(t *testing.T) {
++		const expectedLog = "toplevel 6\ninit 6\n"
++
++		appObject := starform.NewAppObject("mir")
++		appObject.AddAttr("num_displays", []string{starform.LoadEventName}, starlark.MakeInt(6)) // TODO(kcza): replace LoadEventName with another event.
++		appObject.Freeze()
++
++		log := &strings.Builder{}
++		opts := &starform.ScriptSetOptions{
++			AppObject: appObject,
++			PrintHandler: func(_ *starlark.Thread, msg string) {
++				log.WriteString(msg)
++				log.WriteRune('\n')
++			},
++		}
++		scripts, err := starform.NewScriptSet(opts)
++		if err != nil {
++			t.Fatalf("unexpected error: %v", err)
++		}
++		err = scripts.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
++			name: "test.star",
++			content: `
++				print('toplevel', mir.num_displays)
++				def init():
++					print('init', mir.num_displays)
++			`,
++		}})
++		if err != nil {
++			t.Errorf("unexpected error: %s", err)
++		}
++		if actualLog := log.String(); actualLog != expectedLog {
++			t.Errorf("incorrect log: expected %q but got %q", expectedLog, actualLog)
++		}
++	})
++
++	t.Run("unavailable", func(t *testing.T) {
++		const expect = "cannot load script test.star: feature unavailable during <load>"
++
++		appObject := starform.NewAppObject("lxd")
++		appObject.AddAttr("num_nodes", []string{}, starlark.MakeInt(16))
++		appObject.Freeze()
++
++		opts := &starform.ScriptSetOptions{
++			AppObject: appObject,
++		}
++		scripts, err := starform.NewScriptSet(opts)
++		if err != nil {
++			t.Fatal(err)
++		}
++
++		err = scripts.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
++			name: "test.star",
++			content: `
++				print(lxd.num_nodes)
++				fail('unexpectedly called')
++			`,
++		}})
++		if err == nil {
++			t.Error("expected error")
++		} else if err.Error() != expect {
++			t.Errorf("unexpected error: expected %q but got %q", expect, err)
++		}
++	})
++}
++
++func TestAppObjectMethods(t *testing.T) {
++}
+diff --git a/starform/rundata.go b/starform/rundata.go
+new file mode 100644
+index 0000000..6a811a0
+--- /dev/null
++++ b/starform/rundata.go
+@@ -0,0 +1,34 @@
++package starform
++
++import (
++	"fmt"
++
++	"github.com/canonical/starlark/starlark"
++)
++
++type runData struct {
++	Name string
++}
++
++const runDataKey = "starform.RunData"
++
++func getRunData(thread *starlark.Thread) (*runData, error) {
++	ret, ok := thread.Local(runDataKey).(*runData)
++	if !ok {
++		return nil, fmt.Errorf("%s overwritten", runDataKey)
++	}
++	return ret, nil
++}
++
++func putRunData(thread *starlark.Thread, data *runData) {
++	thread.SetLocal(runDataKey, data)
++}
++
++func (rd *runData) checkAvailable(availableDuring []string) error {
++	for _, event := range availableDuring {
++		if event == rd.Name {
++			return nil
++		}
++	}
++	return fmt.Errorf("feature unavailable during %s", rd.Name)
++}
+diff --git a/starform/scriptset.go b/starform/scriptset.go
+index 554b48a..10b72c3 100644
+--- a/starform/scriptset.go
++++ b/starform/scriptset.go
+@@ -23,6 +23,7 @@ type ScriptSource interface {
+ }
+
+ type ScriptSetOptions struct {
++	AppObject           *AppObject
+ 	Cache               ScriptCache
+ 	PrintHandler        func(thread *starlark.Thread, msg string)
+ 	RequiredSafety      starlark.SafetyFlags
+@@ -37,7 +38,15 @@ var starlarkDialect = syntax.FileOptions{
+ 	Recursion:       false,
+ }
+
++var LoadEventName = "<load>"
++
+ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
++	if options.AppObject == nil {
++		return nil, fmt.Errorf("cannot create script set without app object")
++	}
++	if options.AppObject.name == "" { // TODO(kcza): overkill? Tests will force this.
++		return nil, fmt.Errorf("app object name empty")
++	}
+ 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
+ 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
+ 	}
+@@ -55,7 +64,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
+ 		return sources[i].Path() < sources[j].Path()
+ 	})
+
+-	isPredeclared := func(string) bool { return false }
++	appObjectName := ss.options.AppObject.name
++	isPredeclared := func(name string) bool { return name == appObjectName }
+ 	modules := make([]starlark.StringDict, 0, len(sources))
+ 	for _, source := range sources {
+ 		path := source.Path()
+@@ -64,11 +74,11 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
+ 		}
+ 		content, err := source.Content(ctx)
+ 		if err != nil {
+-			return fmt.Errorf("cannot read script: %s: %w", path, err)
++			return fmt.Errorf("cannot read script %s: %w", path, err)
+ 		}
+ 		_, prog, err := starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+ 		if err != nil {
+-			return fmt.Errorf("cannot load script: %s: %w", path, err)
++			return fmt.Errorf("cannot load script %s: %w", path, err)
+ 		}
+ 		for i := 0; i < prog.NumLoads(); i++ {
+ 			loadPath, _ := prog.Load(i)
+@@ -77,17 +87,21 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
+ 			}
+ 		}
+
+-		initThread := makeThread(ctx, ss.options)
+-		initThread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
++		runData := &runData{Name: LoadEventName}
++		loadThread := makeThread(ctx, ss.options, runData)
++		loadThread.Load = func(thread *starlark.Thread, module string) (starlark.StringDict, error) {
+ 			// Dumb hack to appease tests.
+ 			// TODO(marco6): remove me!
+ 			return starlark.StringDict{
+ 				"unused": starlark.None,
+ 			}, nil
+ 		}
+-		module, err := prog.Init(initThread, nil)
++		predeclared := starlark.StringDict{
++			appObjectName: ss.options.AppObject,
++		}
++		module, err := prog.Init(loadThread, predeclared)
+ 		if err != nil {
+-			return fmt.Errorf("cannot load script: %s: %w", path, err)
++			return fmt.Errorf("cannot load script %s: %w", path, err)
+ 		}
+ 		modules = append(modules, module)
+ 	}
+@@ -101,7 +115,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
+ 			return fmt.Errorf("cannot call non-function init")
+ 		}
+
+-		_, err := starlark.Call(makeThread(ctx, ss.options), init, nil, nil)
++		runData := &runData{Name: LoadEventName}
++		initThread := makeThread(ctx, ss.options, runData)
++		_, err := starlark.Call(initThread, init, nil, nil)
+ 		if err != nil {
+ 			return fmt.Errorf("cannot load script: %w", err)
+ 		}
+@@ -157,12 +173,13 @@ func checkLoadPath(loadPath string) (err error) {
+ 	return nil
+ }
+
+-func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
++func makeThread(ctx context.Context, options *ScriptSetOptions, data *runData) *starlark.Thread {
+ 	thread := &starlark.Thread{}
+ 	thread.SetContext(ctx)
+ 	thread.Print = options.PrintHandler
+ 	thread.RequireSafety(options.RequiredSafety)
+ 	thread.SetMaxSteps(options.MaxSteps)
+ 	thread.SetMaxAllocs(options.MaxAllocs)
++	putRunData(thread, data)
+ 	return thread
+ }
+diff --git a/starform/scriptset_test.go b/starform/scriptset_test.go
+index 47b4ca7..9d40c8f 100644
+--- a/starform/scriptset_test.go
++++ b/starform/scriptset_test.go
+@@ -31,6 +31,8 @@ func (tss *testScriptSource) Content(ctx context.Context) ([]byte, error) {
+ 	return []byte(content), nil
+ }
+
++var trivialAppObject = starform.NewAppObject("test")
++
+ func TestOptionsValidation(t *testing.T) {
+ 	tests := []struct {
+ 		name     string
+@@ -38,28 +40,34 @@ func TestOptionsValidation(t *testing.T) {
+ 		expected string
+ 	}{{
+ 		name: "NotSafe",
+-		opts: &starform.ScriptSetOptions{},
++		opts: &starform.ScriptSetOptions{
++			AppObject: trivialAppObject,
++		},
+ 	}, {
+ 		name: "MemSafe (unbounded)",
+ 		opts: &starform.ScriptSetOptions{
++			AppObject:      trivialAppObject,
+ 			RequiredSafety: starlark.MemSafe,
+ 		},
+ 		expected: "cannot run MemSafe Starlark with unbounded MaxAllocs",
+ 	}, {
+ 		name: "MemSafe (bounded)",
+ 		opts: &starform.ScriptSetOptions{
++			AppObject:      trivialAppObject,
+ 			RequiredSafety: starlark.MemSafe,
+ 			MaxAllocs:      100,
+ 		},
+ 	}, {
+ 		name: "CPUSafe (unbounded)",
+ 		opts: &starform.ScriptSetOptions{
++			AppObject:      trivialAppObject,
+ 			RequiredSafety: starlark.CPUSafe,
+ 		},
+ 		expected: "cannot run CPUSafe Starlark with unbounded MaxSteps",
+ 	}, {
+ 		name: "CPUSafe (bounded)",
+ 		opts: &starform.ScriptSetOptions{
++			AppObject:      trivialAppObject,
+ 			RequiredSafety: starlark.CPUSafe,
+ 			MaxSteps:       100,
+ 		},
+@@ -183,6 +191,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
+ 				log.WriteByte('\n')
+ 			}
+ 			opts := &starform.ScriptSetOptions{
++				AppObject:    trivialAppObject,
+ 				PrintHandler: printHandler,
+ 			}
+ 			scripts, err := starform.NewScriptSet(opts)
+@@ -346,7 +355,9 @@ func TestCheckLoadPath(t *testing.T) {
+ 	}}
+ 	for _, test := range tests {
+ 		t.Run(test.name, func(t *testing.T) {
+-			opts := &starform.ScriptSetOptions{}
++			opts := &starform.ScriptSetOptions{
++				AppObject: trivialAppObject,
++			}
+ 			set, err := starform.NewScriptSet(opts)
+ 			if err != nil {
+ 				t.Fatal(err)
+@@ -376,7 +387,9 @@ func TestCheckLoadPath(t *testing.T) {
+ }
+
+ func TestCancelLoad(t *testing.T) {
+-	opts := &starform.ScriptSetOptions{}
++	opts := &starform.ScriptSetOptions{
++		AppObject: trivialAppObject,
++	}
+ 	scripts, err := starform.NewScriptSet(opts)
+ 	if err != nil {
+ 		t.Fatal(err)

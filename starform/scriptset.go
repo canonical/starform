@@ -15,7 +15,8 @@ import (
 )
 
 type ScriptSet struct {
-	options *ScriptSetOptions
+	options   *ScriptSetOptions
+	observers map[string][]starlark.Value
 }
 
 type ScriptSource interface {
@@ -87,7 +88,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{eventName: LoadEventName}
+	data := &runData{
+		eventName: LoadEventName,
+	}
 	thread := makeThread(ss.options, data)
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
@@ -111,6 +114,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
+	data.observeAvailable = true
+	data.observers = make(map[string][]starlark.Value)
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
@@ -124,6 +129,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			return fmt.Errorf("cannot load script: %w", err)
 		}
 	}
+	ss.observers = data.observers
 
 	return nil
 }
@@ -236,6 +242,26 @@ func checkLoadPath(loadPath string) (err error) {
 		return miscInvalidPathError
 	}
 
+	return nil
+}
+
+func (ss *ScriptSet) Handle(eventName string) error {
+	observers, ok := ss.observers[eventName]
+	if !ok {
+		return nil
+	}
+
+	data := &runData{
+		eventName: eventName,
+	}
+	thread := makeThread(ss.options, data)
+	for i, observer := range observers {
+		fmt.Printf("handling %s with observer #%d (%v)\n", eventName, i, observer) // TODO(kcza): replace me once the logger is in!
+		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

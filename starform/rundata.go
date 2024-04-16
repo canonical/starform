@@ -9,7 +9,9 @@ import (
 var LoadEventName = "<load>"
 
 type runData struct {
-	eventName string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
+	eventName        string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
+	observeAvailable bool
+	observers        map[string][]starlark.Value
 }
 
 const runDataLocalKey = "starform.runData"
