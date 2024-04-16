@@ -187,6 +187,7 @@ func (script *scriptState) runTopLevel(thread *starlark.Thread) error {
 		if err != nil {
 			return err
 		}
+		toplevelEnv.Freeze()
 		script.toplevelEnv = toplevelEnv
 
 		script.status = scriptInitialised
