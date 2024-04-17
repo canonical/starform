@@ -146,38 +146,41 @@ type lruList struct {
 
 type lruEntry struct {
 	key, value interface{}
+	// Adjacent entries, unless at the tail of the list, the
+	// next entry was added less recently tham the current.
+	// Likewise prev was added more recently.
 	next, prev *lruEntry
 }
 
-func (cll *lruList) remove(entry *lruEntry) {
+func (ll *lruList) remove(entry *lruEntry) {
 	entry.prev.next = entry.next
 	entry.next.prev = entry.prev
-	if entry != cll.head {
+	if entry != ll.head {
 		return
 	}
 	if entry.next == entry {
-		cll.head = nil
+		ll.head = nil
 	} else {
-		cll.head = entry.next
+		ll.head = entry.next
 	}
 }
 
-func (cll *lruList) add(entry *lruEntry) {
-	if cll.head != nil {
-		entry.prev = cll.head.prev
-		entry.next = cll.head
-		cll.head.prev.next = entry
-		cll.head.prev = entry
+func (ll *lruList) add(entry *lruEntry) {
+	if ll.head != nil {
+		entry.prev = ll.head.prev
+		entry.next = ll.head
+		ll.head.prev.next = entry
+		ll.head.prev = entry
 	} else {
 		entry.prev = entry
 		entry.next = entry
 	}
-	cll.head = entry
+	ll.head = entry
 }
 
-func (cll *lruList) tail() *lruEntry {
-	if cll.head == nil {
+func (ll *lruList) tail() *lruEntry {
+	if ll.head == nil {
 		return nil
 	}
-	return cll.head.prev
+	return ll.head.prev
 }
