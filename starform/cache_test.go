@@ -7,7 +7,7 @@ import (
 )
 
 func TestLRUCache(t *testing.T) {
-	t.Run("single-entry", func(t *testing.T) {
+	t.Run("max-size-one", func(t *testing.T) {
 		t.Run("replace-key", func(t *testing.T) {
 			cache := starform.NewLruCache(1)
 			cache.Put(1, "one", &testScriptSource{})
