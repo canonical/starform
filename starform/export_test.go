@@ -6,8 +6,6 @@ type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
 
-const RunDataLocalKey = runDataLocalKey
-
 type RunData = runData
 
 func LoadingRunData() *RunData {
@@ -22,4 +20,8 @@ func InitingRunData() *RunData {
 		observeAvailable: true,
 		observers:        make(map[string][]starlark.Value),
 	}
+}
+
+func PutRunDataIn(thread *starlark.Thread, data *RunData) {
+	thread.SetLocal(runDataLocalKey, data)
 }
