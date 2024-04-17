@@ -137,6 +137,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		}
 
 		thread := &starlark.Thread{}
+		thread.SetLocal(starform.RunDataLocalKey, starform.InitingRunData())
 		args := starlark.Tuple{starlark.String("asdf"), observe}
 		result, err := starlark.Call(thread, observe, args, nil)
 		if err != nil {
@@ -158,8 +159,13 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			if err != nil {
 				t.Fatal("no such method: test.observe")
 			}
-			// TODO(kcza): This is not nice! Fix it!
-			thread.SetLocal(starform.RunDataLocalKey, &starform.RunData{})
+
+			data := starform.InitingRunData()
+			if err := thread.AddAllocs(starlark.EstimateSize(data)); err != nil {
+				t.Error(err)
+			}
+			thread.SetLocal(starform.RunDataLocalKey, data)
+
 			args := starlark.Tuple{starlark.String("asdf"), observe}
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, observe, args, nil)
@@ -167,7 +173,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 					st.Error(err)
 				}
 			}
-			st.KeepAlive(thread.Local(starform.RunDataLocalKey))
+			st.KeepAlive(data)
 		})
 	})
 
@@ -184,6 +190,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			if err != nil {
 				t.Fatal("no such method: test.observe")
 			}
+			thread.SetLocal(starform.RunDataLocalKey, starform.InitingRunData())
 			args := starlark.Tuple{starlark.String("asdf"), observe}
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, observe, args, nil)
