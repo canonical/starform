@@ -138,7 +138,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 
 		thread := &starlark.Thread{}
 		starform.PutRunDataIn(thread, starform.InitingRunData())
-		args := starlark.Tuple{starlark.String("asdf"), observe}
+		args := starlark.Tuple{starlark.String("event_name"), observe}
 		result, err := starlark.Call(thread, observe, args, nil)
 		if err != nil {
 			t.Error(err)
@@ -166,7 +166,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			}
 			starform.PutRunDataIn(thread, data)
 
-			args := starlark.Tuple{starlark.String("asdf"), observe}
+			args := starlark.Tuple{starlark.String("event_name"), observe}
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, observe, args, nil)
 				if err != nil {
@@ -192,7 +192,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 				t.Fatal("no such method: test.observe")
 			}
 
-			args := starlark.Tuple{starlark.String("asdf"), observe}
+			args := starlark.Tuple{starlark.String("event_name"), observe}
 			_, err = starlark.Call(thread, observe, args, nil)
 			if err != nil && !isStarlarkCancellation(err) {
 				st.Error(err)
