@@ -746,11 +746,11 @@ func TestProgramCache(t *testing.T) {
 func TestEventHandling(t *testing.T) {
 	const expectedLog = "1\n2\n3\n===\n4\n"
 
-	appObject := starform.NewAppObject("app")
-	appObject.Freeze()
+	app := starform.NewAppObject("app")
+	app.Freeze()
 	log := &strings.Builder{}
 	opts := &starform.ScriptSetOptions{
-		AppObject: appObject,
+		AppObject: app,
 		PrintHandler: func(thread *starlark.Thread, msg string) {
 			log.WriteString(msg)
 			log.WriteRune('\n')
@@ -806,10 +806,10 @@ func TestEventHandling(t *testing.T) {
 func TestEventHandlingFailPropagation(t *testing.T) {
 	const expected = "fail: oh no!"
 
-	appObject := starform.NewAppObject("app")
-	appObject.Freeze()
+	app := starform.NewAppObject("app")
+	app.Freeze()
 	opts := &starform.ScriptSetOptions{
-		AppObject:    appObject,
+		AppObject:    app,
 		PrintHandler: func(thread *starlark.Thread, msg string) {},
 	}
 	scripts, err := starform.NewScriptSet(opts)
@@ -838,8 +838,8 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 }
 
 func TestObserverFreezing(t *testing.T) {
-	appObject := starform.NewAppObject("app")
-	appObject.Freeze()
+	app := starform.NewAppObject("app")
+	app.Freeze()
 
 	tests := []struct {
 		name   string
@@ -872,7 +872,7 @@ func TestObserverFreezing(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &starform.ScriptSetOptions{
-				AppObject:    appObject,
+				AppObject:    app,
 				PrintHandler: func(thread *starlark.Thread, msg string) {},
 			}
 			scripts, err := starform.NewScriptSet(opts)

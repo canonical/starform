@@ -36,15 +36,15 @@ func (app *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuil
 	return err
 }
 
-func (ao *AppObject) AttrNames() []string {
+func (app *AppObject) AttrNames() []string {
 	return []string{"observe"}
 }
 
-func (ao *AppObject) Attr(name string) (starlark.Value, error) {
-	return ao.SafeAttr(nil, name)
+func (app *AppObject) Attr(name string) (starlark.Value, error) {
+	return app.SafeAttr(nil, name)
 }
 
-func (ao *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe|starlark.TimeSafe); err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (ao *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 				return nil, err
 			}
 		}
-		return observeBuiltin.BindReceiver(ao), nil
+		return observeBuiltin.BindReceiver(app), nil
 	}
 	return nil, nil
 }
