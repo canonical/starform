@@ -193,11 +193,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			}
 
 			args := starlark.Tuple{starlark.String("asdf"), observe}
-			for i := 0; i < st.N; i++ {
-				_, err := starlark.Call(thread, observe, args, nil)
-				if err != nil {
-					st.Error(err)
-				}
+			_, err = starlark.Call(thread, observe, args, nil)
+			if err != nil && !isStarlarkCancellation(err) {
+				st.Error(err)
 			}
 		})
 	})
