@@ -15,8 +15,8 @@ import (
 )
 
 type ScriptSet struct {
-	options *ScriptSetOptions
-	scripts map[[sha512.Size384]byte]scriptState
+	options   *ScriptSetOptions
+	pathByKey map[[sha512.Size384]byte]string
 }
 
 type ScriptSource interface {
@@ -78,17 +78,17 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		scripts[i] = &scriptStates[i]
 	}
 
-	scriptByKey := make(map[[48]byte]*scriptState, len(scripts))
+	pathByKey := make(map[[sha512.Size384]byte]string, len(scripts))
 	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
 		scriptsByPath[script.path] = script
-		scriptByKey[script.programKey] = script
+		pathByKey[script.programKey] = script.path
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{eventName: LoadEventName, scriptStates: scriptByKey}
+	data := &runData{eventName: LoadEventName, scriptStates: pathByKey}
 	thread := makeThread(ss.options, data)
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
@@ -133,6 +133,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
+	ss.pathByKey = pathByKey
 	return nil
 }
 
@@ -261,32 +262,29 @@ func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 
 func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) {
 	if logger == nil {
-		// This is necessary, otherwise the `print` builtin directly writes
-		// to os.Stderr, which is clearly not what we want.
-		return func(thread *starlark.Thread, msg string) {}
+		// Avoid default print behaviour which writes to stdout.
+		return func(thread *starlark.Thread, msg string) {
+			// Do nothing.
+		}
 	}
 
 	return func(thread *starlark.Thread, msg string) {
-		builtinFrame := thread.CallFrame(0)
+		currentFrame := thread.CallFrame(0)
 		callerFrame := thread.CallFrame(1)
 		level := PrintLevel
-		if builtinFrame.Name == "debug" {
+		if currentFrame.Name == "debug" {
 			level = DebugLevel
 		}
-		var eventName string
+		eventName := "<unknown>"
 		data, err := getRunData(thread)
-		if err != nil {
-			eventName = "<unknown>"
-		} else {
+		if err == nil {
 			eventName = data.eventName
 		}
+		var programKey [sha512.Size384]byte
+		copy(programKey[:], []byte(callerFrame.Pos.Filename()))
 		path := "<unknown>"
-		if filename := callerFrame.Pos.Filename(); len(filename) == sha512.Size384 {
-			var programKey [sha512.Size384]byte
-			copy(programKey[:], []byte(filename))
-			if state, ok := data.scriptStates[programKey]; ok {
-				path = state.path
-			}
+		if userPath, ok := data.scriptStates[programKey]; ok {
+			path = userPath
 		}
 		logger.Log(thread.Context(), LogEntry{
 			Message:   msg,

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/canonical/starform/starform"
@@ -12,7 +13,12 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
+func isStarlarkCancellation(err error) bool {
+	return strings.Contains(err.Error(), "Starlark computation cancelled:")
+}
+
 type unsafeTestStringer struct {
+	// Allows test errors to be declared in methods without error returns.
 	t startest.TestBase
 }
 
@@ -101,13 +107,13 @@ func TestDebugSafety(t *testing.T) {
 }
 
 func TestDebugSteps(t *testing.T) {
-	callFunction := func(value starlark.Value, args starlark.Tuple) starlark.Value {
-		result, _ := starlark.Call(&starlark.Thread{}, value, args, nil)
+	callFunction := func(value starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) starlark.Value {
+		result, _ := starlark.Call(&starlark.Thread{}, value, args, kwargs)
 		return result
 	}
-	callMethod := func(value starlark.Value, method string, args starlark.Tuple) starlark.Value {
+	callMethod := func(value starlark.Value, method string, args starlark.Tuple, kwargs []starlark.Tuple) starlark.Value {
 		attr, _ := value.(starlark.HasAttrs).Attr(method)
-		return callFunction(attr, args)
+		return callFunction(attr, args, kwargs)
 	}
 
 	tests := []struct {
@@ -120,11 +126,9 @@ func TestDebugSteps(t *testing.T) {
 		steps: uint64(len("True")),
 	}, {
 		name: "Builtin",
-		input: starlark.NewBuiltin(
-			"foo",
-			func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-				return starlark.None, nil
-			}),
+		input: starlark.NewBuiltin("foo", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			return starlark.None, nil
+		}),
 		steps: uint64(len("<built-in function foo>")),
 	}, {
 		name: "Dict",
@@ -134,12 +138,13 @@ func TestDebugSteps(t *testing.T) {
 			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					const arbitraryAddedSteps = 100
+					return thread.AddSteps(arbitraryAddedSteps)
 				},
 			})
 			return dict
 		}(),
-		steps: uint64(len("{1: None, 2: }")) + 100 + 2,
+		steps: uint64(len("{1: None, 2: }")) + 100 + 2, // +2 for values traversed.
 	}, {
 		name:  "Float",
 		input: starlark.Float(3.14),
@@ -208,27 +213,27 @@ func TestDebugSteps(t *testing.T) {
 		steps: uint64(len("(None, )")) + 2 + 100,
 	}, {
 		name:  "Bytes elems",
-		input: callMethod(starlark.Bytes("test"), "elems", nil),
+		input: callMethod(starlark.Bytes("test"), "elems", nil, nil),
 		steps: uint64(len(`b"test".elems()`)),
 	}, {
 		name:  "Range",
-		input: callFunction(starlark.Universe["range"], starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(10), starlark.MakeInt(2)}),
+		input: callFunction(starlark.Universe["range"], starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(10), starlark.MakeInt(2)}, nil),
 		steps: uint64(len("range(0, 10, 2)")),
 	}, {
 		name:  "String elems (chars)",
-		input: callMethod(starlark.String("test"), "elems", nil),
+		input: callMethod(starlark.String("test"), "elems", nil, nil),
 		steps: uint64(len(`"test".elems()`)),
 	}, {
 		name:  "String elems (ords)",
-		input: callMethod(starlark.String("test"), "elem_ords", nil),
+		input: callMethod(starlark.String("test"), "elem_ords", nil, nil),
 		steps: uint64(len(`"test".elem_ords()`)),
 	}, {
 		name:  "String codepoints (chars)",
-		input: callMethod(starlark.String("test"), "codepoints", nil),
+		input: callMethod(starlark.String("test"), "codepoints", nil, nil),
 		steps: uint64(len(`"test".codepoints()`)),
 	}, {
 		name:  "String codepoints (ords)",
-		input: callMethod(starlark.String("test"), "codepoint_ords", nil),
+		input: callMethod(starlark.String("test"), "codepoint_ords", nil, nil),
 		steps: uint64(len(`"test".codepoint_ords()`)),
 	}, {
 		name:  "String",
@@ -266,9 +271,9 @@ func TestDebugSteps(t *testing.T) {
 }
 
 func TestDebugAllocs(t *testing.T) {
-	listLoopContent := []starlark.Value{nil}
-	var listLoop starlark.Value = starlark.NewList(listLoopContent)
-	listLoopContent[0] = listLoop
+	listWithLoopContent := []starlark.Value{nil}
+	listWithLoop := starlark.Value(starlark.NewList(listWithLoopContent))
+	listWithLoopContent[0] = listWithLoop
 
 	dictLoop := starlark.NewDict(1)
 	var dictLoopValue starlark.Value = dictLoop
@@ -276,7 +281,7 @@ func TestDebugAllocs(t *testing.T) {
 
 	args := starlark.Tuple{
 		starlark.True,
-		listLoop,
+		listWithLoop,
 		dictLoop,
 		starlark.Float(math.Phi),
 		starlark.NewSet(1),
@@ -293,6 +298,7 @@ func TestDebugAllocs(t *testing.T) {
 			st.KeepAlive(msg)
 		}
 		thread.PrintSafety = starlark.MemSafe
+
 		for i := 0; i < st.N; i++ {
 			res, err := starlark.Call(thread, starform.DebugBuiltin, args, nil)
 			if err != nil {
@@ -301,4 +307,146 @@ func TestDebugAllocs(t *testing.T) {
 			st.KeepAlive(res)
 		}
 	})
+}
+
+func TestDebugCancellation(t *testing.T) {
+	callFunction := func(value starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) starlark.Value {
+		result, _ := starlark.Call(&starlark.Thread{}, value, args, kwargs)
+		return result
+	}
+	callMethod := func(value starlark.Value, method string, args starlark.Tuple, kwargs []starlark.Tuple) starlark.Value {
+		attr, _ := value.(starlark.HasAttrs).Attr(method)
+		return callFunction(attr, args, kwargs)
+	}
+
+	tests := []struct {
+		name  string
+		input func(n int) starlark.Value
+	}{{
+		name: "Bytes",
+		input: func(n int) starlark.Value {
+			return starlark.Bytes(strings.Repeat("a", n))
+		},
+	}, {
+		name: "Bytes (invalid utf8)",
+		input: func(n int) starlark.Value {
+			return starlark.Bytes(strings.Repeat(string([]byte{0x80}), n))
+		},
+	}, {
+		name: "Dict",
+		input: func(n int) starlark.Value {
+			dict := starlark.NewDict(n)
+			for i := 0; i < n; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				key := starlark.MakeInt64(int64(i) << 32)
+				dict.SetKey(key, starlark.None)
+			}
+			return dict
+		},
+	}, {
+		name: "Int(big)",
+		input: func(n int) starlark.Value {
+			return starlark.MakeInt64(1 << n)
+		},
+	}, {
+		name: "List",
+		input: func(n int) starlark.Value {
+			elems := make([]starlark.Value, n)
+			for i := range elems {
+				elems[i] = starlark.None
+			}
+			return starlark.NewList(elems)
+		},
+	}, {
+		name: "Set",
+		input: func(n int) starlark.Value {
+			set := starlark.NewSet(n)
+			for i := 0; i < n; i++ {
+				// Int hash only uses the least 32 bits.
+				// Leaving them blank creates collisions.
+				key := starlark.MakeInt64(int64(i) << 32)
+				set.Insert(key)
+			}
+			return set
+		},
+	}, {
+		name: "Tuple",
+		input: func(n int) starlark.Value {
+			elems := make([]starlark.Value, n)
+			for i := range elems {
+				elems[i] = starlark.None
+			}
+			return starlark.Tuple(elems)
+		},
+	}, {
+		name: "Bytes elems",
+		input: func(n int) starlark.Value {
+			return callMethod(starlark.Bytes(strings.Repeat("a", n)), "elems", nil, nil)
+		},
+	}, {
+		name: "Range",
+		input: func(n int) starlark.Value {
+			return callFunction(starlark.Universe["range"], starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(n)}, nil)
+		},
+	}, {
+		name: "String elems (chars)",
+		input: func(n int) starlark.Value {
+			return callMethod(starlark.String(strings.Repeat("a", n)), "elems", nil, nil)
+		},
+	}, {
+		name: "String elems (ords)",
+		input: func(n int) starlark.Value {
+			return callMethod(starlark.String(strings.Repeat("a", n)), "elem_ords", nil, nil)
+		},
+	}, {
+		name: "String codepoints (chars)",
+		input: func(n int) starlark.Value {
+			return callMethod(starlark.String(strings.Repeat("a", n)), "codepoints", nil, nil)
+		},
+	}, {
+		name: "String codepoints (ords)",
+		input: func(n int) starlark.Value {
+			return callMethod(starlark.String(strings.Repeat("a", n)), "codepoint_ords", nil, nil)
+		},
+	}, {
+		name: "SafeStringer",
+		input: func(n int) starlark.Value {
+			return &testSafeStringer{
+				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
+					for i := 0; i < n; i++ {
+						if _, err := sb.WriteString("foo"); err != nil {
+							return err
+						}
+					}
+					return nil
+				},
+			}
+		},
+	}, {
+		name: "String",
+		input: func(n int) starlark.Value {
+			return starlark.String(strings.Repeat("a", n))
+		},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.TimeSafe)
+			st.SetMaxSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.Cancel("done")
+				thread.Print = func(thread *starlark.Thread, msg string) {
+					// Do nothing.
+				}
+				thread.PrintSafety = starlark.TimeSafe
+				_, err := starlark.Call(thread, starform.DebugBuiltin, starlark.Tuple{test.input(st.N)}, nil)
+				if err == nil {
+					st.Error("expected cancellation")
+				} else if !isStarlarkCancellation(err) {
+					st.Errorf("expected cancellation, got: %v", err)
+				}
+			})
+		})
+	}
 }

@@ -11,7 +11,7 @@ var LoadEventName = "<load>"
 
 type runData struct {
 	eventName    string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
-	scriptStates map[[sha512.Size384]byte]*scriptState
+	scriptStates map[[sha512.Size384]byte]string
 }
 
 const runDataLocalKey = "starform.runData"

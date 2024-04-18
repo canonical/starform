@@ -15,23 +15,23 @@ import (
 )
 
 type testLogger struct {
-	builder strings.Builder
-	format  func(starform.LogEntry) string
+	log    strings.Builder
+	format func(starform.LogEntry) string
 }
 
 var _ starform.Logger = &testLogger{}
 
 func (tl *testLogger) Log(ctx context.Context, entry starform.LogEntry) {
-	if tl.format != nil {
-		message := tl.format(entry)
-		tl.builder.WriteString(message)
-		return
+	if tl.format == nil {
+		tl.format = func(le starform.LogEntry) string {
+			return le.Message + "\n"
+		}
 	}
-	tl.builder.WriteString(entry.Message)
-	tl.builder.WriteByte('\n')
+	message := tl.format(entry)
+	tl.log.WriteString(message)
 }
 
-func (tl *testLogger) String() string { return tl.builder.String() }
+func (tl *testLogger) String() string { return tl.log.String() }
 
 type testScriptSource struct {
 	name, content string
@@ -772,7 +772,7 @@ func TestLog(t *testing.T) {
 		EventName: "event",
 		Message:   "debug handling event",
 		Line:      8,
-	}}[:4] // TODO: remove this slice when we can handle events
+	}}[:4] // TODO(marco6): remove this slice operation when we can handle events
 	sources := []testScriptSource{{
 		name:    "foo.star",
 		content: testProgram,
@@ -819,7 +819,7 @@ func TestLog(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), []starform.ScriptSource{&source}); err != nil {
 			t.Fatal(err)
 		}
-		// TODO
+		// TODO(marco6): uncomment when we can handle events
 		// if err := scripts.Handle(context.Background(), "event"); err != nil {
 		// 	t.Fatal(err)
 		// }

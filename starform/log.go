@@ -7,6 +7,10 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
+type Logger interface {
+	Log(ctx context.Context, entry LogEntry)
+}
+
 type LogLevel int
 
 const (
@@ -23,10 +27,6 @@ type LogEntry struct {
 	Line      int32
 }
 
-type Logger interface {
-	Log(ctx context.Context, entry LogEntry)
-}
-
 func (le *LogEntry) String() string {
 	if le.Level == DebugLevel {
 		return fmt.Sprintf("%s: %s:%d: %s", le.EventName, le.Path, le.Line, le.Message)
@@ -38,7 +38,7 @@ func (le *LogEntry) String() string {
 var debugBuiltin = starlark.NewBuiltinWithSafety(
 	"debug",
 	starlark.MemSafe|starlark.CPUSafe|starlark.TimeSafe|starlark.IOSafe,
-	func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		if thread.Print == nil {
 			return starlark.None, nil
 		}
@@ -48,7 +48,7 @@ var debugBuiltin = starlark.NewBuiltinWithSafety(
 		}
 
 		sep := " "
-		if err := starlark.UnpackArgs("debug", nil, kwargs, "sep?", &sep); err != nil {
+		if err := starlark.UnpackArgs(b.Name(), nil, kwargs, "sep?", &sep); err != nil {
 			return nil, err
 		}
 
