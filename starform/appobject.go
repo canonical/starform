@@ -79,6 +79,7 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 	observer.Freeze()
 	obs, ok := data.observers[eventName]
 	if !ok {
+		// Precondition: events are never removed from data.observers.
 		delta := starlark.EstimateMakeSize(map[string][]starlark.Value{}, 1+len(data.observers)) -
 			starlark.EstimateMakeSize(map[string][]starlark.Value{}, len(data.observers))
 		if err := thread.AddAllocs(delta); err != nil {
