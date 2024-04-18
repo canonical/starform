@@ -93,8 +93,8 @@ func TestAppObjectSafeString(t *testing.T) {
 }
 
 func TestAppObjectSafeAttr(t *testing.T) {
-	appObject := starform.NewAppObject("test")
-	appObject.Freeze()
+	app := starform.NewAppObject("test")
+	app.Freeze()
 
 	t.Run("allocs-steps-io-safety", func(t *testing.T) {
 		st := startest.From(t)
@@ -102,7 +102,7 @@ func TestAppObjectSafeAttr(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			for i := 0; i < st.N; i++ {
-				result, err := appObject.SafeAttr(thread, "observe")
+				result, err := app.SafeAttr(thread, "observe")
 				if err != nil {
 					st.Error(err)
 				}
@@ -118,7 +118,7 @@ func TestAppObjectSafeAttr(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
 			for i := 0; i < st.N; i++ {
-				_, err := appObject.SafeAttr(thread, "observe")
+				_, err := app.SafeAttr(thread, "observe")
 				if err != nil && !isStarlarkCancellation(err) {
 					st.Error(err)
 				}
@@ -133,9 +133,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 	})
 
 	t.Run("return-value", func(t *testing.T) {
-		appObject := starform.NewAppObject("test")
-		appObject.Freeze()
-		observe, err := appObject.Attr("observe")
+		app := starform.NewAppObject("test")
+		app.Freeze()
+		observe, err := app.Attr("observe")
 		if err != nil {
 			t.Fatal("no such method: test.observe")
 		}
@@ -157,9 +157,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
-			appObject := starform.NewAppObject("test")
-			appObject.Freeze()
-			observe, err := appObject.Attr("observe")
+			app := starform.NewAppObject("test")
+			app.Freeze()
+			observe, err := app.Attr("observe")
 			if err != nil {
 				t.Fatal("no such method: test.observe")
 			}
@@ -189,9 +189,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			thread.Cancel("done")
 			starform.PutRunDataIn(thread, starform.InitingRunData())
 
-			appObject := starform.NewAppObject("test")
-			appObject.Freeze()
-			observe, err := appObject.Attr("observe")
+			app := starform.NewAppObject("test")
+			app.Freeze()
+			observe, err := app.Attr("observe")
 			if err != nil {
 				t.Fatal("no such method: test.observe")
 			}
