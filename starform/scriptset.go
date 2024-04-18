@@ -181,14 +181,14 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 	return scriptStates, nil
 }
 
-func (script *scriptState) runTopLevel(thread *starlark.Thread, appObject *AppObject) error {
+func (script *scriptState) runTopLevel(thread *starlark.Thread, app *AppObject) error {
 	switch script.status {
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
 		predeclared := starlark.StringDict{
-			appObject.name: appObject,
+			app.name: app,
 		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {

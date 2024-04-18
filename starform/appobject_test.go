@@ -14,27 +14,27 @@ func isStarlarkCancellation(err error) bool {
 }
 
 func TestAppObjectAsStarlarkValue(t *testing.T) {
-	const appObjectName = "testObject"
+	const appName = "testApp"
 
-	appObject := starform.NewAppObject(appObjectName)
-	appObject.Freeze()
+	app := starform.NewAppObject(appName)
+	app.Freeze()
 
-	if !bool(appObject.Truth()) {
+	if !bool(app.Truth()) {
 		t.Errorf("app object should be truthy")
 	}
-	if appObjectString := appObject.String(); appObjectString != appObjectName {
-		t.Errorf("incorrect string representation: expected %q but got %q", appObjectName, appObjectString)
+	if appString := app.String(); appString != appName {
+		t.Errorf("incorrect string representation: expected %q but got %q", appName, appString)
 	}
-	if appObjectType := appObject.Type(); appObjectType != appObjectName {
-		t.Errorf("incorrect type representation: expected %q but got %q", appObjectName, appObjectType)
+	if appType := app.Type(); appType != appName {
+		t.Errorf("incorrect type representation: expected %q but got %q", appName, appType)
 	}
-	if _, err := appObject.Hash(); err == nil {
+	if _, err := app.Hash(); err == nil {
 		t.Errorf("app object should not be hashable")
 	}
 }
 
 func TestAppObjectSafeString(t *testing.T) {
-	const appObjectName = "testObject"
+	const appName = "testApp"
 
 	t.Run("nil-thread", func(t *testing.T) {
 		defer func() {
@@ -43,10 +43,10 @@ func TestAppObjectSafeString(t *testing.T) {
 			}
 		}()
 
-		appObject := starform.NewAppObject(appObjectName)
+		app := starform.NewAppObject(appName)
 		sb := &strings.Builder{}
-		appObject.SafeString(nil, sb)
-		if str := sb.String(); str != appObjectName {
+		app.SafeString(nil, sb)
+		if str := sb.String(); str != appName {
 			t.Error("invalid SafeString value")
 		}
 	})
@@ -54,12 +54,12 @@ func TestAppObjectSafeString(t *testing.T) {
 	t.Run("regular-operation", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		st.SetMaxSteps(uint64(len(appObjectName)))
+		st.SetMaxSteps(uint64(len(appName)))
 		st.RunThread(func(thread *starlark.Thread) {
-			appObject := starform.NewAppObject(appObjectName)
+			app := starform.NewAppObject(appName)
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
-				if err := appObject.SafeString(thread, sb); err != nil {
+				if err := app.SafeString(thread, sb); err != nil {
 					st.Error(err)
 				}
 				if err := sb.Err(); err != nil {
@@ -79,10 +79,10 @@ func TestAppObjectSafeString(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			appObject := starform.NewAppObject(appObjectName)
+			app := starform.NewAppObject(appName)
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
-				if err := appObject.SafeString(thread, sb); err == nil {
+				if err := app.SafeString(thread, sb); err == nil {
 					st.Error("expected cancellation")
 				} else if !isStarlarkCancellation(err) {
 					st.Errorf("expected cancellation, got %v", err)

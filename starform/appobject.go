@@ -19,18 +19,18 @@ func NewAppObject(name string) *AppObject {
 var _ starlark.Value = &AppObject{}
 var _ starlark.SafeStringer = &AppObject{}
 
-func (ao *AppObject) String() string       { return ao.name }
-func (ao *AppObject) Type() string         { return ao.name }
-func (ao *AppObject) Freeze()              {}
-func (ao *AppObject) Truth() starlark.Bool { return true }
-func (ao *AppObject) Hash() (uint32, error) {
-	return 0, fmt.Errorf("unhashable type: %s", ao.Type())
+func (app *AppObject) String() string       { return app.name }
+func (app *AppObject) Type() string         { return app.name }
+func (app *AppObject) Freeze()              {}
+func (app *AppObject) Truth() starlark.Bool { return true }
+func (app *AppObject) Hash() (uint32, error) {
+	return 0, fmt.Errorf("unhashable type: %s", app.Type())
 }
-func (ao *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+func (app *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
 	if err := starlark.CheckSafety(thread, starlark.CPUSafe|starlark.MemSafe|starlark.TimeSafe|starlark.IOSafe); err != nil {
 		return err
 	}
 
-	_, err := sb.WriteString(ao.String())
+	_, err := sb.WriteString(app.String())
 	return err
 }
