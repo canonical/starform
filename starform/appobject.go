@@ -1,7 +1,6 @@
 package starform
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/canonical/starlark/starlark"
@@ -50,15 +49,22 @@ func (ao *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		return nil, err
 	}
 
-	if name != "observe" {
-		return nil, nil
-	}
-	if thread != nil {
-		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+	if name == "observe" {
+		data, err := getRunData(thread)
+		if err != nil {
 			return nil, err
 		}
+		if !data.observeAvailable {
+			return nil, fmt.Errorf("observe is unavailable")
+		}
+		if thread != nil {
+			if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+				return nil, err
+			}
+		}
+		return observeBuiltin.BindReceiver(ao), nil
 	}
-	return observeBuiltin.BindReceiver(ao), nil
+	return nil, nil
 }
 
 var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
@@ -72,9 +78,6 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 	data, err := getRunData(thread)
 	if err != nil {
 		return nil, err
-	}
-	if !data.observeAvailable {
-		return nil, errors.New("unavailable")
 	}
 	observer.Freeze()
 	obs, ok := data.observers[eventName]
