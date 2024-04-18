@@ -88,9 +88,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{
-		eventName: LoadEventName,
-	}
+	data := &runData{eventName: LoadEventName}
 	thread := makeThread(ss.options, data)
 	defer thread.Cancel("done")
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
@@ -252,9 +250,7 @@ func (ss *ScriptSet) Handle(eventName string) error {
 		return nil
 	}
 
-	data := &runData{
-		eventName: eventName,
-	}
+	data := &runData{eventName: eventName}
 	thread := makeThread(ss.options, data)
 	defer thread.Cancel("done")
 	for _, observer := range observers {
