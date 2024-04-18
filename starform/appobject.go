@@ -83,12 +83,14 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 	obs, ok := data.observers[eventName]
 	if !ok {
 		// Precondition: events are never removed from data.observers.
+		const newObserverSliceInitialCap = 10
 		delta := starlark.EstimateMakeSize(map[string][]starlark.Value{}, 1+len(data.observers)) -
-			starlark.EstimateMakeSize(map[string][]starlark.Value{}, len(data.observers))
+			starlark.EstimateMakeSize(map[string][]starlark.Value{}, len(data.observers)) +
+			starlark.EstimateMakeSize([]starlark.Value{}, newObserverSliceInitialCap)
 		if err := thread.AddAllocs(delta); err != nil {
 			return nil, err
 		}
-		obs = make([]starlark.Value, 0, 1)
+		obs = make([]starlark.Value, 0, newObserverSliceInitialCap)
 	}
 	safeAppender := starlark.NewSafeAppender(thread, &obs)
 	if err := safeAppender.Append(observer); err != nil {
