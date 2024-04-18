@@ -102,14 +102,35 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
-	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
-		if err := checkLoadPath(path); err != nil {
+	thread.Load = func(thread *starlark.Thread, loadPath string) (starlark.StringDict, error) {
+		if err := checkLoadPath(loadPath); err != nil {
 			return nil, err
 		}
 
-		script, ok := scriptsByPath[path]
+		normalisedLoadPath := loadPath
+		if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
+			frame := thread.CallFrame(0)
+			var programKey [sha512.Size384]byte
+			copy(programKey[:], []byte(frame.Pos.Filename()))
+
+			currState, ok := scriptsByPath[string(programKey[:])]
+			if !ok {
+				return nil, fmt.Errorf("no file with hash %#v", programKey[:])
+			}
+			currPath := currState.path
+
+			dir := path.Dir(currPath)
+			sb := &strings.Builder{}
+			sb.Grow(len(dir) + 1 + len(loadPath))
+			sb.WriteString(dir)
+			sb.WriteRune('/')
+			sb.WriteString(loadPath)
+			normalisedLoadPath = path.Clean(sb.String())
+		}
+
+		script, ok := scriptsByPath[normalisedLoadPath]
 		if !ok {
-			return nil, fmt.Errorf("%s not found", path)
+			return nil, fmt.Errorf("%s not found", loadPath)
 		}
 		if err := ss.runTopLevel(thread, script); err != nil {
 			return nil, err

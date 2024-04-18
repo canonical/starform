@@ -447,12 +447,16 @@ func TestCheckLoadPath(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			path := test.path
+			if strings.HasPrefix(path, "./") {
+				path = path[2:]
+			}
 			sources := []starform.ScriptSource{
 				&testScriptSource{
 					name:    "init.star",
 					content: fmt.Sprintf("load('%s', 'unused')", test.path),
 				}, &testScriptSource{
-					name:    test.path,
+					name:    path,
 					content: "unused = None",
 				},
 			}
