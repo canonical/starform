@@ -183,6 +183,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
+			starform.PutRunDataIn(thread, starform.InitingRunData())
 
 			appObject := starform.NewAppObject("test")
 			appObject.Freeze()
@@ -190,7 +191,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			if err != nil {
 				t.Fatal("no such method: test.observe")
 			}
-			starform.PutRunDataIn(thread, starform.InitingRunData())
+
 			args := starlark.Tuple{starlark.String("asdf"), observe}
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, observe, args, nil)
