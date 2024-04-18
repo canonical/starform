@@ -151,7 +151,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 	t.Run("allocs-steps-io-safety", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		st.SetMaxSteps(0)
+		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
 			appObject := starform.NewAppObject("test")
 			appObject.Freeze()

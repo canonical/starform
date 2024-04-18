@@ -77,8 +77,20 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 		return nil, errors.New("unavailable")
 	}
 	observer.Freeze()
-	// TODO(kcza): count steps and allocs here!
-	data.observers[eventName] = append(data.observers[eventName], observer)
+	obs, ok := data.observers[eventName]
+	if !ok {
+		delta := starlark.EstimateMakeSize(map[string][]starlark.Value{}, 1+len(data.observers)) -
+			starlark.EstimateMakeSize(map[string][]starlark.Value{}, len(data.observers))
+		if err := thread.AddAllocs(delta); err != nil {
+			return nil, err
+		}
+		obs = make([]starlark.Value, 0, 1)
+	}
+	safeAppender := starlark.NewSafeAppender(thread, &obs)
+	if err := safeAppender.Append(observer); err != nil {
+		return nil, err
+	}
+	data.observers[eventName] = obs
 
 	return starlark.None, nil
 })
