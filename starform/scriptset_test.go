@@ -840,7 +840,6 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 func TestObserverFreezing(t *testing.T) {
 	app := starform.NewAppObject("app")
 	app.Freeze()
-
 	tests := []struct {
 		name   string
 		script string
