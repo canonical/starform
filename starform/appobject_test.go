@@ -128,6 +128,10 @@ func TestAppObjectSafeAttr(t *testing.T) {
 }
 
 func TestAppObjectObserveSafety(t *testing.T) {
+	observer := starlark.NewBuiltin("observer", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
+		return starlark.None, nil
+	})
+
 	t.Run("return-value", func(t *testing.T) {
 		appObject := starform.NewAppObject("test")
 		appObject.Freeze()
@@ -138,7 +142,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 
 		thread := &starlark.Thread{}
 		starform.PutRunDataIn(thread, starform.InitingRunData())
-		args := starlark.Tuple{starlark.String("event_name"), observe}
+		args := starlark.Tuple{starlark.String("event_name"), observer}
 		result, err := starlark.Call(thread, observe, args, nil)
 		if err != nil {
 			t.Error(err)
@@ -166,7 +170,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			}
 			starform.PutRunDataIn(thread, data)
 
-			args := starlark.Tuple{starlark.String("event_name"), observe}
+			args := starlark.Tuple{starlark.String("event_name"), observer}
 			for i := 0; i < st.N; i++ {
 				_, err := starlark.Call(thread, observe, args, nil)
 				if err != nil {
@@ -192,7 +196,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 				t.Fatal("no such method: test.observe")
 			}
 
-			args := starlark.Tuple{starlark.String("event_name"), observe}
+			args := starlark.Tuple{starlark.String("event_name"), observer}
 			_, err = starlark.Call(thread, observe, args, nil)
 			if err != nil && !isStarlarkCancellation(err) {
 				st.Error(err)
