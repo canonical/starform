@@ -813,7 +813,7 @@ func TestLog(t *testing.T) {
 		content: testProgram,
 	}}
 	for _, source := range sources {
-		expectedEntries := expectedEntries // shadow to keep the original entries available for next round
+		expectedEntries := expectedEntries // Shadow to keep the original entries available for next round.
 		logger := &testLogger{
 			format: func(entry starform.LogEntry) string {
 				if len(expectedEntries) == 0 {

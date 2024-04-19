@@ -103,6 +103,8 @@ func TestDebugSafety(t *testing.T) {
 }
 
 func TestDebugSteps(t *testing.T) {
+	const arbitraryAddedSteps = 100
+
 	callFunction := func(value starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) starlark.Value {
 		result, _ := starlark.Call(&starlark.Thread{}, value, args, kwargs)
 		return result
@@ -134,13 +136,12 @@ func TestDebugSteps(t *testing.T) {
 			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					const arbitraryAddedSteps = 100
 					return thread.AddSteps(arbitraryAddedSteps)
 				},
 			})
 			return dict
 		}(),
-		steps: uint64(len("{1: None, 2: }")) + 100 + 2, // +2 for values traversed.
+		steps: uint64(len("{1: None, 2: }")) + arbitraryAddedSteps + 2, // +2 for values traversed.
 	}, {
 		name:  "Float",
 		input: starlark.Float(3.14),
@@ -172,11 +173,11 @@ func TestDebugSteps(t *testing.T) {
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					return thread.AddSteps(arbitraryAddedSteps)
 				},
 			},
 		}),
-		steps: uint64(len("[None, ]")) + 100 + 2,
+		steps: uint64(len("[None, ]")) + arbitraryAddedSteps + 2,
 	}, {
 		name:  "None",
 		input: starlark.None,
@@ -189,12 +190,12 @@ func TestDebugSteps(t *testing.T) {
 			set.Insert(&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					return thread.AddSteps(arbitraryAddedSteps)
 				},
 			})
 			return set
 		}(),
-		steps: uint64(len("set([None, ])")) + 100 + 2,
+		steps: uint64(len("set([None, ])")) + arbitraryAddedSteps + 2,
 	}, {
 		name: "Tuple",
 		input: starlark.Tuple{

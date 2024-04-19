@@ -15,8 +15,8 @@ import (
 )
 
 type ScriptSet struct {
-	options   *ScriptSetOptions
-	pathByKey map[[sha512.Size384]byte]string
+	options          *ScriptSetOptions
+	pathByProgramKey map[[sha512.Size384]byte]string
 }
 
 type ScriptSource interface {
@@ -82,17 +82,17 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		scripts[i] = &scriptStates[i]
 	}
 
-	pathByKey := make(map[[sha512.Size384]byte]string, len(scripts))
+	pathByProgramKey := make(map[[sha512.Size384]byte]string, len(scripts))
 	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
 		scriptsByPath[script.path] = script
-		pathByKey[script.programKey] = script.path
+		pathByProgramKey[script.programKey] = script.path
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{eventName: LoadEventName, scriptStates: pathByKey}
+	data := &runData{eventName: LoadEventName, pathByProgramKey: pathByProgramKey}
 	thread := makeThread(ss.options, data)
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
@@ -137,7 +137,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	ss.pathByKey = pathByKey
+	ss.pathByProgramKey = pathByProgramKey
 	return nil
 }
 
@@ -290,7 +290,7 @@ func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) 
 		var programKey [sha512.Size384]byte
 		copy(programKey[:], []byte(callerFrame.Pos.Filename()))
 		path := "<unknown>"
-		if userPath, ok := data.scriptStates[programKey]; ok {
+		if userPath, ok := data.pathByProgramKey[programKey]; ok {
 			path = userPath
 		}
 		logger.Log(thread.Context(), LogEntry{

@@ -62,10 +62,12 @@ var debugBuiltin = starlark.NewBuiltinWithSafety(
 				}
 			}
 			if s, ok := starlark.AsString(v); ok {
+				// Avoid quoted v.SafeString()/v.String() representation.
 				if _, err := buf.WriteString(s); err != nil {
 					return nil, err
 				}
 			} else if b, ok := v.(starlark.Bytes); ok {
+				// Avoid quoted v.SafeString()/v.String() representation.
 				if _, err := buf.WriteString(string(b)); err != nil {
 					return nil, err
 				}
