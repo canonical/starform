@@ -447,9 +447,9 @@ func TestCheckLoadPath(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			path := test.path
+			path := test.path // Setting the path verbatim is a hack for testing, in practice, these should never start with either ./ or ../
 			if strings.HasPrefix(path, "./") {
-				path = path[2:]
+				path = path[2:] // Remove sanitised prefix.
 			}
 			sources := []starform.ScriptSource{
 				&testScriptSource{
