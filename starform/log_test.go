@@ -13,10 +13,6 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
-func isStarlarkCancellation(err error) bool {
-	return strings.Contains(err.Error(), "Starlark computation cancelled:")
-}
-
 type unsafeTestStringer struct {
 	// Allows test errors to be declared in methods without error returns.
 	t startest.TestBase

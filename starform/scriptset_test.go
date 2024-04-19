@@ -116,34 +116,42 @@ func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
 }
 
 func TestOptionsValidation(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name     string
 		opts     *starform.ScriptSetOptions
 		expected string
 	}{{
 		name: "NotSafe",
-		opts: &starform.ScriptSetOptions{},
+		opts: &starform.ScriptSetOptions{
+			AppObject: app,
+		},
 	}, {
 		name: "MemSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      app,
 			RequiredSafety: starlark.MemSafe,
 		},
 		expected: "cannot run MemSafe Starlark with unbounded MaxAllocs",
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      app,
 			RequiredSafety: starlark.MemSafe,
 			MaxAllocs:      100,
 		},
 	}, {
 		name: "CPUSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      app,
 			RequiredSafety: starlark.CPUSafe,
 		},
 		expected: "cannot run CPUSafe Starlark with unbounded MaxSteps",
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObject:      app,
 			RequiredSafety: starlark.CPUSafe,
 			MaxSteps:       100,
 		},
@@ -163,6 +171,8 @@ func TestOptionsValidation(t *testing.T) {
 }
 
 func TestLoadSimpleScriptSet(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name        string
 		sources     []starform.ScriptSource
@@ -263,7 +273,8 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				Logger: logger,
+				Logger:    logger,
+				AppObject: app,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -288,6 +299,8 @@ func TestCheckLoadPath(t *testing.T) {
 		return fmt.Sprintf("cannot load %s: path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md", path)
 	}
 
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name   string
 		path   string
@@ -426,7 +439,9 @@ func TestCheckLoadPath(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &starform.ScriptSetOptions{}
+			opts := &starform.ScriptSetOptions{
+				AppObject: app,
+			}
 			set, err := starform.NewScriptSet(opts)
 			if err != nil {
 				t.Fatal(err)
@@ -456,7 +471,11 @@ func TestCheckLoadPath(t *testing.T) {
 }
 
 func TestCancelLoad(t *testing.T) {
-	opts := &starform.ScriptSetOptions{}
+	app := starform.NewAppObject("test")
+	app.Freeze()
+	opts := &starform.ScriptSetOptions{
+		AppObject: app,
+	}
 	scripts, err := starform.NewScriptSet(opts)
 	if err != nil {
 		t.Fatal(err)
@@ -477,6 +496,8 @@ func TestCancelLoad(t *testing.T) {
 }
 
 func TestLoadStatement(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name        string
 		sources     []starform.ScriptSource
@@ -574,7 +595,8 @@ func TestLoadStatement(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				Logger: logger,
+				Logger:    logger,
+				AppObject: app,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -593,7 +615,8 @@ func TestLoadStatement(t *testing.T) {
 	t.Run("nonexistent loads", func(t *testing.T) {
 		logger := &testLogger{}
 		opts := &starform.ScriptSetOptions{
-			Logger: logger,
+			Logger:    logger,
+			AppObject: app,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
@@ -617,7 +640,8 @@ func TestLoadStatement(t *testing.T) {
 	t.Run("load-cycle", func(t *testing.T) {
 		logger := &testLogger{}
 		opts := &starform.ScriptSetOptions{
-			Logger: logger,
+			Logger:    logger,
+			AppObject: app,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "chicken.star",
@@ -646,10 +670,14 @@ func TestLoadStatement(t *testing.T) {
 }
 
 func TestProgramCache(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
+
 	t.Run("total-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			Cache: cache,
+			Cache:     cache,
+			AppObject: app,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
@@ -676,7 +704,8 @@ func TestProgramCache(t *testing.T) {
 	t.Run("partial-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			Cache: cache,
+			Cache:     cache,
+			AppObject: app,
 		}
 		sets := [][]starform.ScriptSource{{
 			&testScriptSource{
@@ -728,19 +757,9 @@ func TestProgramCache(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	const testProgram = `
-		def init():
-			# app.on("event", on_event) # TODO: allow this after #11
-			print("print in init")
-			debug("debug in init")
-
-		def on_event():
-			print("print handling event")
-			debug("debug handling event")
-
-		print("print at toplevel")
-		debug("debug at toplevel")
-	`
+	cache := &testScriptCache{}
+	app := starform.NewAppObject("test")
+	app.Freeze()
 
 	expectedEntries := []starform.LogEntry{{
 		Level:     starform.PrintLevel,
@@ -773,6 +792,19 @@ func TestLog(t *testing.T) {
 		Message:   "debug handling event",
 		Line:      8,
 	}}[:4] // TODO(marco6): remove this slice operation when we can handle events
+	const testProgram = `
+		def init():
+			# app.on("event", on_event) # TODO: allow this after #11
+			print("print in init")
+			debug("debug in init")
+
+		def on_event():
+			print("print handling event")
+			debug("debug handling event")
+
+		print("print at toplevel")
+		debug("debug at toplevel")
+	`
 	sources := []testScriptSource{{
 		name:    "foo.star",
 		content: testProgram,
@@ -780,7 +812,6 @@ func TestLog(t *testing.T) {
 		name:    "bar.star",
 		content: testProgram,
 	}}
-	cache := &testScriptCache{}
 	for _, source := range sources {
 		expectedEntries := expectedEntries // shadow to keep the original entries available for next round
 		logger := &testLogger{
@@ -809,8 +840,9 @@ func TestLog(t *testing.T) {
 			},
 		}
 		opts := &starform.ScriptSetOptions{
-			Cache:  cache,
-			Logger: logger,
+			Cache:     cache,
+			Logger:    logger,
+			AppObject: app,
 		}
 		scripts, err := starform.NewScriptSet(opts)
 		if err != nil {
