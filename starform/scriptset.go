@@ -108,7 +108,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	go func() {
 		select {
 		case <-ctx.Done():
-			thread.Cancel("operation canceled")
+			thread.Cancel("operation cancelled")
 		case <-done:
 		}
 	}()
