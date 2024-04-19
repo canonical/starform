@@ -25,3 +25,12 @@ func getRunData(thread *starlark.Thread) (*runData, error) {
 	}
 	return ret, nil
 }
+
+func (rd *runData) GetPath(programKey string) string {
+	var programKeyBytes [sha512.Size384]byte
+	copy(programKeyBytes[:], []byte(programKey))
+	if path, ok := rd.pathByProgramKey[programKeyBytes]; ok {
+		return path
+	}
+	return "<unknown>"
+}

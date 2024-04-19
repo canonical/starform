@@ -287,12 +287,7 @@ func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) 
 		if err == nil {
 			eventName = data.eventName
 		}
-		var programKey [sha512.Size384]byte
-		copy(programKey[:], []byte(callerFrame.Pos.Filename()))
-		path := "<unknown>"
-		if userPath, ok := data.pathByProgramKey[programKey]; ok {
-			path = userPath
-		}
+		path := data.GetPath(callerFrame.Pos.Filename())
 		logger.Log(thread.Context(), LogEntry{
 			Message:   msg,
 			Level:     level,
