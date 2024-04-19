@@ -135,7 +135,6 @@ func (lc *LRUCache) Visit(f func(key, value interface{}) error) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
