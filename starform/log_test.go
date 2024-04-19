@@ -271,18 +271,16 @@ func TestDebugSteps(t *testing.T) {
 }
 
 func TestDebugAllocs(t *testing.T) {
-	listWithLoopContent := []starlark.Value{nil}
-	listWithLoop := starlark.Value(starlark.NewList(listWithLoopContent))
-	listWithLoopContent[0] = listWithLoop
+	listWithLoop := starlark.NewList(nil)
+	listWithLoop.Append(listWithLoop)
 
-	dictLoop := starlark.NewDict(1)
-	var dictLoopValue starlark.Value = dictLoop
-	dictLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictLoopValue)
+	dictWithLoop := starlark.NewDict(1)
+	dictWithLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictWithLoop)
 
 	args := starlark.Tuple{
 		starlark.True,
 		listWithLoop,
-		dictLoop,
+		dictWithLoop,
 		starlark.Float(math.Phi),
 		starlark.NewSet(1),
 		starlark.String(`"'{}🌋`),

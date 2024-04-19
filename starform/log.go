@@ -35,9 +35,11 @@ func (le *LogEntry) String() string {
 	return fmt.Sprintf("%s:%d: %s", le.Path, le.Line, le.Message)
 }
 
+const debugBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+
 var debugBuiltin = starlark.NewBuiltinWithSafety(
 	"debug",
-	starlark.MemSafe|starlark.CPUSafe|starlark.TimeSafe|starlark.IOSafe,
+	debugBuiltinSafety,
 	func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		if thread.Print == nil {
 			return starlark.None, nil
