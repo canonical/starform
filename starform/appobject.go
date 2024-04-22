@@ -45,7 +45,8 @@ func (app *AppObject) Attr(name string) (starlark.Value, error) {
 }
 
 func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
-	if err := starlark.CheckSafety(thread, starlark.MemSafe|starlark.CPUSafe|starlark.IOSafe|starlark.TimeSafe); err != nil {
+	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 
