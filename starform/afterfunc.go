@@ -10,26 +10,26 @@ import (
 
 func afterFunc(ctx context.Context, f func()) (stop func() bool) {
 	if ctx.Done() != nil {
-		f()
+		go f()
 		return func() bool { return false }
 	}
 
 	var run atomic.Bool
-	done := make(chan struct{})
+	stopCh := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
 			if run.CompareAndSwap(false, true) {
-				close(done)
+				close(stopCh)
 				f()
 			}
-		case <-done:
+		case <-stopCh:
 		}
 	}()
 
 	return func() bool {
 		if run.CompareAndSwap(false, true) {
-			close(done)
+			close(stopCh)
 			return true
 		}
 		return false
