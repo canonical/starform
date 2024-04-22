@@ -673,6 +673,106 @@ func TestLoadStatement(t *testing.T) {
 	})
 }
 
+func TestRelativeLoads(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
+
+	type fileSpec struct {
+		name  string
+		loads []string
+	}
+	tests := []struct {
+		name          string
+		files         []fileSpec
+		expectedError string
+		expectedLog   string
+	}{{
+		name: "absolute-toplevel",
+		files: []fileSpec{
+			{"aaa.star", []string{"bbb.star"}},
+			{"bbb.star", []string{}},
+		},
+		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
+	}, {
+		name: "absolute-nested",
+		files: []fileSpec{
+			{"aaa/bbb.star", []string{"ccc.star"}},
+			{"ccc.star", []string{}},
+		},
+		expectedLog: "ccc.star:\naaa/bbb.star: ccc.star\n",
+	}, {
+		name: "relative-toplevel",
+		files: []fileSpec{
+			{"aaa.star", []string{"./bbb.star"}},
+			{"bbb.star", []string{}},
+		},
+		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
+	}, {
+		name: "relative-nested",
+		files: []fileSpec{
+			{"aaa/bbb.star", []string{"./ccc/ddd.star"}},
+			{"aaa/ccc/ddd.star", []string{}},
+		},
+		expectedLog: "aaa/ccc/ddd.star:\naaa/bbb.star: aaa/ccc/ddd.star\n",
+	}, {
+		name: "parent-nested",
+		files: []fileSpec{
+			{"aaa/bbb/ccc.star", []string{"../ddd/eee.star"}},
+			{"aaa/ddd/eee.star", []string{}},
+		},
+		expectedLog: "aaa/ddd/eee.star:\naaa/bbb/ccc.star: aaa/ddd/eee.star\n",
+	}, {
+		name: "parent-toplevel",
+		files: []fileSpec{
+			{"aaa.star", []string{"../nonexistent.star"}},
+		},
+		expectedError: "cannot load ../nonexistent.star: ../nonexistent.star not found",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cache := &testScriptCache{}
+			logger := &testLogger{}
+			opts := &starform.ScriptSetOptions{
+				AppObject: app,
+				Cache:     cache,
+				Logger:    logger,
+			}
+			scripts, err := starform.NewScriptSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sources := make([]starform.ScriptSource, 0, len(test.files))
+			for _, file := range test.files {
+				content := &strings.Builder{}
+				for i, load := range file.loads {
+					content.WriteString(fmt.Sprintf("\nload('%s', name_%d='name')", load, i))
+				}
+				content.WriteString(fmt.Sprintf("\nprint('%s:'", file.name))
+				for i := range file.loads {
+					content.WriteString(fmt.Sprintf(", name_%d", i))
+				}
+				content.WriteString(")")
+				content.WriteString(fmt.Sprintf("\nname = '%s'", file.name))
+				sources = append(sources, &testScriptSource{
+					name:    file.name,
+					content: content.String(),
+				})
+			}
+			err = scripts.LoadSources(context.Background(), sources)
+			if err == nil {
+				if test.expectedError != "" {
+					t.Error("expected error")
+				}
+			} else if err.Error() != test.expectedError {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if actualLog := logger.String(); actualLog != test.expectedLog {
+				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
+			}
+		})
+	}
+}
+
 func TestProgramCache(t *testing.T) {
 	app := starform.NewAppObject("test")
 	app.Freeze()
