@@ -244,7 +244,7 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func (ss *ScriptSet) Handle(eventName string) error {
+func (ss *ScriptSet) Handle(ctx context.Context, eventName string) error {
 	observers, ok := ss.observers[eventName]
 	if !ok {
 		return nil
@@ -252,6 +252,8 @@ func (ss *ScriptSet) Handle(eventName string) error {
 
 	data := &runData{eventName: eventName}
 	thread := makeThread(ss.options, data)
+	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
+	defer stop()
 	defer thread.Cancel("done")
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)

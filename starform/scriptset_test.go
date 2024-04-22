@@ -801,7 +801,7 @@ func TestObserverTypes(t *testing.T) {
 				t.Errorf("expected error")
 			}
 
-			if err := scripts.Handle("foo"); err != nil {
+			if err := scripts.Handle(context.Background(), "foo"); err != nil {
 				t.Fatal(err)
 			}
 			if actualLog := log.String(); actualLog != test.expectedLog {
@@ -859,11 +859,11 @@ func TestEventHandling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle("foo"); err != nil {
+	if err := scripts.Handle(context.Background(), "foo"); err != nil {
 		t.Fatal(err)
 	}
 	log.WriteString("===\n")
-	if err := scripts.Handle("bar"); err != nil {
+	if err := scripts.Handle(context.Background(), "bar"); err != nil {
 		t.Fatal(err)
 	}
 	if actualLog := log.String(); actualLog != expectedLog {
@@ -898,7 +898,7 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle("foo"); err == nil {
+	if err := scripts.Handle(context.Background(), "foo"); err == nil {
 		t.Fatal("expected error")
 	} else if err.Error() != expected {
 		t.Errorf("incorrect error: expected %s but got %v", expected, err)
@@ -953,7 +953,7 @@ func TestObserverFreezing(t *testing.T) {
 			if err := scripts.LoadSources(context.Background(), sources); err != nil {
 				t.Fatal(err)
 			}
-			if err := scripts.Handle("foo"); err == nil {
+			if err := scripts.Handle(context.Background(), "foo"); err == nil {
 				t.Error("expected error")
 			} else if err.Error() != "cannot insert into frozen hash table" {
 				t.Errorf("unexpected error: %v", err)
