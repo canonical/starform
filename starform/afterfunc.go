@@ -15,21 +15,21 @@ func afterFunc(ctx context.Context, f func()) (stop func() bool) {
 	}
 
 	var run atomic.Bool
-	stopCh := make(chan struct{})
+	done := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
 			if run.CompareAndSwap(false, true) {
-				close(stopCh)
+				close(done)
 				f()
 			}
-		case <-stopCh:
+		case <-done:
 		}
 	}()
 
 	return func() bool {
 		if run.CompareAndSwap(false, true) {
-			close(stopCh)
+			close(done)
 			return true
 		}
 		return false

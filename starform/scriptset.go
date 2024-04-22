@@ -103,8 +103,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 		return script.toplevelEnv, nil
 	}
-	done := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer done()
+	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
+	defer stop()
 	for _, script := range scripts {
 		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
 			return err
