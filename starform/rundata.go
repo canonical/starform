@@ -11,7 +11,7 @@ var LoadEventName = "<load>"
 type runData struct {
 	eventName        string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
 	observeAvailable bool
-	observers        map[string][]starlark.Value
+	observers        map[string][]starlark.Callable
 }
 
 const runDataLocalKey = "starform.runData"
@@ -19,7 +19,11 @@ const runDataLocalKey = "starform.runData"
 var errRunDataMissing = fmt.Errorf("%s missing", runDataLocalKey)
 
 func getRunData(thread *starlark.Thread) (*runData, error) {
-	ret, ok := thread.Local(runDataLocalKey).(*runData)
+	storedData := thread.Local(runDataLocalKey)
+	if storedData == nil {
+		return nil, errRunDataMissing
+	}
+	ret, ok := storedData.(*runData)
 	if !ok {
 		return nil, errRunDataMissing
 	}

@@ -51,6 +51,9 @@ func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 	}
 
 	if name == "observe" {
+		if thread == nil {
+			return nil, errRunDataMissing
+		}
 		data, err := getRunData(thread)
 		if err != nil {
 			return nil, err
@@ -71,7 +74,7 @@ func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
 var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var eventName string
-	var observer starlark.Value
+	var observer starlark.Callable
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 2, &eventName, &observer); err != nil {
 		return nil, err
 	}
@@ -85,13 +88,13 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 	if !ok {
 		// Precondition: events are never removed from data.observers.
 		const newObserverSliceInitialCap = 10
-		delta := starlark.EstimateMakeSize(map[string][]starlark.Value{}, 1+len(data.observers)) -
-			starlark.EstimateMakeSize(map[string][]starlark.Value{}, len(data.observers)) +
-			starlark.EstimateMakeSize([]starlark.Value{}, newObserverSliceInitialCap)
+		delta := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(data.observers)) -
+			starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(data.observers)) +
+			starlark.EstimateMakeSize([]starlark.Callable{}, newObserverSliceInitialCap)
 		if err := thread.AddAllocs(delta); err != nil {
 			return nil, err
 		}
-		obs = make([]starlark.Value, 0, newObserverSliceInitialCap)
+		obs = make([]starlark.Callable, 0, newObserverSliceInitialCap)
 	}
 	safeAppender := starlark.NewSafeAppender(thread, &obs)
 	if err := safeAppender.Append(observer); err != nil {

@@ -18,7 +18,7 @@ func InitingRunData() *RunData {
 	return &RunData{
 		eventName:        LoadEventName,
 		observeAvailable: true,
-		observers:        make(map[string][]starlark.Value),
+		observers:        make(map[string][]starlark.Callable),
 	}
 }
 

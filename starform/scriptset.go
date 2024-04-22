@@ -16,7 +16,7 @@ import (
 
 type ScriptSet struct {
 	options   *ScriptSetOptions
-	observers map[string][]starlark.Value
+	observers map[string][]starlark.Callable
 }
 
 type ScriptSource interface {
@@ -114,7 +114,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	}
 
 	data.observeAvailable = true
-	data.observers = make(map[string][]starlark.Value)
+	data.observers = make(map[string][]starlark.Callable)
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
