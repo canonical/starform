@@ -3,7 +3,6 @@ package starform
 import (
 	"context"
 	"crypto/sha512"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"path"
@@ -172,8 +171,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			if err != ErrNotCached {
 				return nil, err
 			}
-			base64Key := base64.StdEncoding.EncodeToString(programKey[:])
-			cachedFilename := fmt.Sprintf("cache%s.star", base64Key)
+			cachedFilename := fmt.Sprintf("cache-%x.star", programKey[:4])
 			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, cachedFilename, content, isPredeclared)
 			if err != nil {
 				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
