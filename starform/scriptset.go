@@ -3,6 +3,7 @@ package starform
 import (
 	"context"
 	"crypto/sha512"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"path"
@@ -15,8 +16,8 @@ import (
 )
 
 type ScriptSet struct {
-	options          *ScriptSetOptions
-	pathByProgramKey map[[sha512.Size384]byte]string
+	options        *ScriptSetOptions
+	pathByFilename map[string]string
 }
 
 type ScriptSource interface {
@@ -82,17 +83,17 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		scripts[i] = &scriptStates[i]
 	}
 
-	pathByProgramKey := make(map[[sha512.Size384]byte]string, len(scripts))
+	pathByFilename := make(map[string]string, len(scripts))
 	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
 		scriptsByPath[script.path] = script
-		pathByProgramKey[script.programKey] = script.path
+		pathByFilename[script.program.Filename()] = script.path
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{eventName: LoadEventName, pathByProgramKey: pathByProgramKey}
+	data := &runData{eventName: LoadEventName, pathByFilename: pathByFilename}
 	thread := makeThread(ss.options, data)
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
@@ -137,7 +138,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	ss.pathByProgramKey = pathByProgramKey
+	ss.pathByFilename = pathByFilename
 	return nil
 }
 
@@ -171,7 +172,9 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			if err != ErrNotCached {
 				return nil, err
 			}
-			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, string(programKey[:]), content, isPredeclared)
+			base64Key := base64.StdEncoding.EncodeToString(programKey[:])
+			cachedFilename := fmt.Sprintf("cache%s.star", base64Key)
+			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, cachedFilename, content, isPredeclared)
 			if err != nil {
 				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
 			}
@@ -181,7 +184,6 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		} else {
 			return nil, fmt.Errorf("unknown cache value: %v", entry)
 		}
-
 		scriptStates = append(scriptStates, scriptState{
 			path:       path,
 			programKey: programKey,

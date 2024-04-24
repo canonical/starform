@@ -1,7 +1,6 @@
 package starform
 
 import (
-	"crypto/sha512"
 	"fmt"
 
 	"github.com/canonical/starlark/starlark"
@@ -10,8 +9,8 @@ import (
 var LoadEventName = "<load>"
 
 type runData struct {
-	eventName        string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
-	pathByProgramKey map[[sha512.Size384]byte]string
+	eventName      string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
+	pathByFilename map[string]string
 }
 
 const runDataLocalKey = "starform.runData"
@@ -27,9 +26,7 @@ func getRunData(thread *starlark.Thread) (*runData, error) {
 }
 
 func (rd *runData) GetPath(programKey string) string {
-	var programKeyBytes [sha512.Size384]byte
-	copy(programKeyBytes[:], []byte(programKey))
-	if path, ok := rd.pathByProgramKey[programKeyBytes]; ok {
+	if path, ok := rd.pathByFilename[programKey]; ok {
 		return path
 	}
 	return "<unknown>"
