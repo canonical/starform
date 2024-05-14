@@ -29,6 +29,7 @@ type ScriptSetOptions struct {
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
+	MaxScriptSize       uint64
 }
 
 var starlarkDialect = syntax.FileOptions{
@@ -154,6 +155,9 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		content, err := source.Content(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
+		}
+		if ss.options.MaxScriptSize != 0 && uint64(len(content)) > ss.options.MaxScriptSize {
+			return nil, fmt.Errorf("cannot load %s: script too big", path)
 		}
 
 		var program *starlark.Program
