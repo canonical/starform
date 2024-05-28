@@ -91,6 +91,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	data := &runData{eventName: LoadEventName}
 	thread := makeThread(ss.options, data)
 	defer thread.Cancel("done")
+	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
+	defer stop()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
@@ -105,8 +107,6 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 		return script.toplevelEnv, nil
 	}
-	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer stop()
 	for _, script := range scripts {
 		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
 			return err
