@@ -71,6 +71,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	}, nil
 }
 
+// LoadSources loads the given sources into the script set and runs their init
+// functions. Any previously-loaded scripts are discarded.
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
 	scriptStates, err := ss.compilePrograms(ctx, sources)
 	if err != nil {
