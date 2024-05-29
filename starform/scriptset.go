@@ -157,7 +157,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
 		}
 		if ss.options.MaxScriptSize != 0 && uint64(len(content)) > ss.options.MaxScriptSize {
-			return nil, fmt.Errorf("cannot load %s: script too big", path)
+			return nil, fmt.Errorf("cannot load %s: script too long", path)
 		}
 
 		var program *starlark.Program
