@@ -1,7 +1,7 @@
 package starform
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/canonical/starlark/starlark"
 )
