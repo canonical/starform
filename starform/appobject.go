@@ -83,7 +83,6 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 	if err != nil {
 		return nil, err
 	}
-	observer.Freeze()
 	obs, ok := data.observers[eventName]
 	if !ok {
 		// Precondition: events are never removed from data.observers.

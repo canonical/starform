@@ -130,6 +130,12 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			return fmt.Errorf("cannot load script: %w", err)
 		}
 	}
+
+	for _, eventObservers := range data.observers {
+		for _, observer := range eventObservers {
+			observer.Freeze()
+		}
+	}
 	ss.observers = data.observers
 
 	return nil
