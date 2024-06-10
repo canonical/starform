@@ -12,11 +12,6 @@ type ThreadAppObject interface {
 	SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error)
 }
 
-type NamedValue interface {
-	Name() string
-	starlark.Value
-}
-
 // An appObject is the common point for exposing the state of the application
 // into Starlark and for Starlark to declare intents.
 type appObject struct {
@@ -24,7 +19,7 @@ type appObject struct {
 	attrNames []string
 }
 
-func NewAppObject(name, typ string, attrNames []string) NamedValue {
+func NewAppObject(name, typ string, attrNames []string) starlark.Value {
 	sort.Strings(attrNames)
 
 	return &appObject{
@@ -34,11 +29,10 @@ func NewAppObject(name, typ string, attrNames []string) NamedValue {
 	}
 }
 
-var _ NamedValue = &appObject{}
+var _ starlark.Value = &appObject{}
 var _ starlark.SafeStringer = &appObject{}
 var _ starlark.HasSafeAttrs = &appObject{}
 
-func (app *appObject) Name() string         { return app.name }
 func (app *appObject) String() string       { return app.name }
 func (app *appObject) Type() string         { return app.typ }
 func (app *appObject) Freeze()              {}

@@ -106,11 +106,13 @@ func TestOptionsValidation(t *testing.T) {
 	}{{
 		name: "NotSafe",
 		opts: &starform.ScriptSetOptions{
-			AppObject: app,
+			AppObjectName: "app",
+			AppObject:     app,
 		},
 	}, {
 		name: "MemSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObjectName:  "app",
 			AppObject:      app,
 			RequiredSafety: starlark.MemSafe,
 		},
@@ -118,6 +120,7 @@ func TestOptionsValidation(t *testing.T) {
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObjectName:  "app",
 			AppObject:      app,
 			RequiredSafety: starlark.MemSafe,
 			MaxAllocs:      100,
@@ -125,6 +128,7 @@ func TestOptionsValidation(t *testing.T) {
 	}, {
 		name: "CPUSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObjectName:  "app",
 			AppObject:      app,
 			RequiredSafety: starlark.CPUSafe,
 		},
@@ -132,6 +136,7 @@ func TestOptionsValidation(t *testing.T) {
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			AppObjectName:  "app",
 			AppObject:      app,
 			RequiredSafety: starlark.CPUSafe,
 			MaxSteps:       100,
@@ -258,8 +263,9 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 				log.WriteByte('\n')
 			}
 			opts := &starform.ScriptSetOptions{
-				AppObject:    app,
-				PrintHandler: printHandler,
+				AppObjectName: "app",
+				AppObject:     app,
+				PrintHandler:  printHandler,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -425,7 +431,8 @@ func TestCheckLoadPath(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &starform.ScriptSetOptions{
-				AppObject: app,
+				AppObjectName: "app",
+				AppObject:     app,
 			}
 			set, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -459,7 +466,8 @@ func TestCancelLoad(t *testing.T) {
 	app := starform.NewAppObject("test", "test", nil)
 	app.Freeze()
 	opts := &starform.ScriptSetOptions{
-		AppObject: app,
+		AppObjectName: "app",
+		AppObject:     app,
 	}
 	scripts, err := starform.NewScriptSet(opts)
 	if err != nil {
@@ -584,8 +592,9 @@ func TestLoadStatement(t *testing.T) {
 				log.WriteByte('\n')
 			}
 			opts := &starform.ScriptSetOptions{
-				AppObject:    app,
-				PrintHandler: printHandler,
+				AppObjectName: "app",
+				AppObject:     app,
+				PrintHandler:  printHandler,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -603,7 +612,8 @@ func TestLoadStatement(t *testing.T) {
 
 	t.Run("nonexistent loads", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
-			AppObject: app,
+			AppObjectName: "app",
+			AppObject:     app,
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
 			},
@@ -626,7 +636,8 @@ func TestLoadStatement(t *testing.T) {
 
 	t.Run("load-cycle", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
-			AppObject: app,
+			AppObjectName: "app",
+			AppObject:     app,
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
 			},
@@ -661,9 +672,10 @@ func TestProgramCache(t *testing.T) {
 	t.Run("total-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			AppObject:    app,
-			PrintHandler: func(thread *starlark.Thread, msg string) {},
-			Cache:        cache,
+			AppObjectName: "app",
+			AppObject:     app,
+			PrintHandler:  func(thread *starlark.Thread, msg string) {},
+			Cache:         cache,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
@@ -690,9 +702,10 @@ func TestProgramCache(t *testing.T) {
 	t.Run("partial-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			AppObject:    app,
-			PrintHandler: func(thread *starlark.Thread, msg string) {},
-			Cache:        cache,
+			AppObjectName: "app",
+			AppObject:     app,
+			PrintHandler:  func(thread *starlark.Thread, msg string) {},
+			Cache:         cache,
 		}
 		sets := [][]starform.ScriptSource{{
 			&testScriptSource{
@@ -771,7 +784,8 @@ func TestObserverTypes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			log := &strings.Builder{}
 			opts := &starform.ScriptSetOptions{
-				AppObject: app,
+				AppObjectName: "app",
+				AppObject:     app,
 				PrintHandler: func(thread *starlark.Thread, msg string) {
 					log.WriteString(msg)
 					log.WriteRune('\n')
@@ -818,7 +832,8 @@ func TestEventHandling(t *testing.T) {
 	app.Freeze()
 	log := &strings.Builder{}
 	opts := &starform.ScriptSetOptions{
-		AppObject: app,
+		AppObjectName: "app",
+		AppObject:     app,
 		PrintHandler: func(thread *starlark.Thread, msg string) {
 			log.WriteString(msg)
 			log.WriteRune('\n')
@@ -877,8 +892,9 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 	app := starform.NewAppObject("app", "App", nil)
 	app.Freeze()
 	opts := &starform.ScriptSetOptions{
-		AppObject:    app,
-		PrintHandler: func(thread *starlark.Thread, msg string) {},
+		AppObjectName: "app",
+		AppObject:     app,
+		PrintHandler:  func(thread *starlark.Thread, msg string) {},
 	}
 	scripts, err := starform.NewScriptSet(opts)
 	if err != nil {
@@ -939,8 +955,9 @@ func TestObserverFreezing(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &starform.ScriptSetOptions{
-				AppObject:    app,
-				PrintHandler: func(thread *starlark.Thread, msg string) {},
+				AppObjectName: "app",
+				AppObject:     app,
+				PrintHandler:  func(thread *starlark.Thread, msg string) {},
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
