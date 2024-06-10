@@ -97,7 +97,7 @@ func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
 }
 
 func TestOptionsValidation(t *testing.T) {
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("test", "test", []string{})
 	app.Freeze()
 	tests := []struct {
 		name     string
@@ -152,7 +152,7 @@ func TestOptionsValidation(t *testing.T) {
 }
 
 func TestLoadSimpleScriptSet(t *testing.T) {
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("test", "test", []string{})
 	app.Freeze()
 	tests := []struct {
 		name        string
@@ -284,7 +284,7 @@ func TestCheckLoadPath(t *testing.T) {
 		return fmt.Sprintf("cannot load %s: path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md", path)
 	}
 
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("test", "test", nil)
 	app.Freeze()
 	tests := []struct {
 		name   string
@@ -456,7 +456,7 @@ func TestCheckLoadPath(t *testing.T) {
 }
 
 func TestCancelLoad(t *testing.T) {
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("test", "test", nil)
 	app.Freeze()
 	opts := &starform.ScriptSetOptions{
 		AppObject: app,
@@ -481,7 +481,7 @@ func TestCancelLoad(t *testing.T) {
 }
 
 func TestLoadStatement(t *testing.T) {
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("test", "test", nil)
 	app.Freeze()
 	tests := []struct {
 		name        string
@@ -655,7 +655,7 @@ func TestLoadStatement(t *testing.T) {
 }
 
 func TestProgramCache(t *testing.T) {
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("test", "Test", nil)
 	app.Freeze()
 
 	t.Run("total-reuse", func(t *testing.T) {
@@ -746,7 +746,7 @@ func TestProgramCache(t *testing.T) {
 func TestObserverTypes(t *testing.T) {
 	const expected = "asdf"
 
-	app := starform.NewAppObject("app")
+	app := starform.NewAppObject("app", "App", nil)
 	app.Freeze()
 
 	tests := []struct {
@@ -814,7 +814,7 @@ func TestObserverTypes(t *testing.T) {
 func TestEventHandling(t *testing.T) {
 	const expectedLog = "1\n2\n3\n===\n4\n"
 
-	app := starform.NewAppObject("app")
+	app := starform.NewAppObject("app", "App", nil)
 	app.Freeze()
 	log := &strings.Builder{}
 	opts := &starform.ScriptSetOptions{
@@ -874,7 +874,7 @@ func TestEventHandling(t *testing.T) {
 func TestEventHandlingFailPropagation(t *testing.T) {
 	const expected = "fail: oh no!"
 
-	app := starform.NewAppObject("app")
+	app := starform.NewAppObject("app", "App", nil)
 	app.Freeze()
 	opts := &starform.ScriptSetOptions{
 		AppObject:    app,
@@ -906,7 +906,7 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 }
 
 func TestObserverFreezing(t *testing.T) {
-	app := starform.NewAppObject("app")
+	app := starform.NewAppObject("app", "App", nil)
 	app.Freeze()
 	tests := []struct {
 		name   string

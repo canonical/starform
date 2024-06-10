@@ -16,7 +16,7 @@ func isStarlarkCancellation(err error) bool {
 func TestAppObjectAsStarlarkValue(t *testing.T) {
 	const appName = "testApp"
 
-	app := starform.NewAppObject(appName)
+	app := starform.NewAppObject(appName, appName, nil)
 	app.Freeze()
 
 	if !bool(app.Truth()) {
@@ -43,7 +43,7 @@ func TestAppObjectSafeString(t *testing.T) {
 			}
 		}()
 
-		app := starform.NewAppObject(appName)
+		app := starform.NewAppObject(appName, appName, nil).(starlark.SafeStringer)
 		sb := &strings.Builder{}
 		app.SafeString(nil, sb)
 		if str := sb.String(); str != appName {
@@ -56,7 +56,7 @@ func TestAppObjectSafeString(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(uint64(len(appName)))
 		st.RunThread(func(thread *starlark.Thread) {
-			app := starform.NewAppObject(appName)
+			app := starform.NewAppObject(appName, appName, nil).(starlark.SafeStringer)
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
 				if err := app.SafeString(thread, sb); err != nil {
@@ -79,7 +79,7 @@ func TestAppObjectSafeString(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			app := starform.NewAppObject(appName)
+			app := starform.NewAppObject(appName, appName, nil).(starlark.SafeStringer)
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
 				if err := app.SafeString(thread, sb); err == nil {
@@ -93,7 +93,7 @@ func TestAppObjectSafeString(t *testing.T) {
 }
 
 func TestAppObjectSafeAttr(t *testing.T) {
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("test", "Test", nil)
 	app.Freeze()
 
 	t.Run("allocs-steps-io-safety", func(t *testing.T) {
@@ -103,7 +103,7 @@ func TestAppObjectSafeAttr(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			starform.PutRunDataIn(thread, starform.InitingRunData())
 			for i := 0; i < st.N; i++ {
-				result, err := app.SafeAttr(thread, "observe")
+				result, err := app.(starlark.HasSafeAttrs).SafeAttr(thread, "observe")
 				if err != nil {
 					st.Error(err)
 				}
@@ -120,7 +120,7 @@ func TestAppObjectSafeAttr(t *testing.T) {
 			thread.Cancel("done")
 			starform.PutRunDataIn(thread, starform.InitingRunData())
 			for i := 0; i < st.N; i++ {
-				_, err := app.SafeAttr(thread, "observe")
+				_, err := app.(starlark.HasSafeAttrs).SafeAttr(thread, "observe")
 				if err != nil && !isStarlarkCancellation(err) {
 					st.Error(err)
 				}
@@ -138,9 +138,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		thread := &starlark.Thread{}
 		starform.PutRunDataIn(thread, starform.InitingRunData())
 
-		app := starform.NewAppObject("test")
+		app := starform.NewAppObject("test", "Test", nil)
 		app.Freeze()
-		observe, _ := app.SafeAttr(thread, "observe")
+		observe, _ := app.(starlark.HasSafeAttrs).SafeAttr(thread, "observe")
 		if observe == nil {
 			t.Fatal("no such method: test.observe")
 		}
@@ -161,9 +161,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			starform.PutRunDataIn(thread, starform.InitingRunData())
 
-			app := starform.NewAppObject("test")
+			app := starform.NewAppObject("test", "Test", nil)
 			app.Freeze()
-			observe, _ := app.SafeAttr(thread, "observe")
+			observe, _ := app.(starlark.HasSafeAttrs).SafeAttr(thread, "observe")
 			if observe == nil {
 				t.Fatal("no such method: test.observe")
 			}
@@ -193,15 +193,15 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			thread.Cancel("done")
 			starform.PutRunDataIn(thread, starform.InitingRunData())
 
-			app := starform.NewAppObject("test")
+			app := starform.NewAppObject("test", "Test", nil)
 			app.Freeze()
-			observe, err := app.SafeAttr(thread, "observe")
+			observe, _ := app.(starlark.HasSafeAttrs).SafeAttr(thread, "observe")
 			if observe == nil {
 				t.Fatal("no such method: test.observe")
 			}
 
 			args := starlark.Tuple{starlark.String("event_name"), observer}
-			_, err = starlark.Call(thread, observe, args, nil)
+			_, err := starlark.Call(thread, observe, args, nil)
 			if err != nil && !isStarlarkCancellation(err) {
 				st.Error(err)
 			}
