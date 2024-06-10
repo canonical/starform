@@ -18,6 +18,7 @@ func NewAppObject(name string) *AppObject {
 
 var _ starlark.Value = &AppObject{}
 var _ starlark.SafeStringer = &AppObject{}
+var _ starlark.HasSafeAttrs = &AppObject{}
 
 func (app *AppObject) String() string       { return app.name }
 func (app *AppObject) Type() string         { return app.name }
@@ -34,3 +35,71 @@ func (app *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuil
 	_, err := sb.WriteString(app.String())
 	return err
 }
+
+func (app *AppObject) AttrNames() []string {
+	return []string{"observe"}
+}
+
+func (app *AppObject) Attr(name string) (starlark.Value, error) {
+	return app.SafeAttr(nil, name)
+}
+
+func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return nil, err
+	}
+
+	if name == "observe" {
+		if thread == nil {
+			return nil, errRunDataMissing
+		}
+		data, err := getRunData(thread)
+		if err != nil {
+			return nil, err
+		}
+		if !data.observeAvailable {
+			return nil, fmt.Errorf("observe is unavailable")
+		}
+		if thread != nil {
+			if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+				return nil, err
+			}
+		}
+		return observeBuiltin.BindReceiver(app), nil
+	}
+	return nil, nil
+}
+
+var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
+var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	var eventName string
+	var observer starlark.Callable
+	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 2, &eventName, &observer); err != nil {
+		return nil, err
+	}
+
+	data, err := getRunData(thread)
+	if err != nil {
+		return nil, err
+	}
+	obs, ok := data.observers[eventName]
+	if !ok {
+		// Precondition: events are never removed from data.observers.
+		const newObserverSliceInitialCap = 10
+		delta := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(data.observers)) -
+			starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(data.observers)) +
+			starlark.EstimateMakeSize([]starlark.Callable{}, newObserverSliceInitialCap)
+		if err := thread.AddAllocs(delta); err != nil {
+			return nil, err
+		}
+		obs = make([]starlark.Callable, 0, newObserverSliceInitialCap)
+	}
+	safeAppender := starlark.NewSafeAppender(thread, &obs)
+	if err := safeAppender.Append(observer); err != nil {
+		return nil, err
+	}
+	data.observers[eventName] = obs
+
+	return starlark.None, nil
+})
