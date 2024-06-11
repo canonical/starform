@@ -176,7 +176,13 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			if err != nil {
 				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
 			}
-			cache.Put(programKey, program, source)
+			if err := cache.Put(programKey, program, source); err != nil {
+				ss.options.Logger.Log(ctx, LogEntry{
+					Message:   fmt.Sprintf("failed to put %s into cache: %v", path, err),
+					Level:     DebugLevel,
+					EventName: LoadEventName,
+				})
+			}
 		} else if p, ok := entry.(*starlark.Program); ok {
 			program = p
 		} else {
