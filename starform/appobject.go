@@ -19,16 +19,10 @@ func (app *App) value() *appValue {
 	copy(attrNames, app.AttrNames)
 	sort.Strings(attrNames)
 
-	attr := app.Attr
-	if attr == nil {
-		attr = func(thread *starlark.Thread, name string) (starlark.Value, error) {
-			return nil, starlark.ErrNoSuchAttr
-		}
-	}
 	return &appValue{
 		name:      app.Name,
 		attrNames: attrNames,
-		attr:      attr,
+		attr:      app.Attr,
 	}
 }
 

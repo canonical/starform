@@ -59,10 +59,13 @@ type scriptState struct {
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.App == nil {
-		return nil, fmt.Errorf("cannot create script set without app object")
+		return nil, fmt.Errorf("cannot create script set without app")
 	}
 	if options.App.Name == "" {
-		return nil, fmt.Errorf("cannot create script set without app object name")
+		return nil, fmt.Errorf("cannot create script set without app name")
+	}
+	if options.App.Attr == nil {
+		return nil, fmt.Errorf("cannot create script set without app attr function")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")

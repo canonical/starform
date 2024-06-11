@@ -14,16 +14,22 @@ func isStarlarkCancellation(err error) bool {
 	return strings.Contains(err.Error(), "Starlark computation cancelled:")
 }
 
+var noAttrFunc = func(thread *starlark.Thread, name string) (starlark.Value, error) {
+	return nil, starlark.ErrNoSuchAttr
+}
+
 func TestAppObjectAsStarlarkValue(t *testing.T) {
 	const appName = "testApp"
 
 	app := &starform.App{
-		Name: appName,
+		Name:      appName,
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	appValue := app.Value()
 
 	if !bool(appValue.Truth()) {
-		t.Errorf("app object should be truthy")
+		t.Errorf("app should be truthy")
 	}
 	if appString := appValue.String(); appString != fmt.Sprintf("<App %s>", appName) {
 		t.Errorf("incorrect string representation: expected %q but got %q", appName, appString)
@@ -32,7 +38,7 @@ func TestAppObjectAsStarlarkValue(t *testing.T) {
 		t.Errorf("incorrect type representation: expected %q but got %q", appName, "App")
 	}
 	if _, err := appValue.Hash(); err == nil {
-		t.Errorf("app object should not be hashable")
+		t.Errorf("app should not be hashable")
 	}
 }
 
@@ -47,7 +53,9 @@ func TestAppObjectSafeString(t *testing.T) {
 		}()
 
 		app := &starform.App{
-			Name: appName,
+			Name:      appName,
+			AttrNames: []string{},
+			Attr:      noAttrFunc,
 		}
 		appValue := app.Value()
 		sb := &strings.Builder{}
@@ -63,7 +71,9 @@ func TestAppObjectSafeString(t *testing.T) {
 		st.SetMaxSteps(uint64(len(fmt.Sprintf("<%s object>", appName))))
 		st.RunThread(func(thread *starlark.Thread) {
 			app := &starform.App{
-				Name: appName,
+				Name:      appName,
+				AttrNames: []string{},
+				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
 			for i := 0; i < st.N; i++ {
@@ -89,7 +99,9 @@ func TestAppObjectSafeString(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
 			app := &starform.App{
-				Name: appName,
+				Name:      appName,
+				AttrNames: []string{},
+				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
 			for i := 0; i < st.N; i++ {
@@ -106,7 +118,9 @@ func TestAppObjectSafeString(t *testing.T) {
 
 func TestAppObjectSafeAttr(t *testing.T) {
 	app := &starform.App{
-		Name: "test",
+		Name:      "test",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	appValue := app.Value()
 
@@ -162,7 +176,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		})
 
 		app := &starform.App{
-			Name: "test",
+			Name:      "test",
+			AttrNames: []string{},
+			Attr:      noAttrFunc,
 		}
 		appValue := app.Value()
 		observe, _ := appValue.SafeAttr(thread, "observe")
@@ -190,7 +206,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			})
 
 			app := &starform.App{
-				Name: "test",
+				Name:      "test",
+				AttrNames: []string{},
+				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
 			observe, _ := appValue.SafeAttr(thread, "observe")
@@ -230,7 +248,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			})
 
 			app := &starform.App{
-				Name: "test",
+				Name:      "test",
+				AttrNames: []string{},
+				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
 			observe, _ := appValue.SafeAttr(thread, "observe")

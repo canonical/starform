@@ -98,7 +98,9 @@ func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
 
 func TestOptionsValidation(t *testing.T) {
 	app := &starform.App{
-		Name: "test",
+		Name:      "test",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	tests := []struct {
 		name     string
@@ -154,7 +156,9 @@ func TestOptionsValidation(t *testing.T) {
 
 func TestLoadSimpleScriptSet(t *testing.T) {
 	app := &starform.App{
-		Name: "test",
+		Name:      "test",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	tests := []struct {
 		name        string
@@ -287,7 +291,9 @@ func TestCheckLoadPath(t *testing.T) {
 	}
 
 	app := &starform.App{
-		Name: "test",
+		Name:      "test",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	tests := []struct {
 		name   string
@@ -460,7 +466,9 @@ func TestCheckLoadPath(t *testing.T) {
 
 func TestCancelLoad(t *testing.T) {
 	app := &starform.App{
-		Name: "test",
+		Name:      "test",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	opts := &starform.ScriptSetOptions{
 		App: app,
@@ -486,7 +494,9 @@ func TestCancelLoad(t *testing.T) {
 
 func TestLoadStatement(t *testing.T) {
 	app := &starform.App{
-		Name: "test",
+		Name:      "test",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	tests := []struct {
 		name        string
@@ -661,7 +671,9 @@ func TestLoadStatement(t *testing.T) {
 
 func TestProgramCache(t *testing.T) {
 	app := &starform.App{
-		Name: "test",
+		Name:      "test",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 
 	t.Run("total-reuse", func(t *testing.T) {
@@ -753,7 +765,9 @@ func TestObserverTypes(t *testing.T) {
 	const expected = "asdf"
 
 	app := &starform.App{
-		Name: "app",
+		Name:      "app",
+		AttrNames: []string{},
+		Attr:      noAttrFunc,
 	}
 	tests := []struct {
 		name        string
@@ -826,7 +840,9 @@ func TestEventHandling(t *testing.T) {
 	log := &strings.Builder{}
 	opts := &starform.ScriptSetOptions{
 		App: &starform.App{
-			Name: "app",
+			Name:      "app",
+			AttrNames: []string{},
+			Attr:      noAttrFunc,
 		},
 		PrintHandler: func(thread *starlark.Thread, msg string) {
 			log.WriteString(msg)
@@ -891,7 +907,9 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 
 	opts := &starform.ScriptSetOptions{
 		App: &starform.App{
-			Name: "app",
+			Name:      "app",
+			AttrNames: []string{},
+			Attr:      noAttrFunc,
 		},
 		PrintHandler: func(thread *starlark.Thread, msg string) {},
 	}
@@ -956,7 +974,9 @@ func TestObserverFreezing(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &starform.ScriptSetOptions{
 				App: &starform.App{
-					Name: "app",
+					Name:      "app",
+					AttrNames: []string{},
+					Attr:      noAttrFunc,
 				},
 				PrintHandler: func(thread *starlark.Thread, msg string) {},
 			}
