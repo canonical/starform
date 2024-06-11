@@ -1,6 +1,7 @@
 package starform_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -22,7 +23,7 @@ func TestAppObjectAsStarlarkValue(t *testing.T) {
 	if !bool(app.Truth()) {
 		t.Errorf("app object should be truthy")
 	}
-	if appString := app.String(); appString != appName {
+	if appString := app.String(); appString != fmt.Sprintf("<%s object>", appName) {
 		t.Errorf("incorrect string representation: expected %q but got %q", appName, appString)
 	}
 	if appType := app.Type(); appType != appName {
@@ -46,7 +47,7 @@ func TestAppObjectSafeString(t *testing.T) {
 		app := starform.NewAppObject(appName, nil).(starlark.SafeStringer)
 		sb := &strings.Builder{}
 		app.SafeString(nil, sb)
-		if str := sb.String(); str != appName {
+		if str := sb.String(); str != fmt.Sprintf("<%s object>", appName) {
 			t.Error("invalid SafeString value")
 		}
 	})
@@ -54,7 +55,7 @@ func TestAppObjectSafeString(t *testing.T) {
 	t.Run("regular-operation", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		st.SetMaxSteps(uint64(len(appName)))
+		st.SetMaxSteps(uint64(len(fmt.Sprintf("<%s object>", appName))))
 		st.RunThread(func(thread *starlark.Thread) {
 			app := starform.NewAppObject(appName, nil).(starlark.SafeStringer)
 			for i := 0; i < st.N; i++ {
