@@ -17,20 +17,21 @@ func isStarlarkCancellation(err error) bool {
 func TestAppObjectAsStarlarkValue(t *testing.T) {
 	const appName = "testApp"
 
-	app := starform.NewAppValue(&starform.App{
+	app := &starform.App{
 		Name: appName,
-	})
+	}
+	appValue := app.Value()
 
-	if !bool(app.Truth()) {
+	if !bool(appValue.Truth()) {
 		t.Errorf("app object should be truthy")
 	}
-	if appString := app.String(); appString != fmt.Sprintf("<App %s>", appName) {
+	if appString := appValue.String(); appString != fmt.Sprintf("<App %s>", appName) {
 		t.Errorf("incorrect string representation: expected %q but got %q", appName, appString)
 	}
-	if appType := app.Type(); appType != "App" {
+	if appType := appValue.Type(); appType != "App" {
 		t.Errorf("incorrect type representation: expected %q but got %q", appName, "App")
 	}
-	if _, err := app.Hash(); err == nil {
+	if _, err := appValue.Hash(); err == nil {
 		t.Errorf("app object should not be hashable")
 	}
 }
@@ -45,11 +46,12 @@ func TestAppObjectSafeString(t *testing.T) {
 			}
 		}()
 
-		app := starform.NewAppValue(&starform.App{
+		app := &starform.App{
 			Name: appName,
-		})
+		}
+		appValue := app.Value()
 		sb := &strings.Builder{}
-		app.(starlark.SafeStringer).SafeString(nil, sb)
+		appValue.(starlark.SafeStringer).SafeString(nil, sb)
 		if str := sb.String(); str != fmt.Sprintf("<App %s>", appName) {
 			t.Error("invalid SafeString value")
 		}
@@ -60,12 +62,13 @@ func TestAppObjectSafeString(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(uint64(len(fmt.Sprintf("<%s object>", appName))))
 		st.RunThread(func(thread *starlark.Thread) {
-			app := starform.NewAppValue(&starform.App{
+			app := &starform.App{
 				Name: appName,
-			})
+			}
+			appValue := app.Value()
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
-				if err := app.(starlark.SafeStringer).SafeString(thread, sb); err != nil {
+				if err := appValue.(starlark.SafeStringer).SafeString(thread, sb); err != nil {
 					st.Error(err)
 				}
 				if err := sb.Err(); err != nil {
@@ -85,12 +88,13 @@ func TestAppObjectSafeString(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			app := starform.NewAppValue(&starform.App{
+			app := &starform.App{
 				Name: appName,
-			})
+			}
+			appValue := app.Value()
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
-				if err := app.(starlark.SafeStringer).SafeString(thread, sb); err == nil {
+				if err := appValue.(starlark.SafeStringer).SafeString(thread, sb); err == nil {
 					st.Error("expected cancellation")
 				} else if !isStarlarkCancellation(err) {
 					st.Errorf("expected cancellation, got %v", err)
@@ -101,9 +105,10 @@ func TestAppObjectSafeString(t *testing.T) {
 }
 
 func TestAppObjectSafeAttr(t *testing.T) {
-	app := starform.NewAppValue(&starform.App{
+	app := &starform.App{
 		Name: "test",
-	})
+	}
+	appValue := app.Value()
 
 	t.Run("allocs-steps-io", func(t *testing.T) {
 		st := startest.From(t)
@@ -115,7 +120,7 @@ func TestAppObjectSafeAttr(t *testing.T) {
 				State:     make(map[string][]starlark.Callable),
 			})
 			for i := 0; i < st.N; i++ {
-				result, err := app.SafeAttr(thread, "observe")
+				result, err := appValue.SafeAttr(thread, "observe")
 				if err != nil {
 					st.Error(err)
 				}
@@ -135,7 +140,7 @@ func TestAppObjectSafeAttr(t *testing.T) {
 				State:     make(map[string][]starlark.Callable),
 			})
 			for i := 0; i < st.N; i++ {
-				_, err := app.SafeAttr(thread, "observe")
+				_, err := appValue.SafeAttr(thread, "observe")
 				if err != nil && !isStarlarkCancellation(err) {
 					st.Error(err)
 				}
@@ -156,10 +161,11 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			State:     make(map[string][]starlark.Callable),
 		})
 
-		app := starform.NewAppValue(&starform.App{
+		app := &starform.App{
 			Name: "test",
-		})
-		observe, _ := app.SafeAttr(thread, "observe")
+		}
+		appValue := app.Value()
+		observe, _ := appValue.SafeAttr(thread, "observe")
 		if observe == nil {
 			t.Fatal("no such method: test.observe")
 		}
@@ -183,10 +189,11 @@ func TestAppObjectObserveSafety(t *testing.T) {
 				State:     make(map[string][]starlark.Callable),
 			})
 
-			app := starform.NewAppValue(&starform.App{
+			app := &starform.App{
 				Name: "test",
-			})
-			observe, _ := app.SafeAttr(thread, "observe")
+			}
+			appValue := app.Value()
+			observe, _ := appValue.SafeAttr(thread, "observe")
 			if observe == nil {
 				t.Fatal("no such method: test.observe")
 			}
@@ -222,11 +229,11 @@ func TestAppObjectObserveSafety(t *testing.T) {
 				State:     make(map[string][]starlark.Callable),
 			})
 
-			app := starform.NewAppValue(&starform.App{
+			app := &starform.App{
 				Name: "test",
-			})
-			app.Freeze()
-			observe, _ := app.SafeAttr(thread, "observe")
+			}
+			appValue := app.Value()
+			observe, _ := appValue.SafeAttr(thread, "observe")
 			if observe == nil {
 				t.Fatal("no such method: test.observe")
 			}

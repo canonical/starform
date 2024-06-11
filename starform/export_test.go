@@ -10,6 +10,6 @@ func PutRunDataIn(thread *starlark.Thread, data *EventRunData) {
 	thread.SetLocal(runDataLocalKey, data)
 }
 
-func NewAppValue(app *App) starlark.HasSafeAttrs {
-	return newAppValue(app)
+func (app *App) Value() starlark.HasSafeAttrs {
+	return app.value()
 }

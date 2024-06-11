@@ -100,7 +100,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State:     nil,
 	}
 	predeclared := starlark.StringDict{
-		ss.options.App.Name: newAppValue(ss.options.App),
+		ss.options.App.Name: ss.options.App.value(),
 	}
 	thread := makeThread(ss.options, data)
 	defer thread.Cancel("done")

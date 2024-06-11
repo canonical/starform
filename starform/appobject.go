@@ -14,15 +14,7 @@ type App struct {
 	Attr      func(thread *starlark.Thread, name string) (starlark.Value, error)
 }
 
-// An appValue is the common point for exposing the state of the application
-// into Starlark and for Starlark to declare intents.
-type appValue struct {
-	name      string
-	attrNames []string
-	attr      func(thread *starlark.Thread, name string) (starlark.Value, error)
-}
-
-func newAppValue(app *App) *appValue {
+func (app *App) value() *appValue {
 	attrNames := make([]string, len(app.AttrNames))
 	copy(attrNames, app.AttrNames)
 	sort.Strings(attrNames)
@@ -38,6 +30,14 @@ func newAppValue(app *App) *appValue {
 		attrNames: attrNames,
 		attr:      attr,
 	}
+}
+
+// An appValue is the common point for exposing the state of the application
+// into Starlark and for Starlark to declare intents.
+type appValue struct {
+	name      string
+	attrNames []string
+	attr      func(thread *starlark.Thread, name string) (starlark.Value, error)
 }
 
 var _ starlark.Value = &appValue{}
