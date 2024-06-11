@@ -14,6 +14,16 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+type testAppObject struct {
+	safeAttr func(thread *starlark.Thread, name string) (starlark.Value, error)
+}
+
+var _ starform.ThreadAppObject = &testAppObject{}
+
+func (tao *testAppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	return tao.safeAttr(thread, name)
+}
+
 type testScriptSource struct {
 	name, content string
 }
@@ -97,7 +107,7 @@ func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
 }
 
 func TestOptionsValidation(t *testing.T) {
-	app := starform.NewAppObject("test", "test", []string{})
+	app := starform.NewAppObject("test", nil)
 	app.Freeze()
 	tests := []struct {
 		name     string
@@ -157,7 +167,7 @@ func TestOptionsValidation(t *testing.T) {
 }
 
 func TestLoadSimpleScriptSet(t *testing.T) {
-	app := starform.NewAppObject("test", "test", []string{})
+	app := starform.NewAppObject("test", nil)
 	app.Freeze()
 	tests := []struct {
 		name        string
@@ -290,7 +300,7 @@ func TestCheckLoadPath(t *testing.T) {
 		return fmt.Sprintf("cannot load %s: path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md", path)
 	}
 
-	app := starform.NewAppObject("test", "test", nil)
+	app := starform.NewAppObject("test", nil)
 	app.Freeze()
 	tests := []struct {
 		name   string
@@ -463,7 +473,7 @@ func TestCheckLoadPath(t *testing.T) {
 }
 
 func TestCancelLoad(t *testing.T) {
-	app := starform.NewAppObject("test", "test", nil)
+	app := starform.NewAppObject("test", nil)
 	app.Freeze()
 	opts := &starform.ScriptSetOptions{
 		AppObjectName: "app",
@@ -489,7 +499,7 @@ func TestCancelLoad(t *testing.T) {
 }
 
 func TestLoadStatement(t *testing.T) {
-	app := starform.NewAppObject("test", "test", nil)
+	app := starform.NewAppObject("test", nil)
 	app.Freeze()
 	tests := []struct {
 		name        string
@@ -666,7 +676,7 @@ func TestLoadStatement(t *testing.T) {
 }
 
 func TestProgramCache(t *testing.T) {
-	app := starform.NewAppObject("test", "Test", nil)
+	app := starform.NewAppObject("Test", nil)
 	app.Freeze()
 
 	t.Run("total-reuse", func(t *testing.T) {
@@ -759,8 +769,11 @@ func TestProgramCache(t *testing.T) {
 func TestObserverTypes(t *testing.T) {
 	const expected = "asdf"
 
-	app := starform.NewAppObject("app", "App", nil)
+	app := starform.NewAppObject("App", nil)
 	app.Freeze()
+	userApp := &testAppObject{
+		safeAttr: func(thread *starlark.Thread, name string) (starlark.Value, error) { return starlark.None, nil },
+	}
 
 	tests := []struct {
 		name        string
@@ -815,7 +828,10 @@ func TestObserverTypes(t *testing.T) {
 				t.Errorf("expected error")
 			}
 
-			if err := scripts.Handle(context.Background(), "foo"); err != nil {
+			if err := scripts.Handle(context.Background(), &starform.EventRunData{
+				EventName:       "foo",
+				ThreadAppObject: userApp,
+			}); err != nil {
 				t.Fatal(err)
 			}
 			if actualLog := log.String(); actualLog != test.expectedLog {
@@ -828,8 +844,11 @@ func TestObserverTypes(t *testing.T) {
 func TestEventHandling(t *testing.T) {
 	const expectedLog = "1\n2\n3\n===\n4\n"
 
-	app := starform.NewAppObject("app", "App", nil)
+	app := starform.NewAppObject("App", nil)
 	app.Freeze()
+	userApp := &testAppObject{
+		safeAttr: func(thread *starlark.Thread, name string) (starlark.Value, error) { return starlark.None, nil },
+	}
 	log := &strings.Builder{}
 	opts := &starform.ScriptSetOptions{
 		AppObjectName: "app",
@@ -874,11 +893,17 @@ func TestEventHandling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle(context.Background(), "foo"); err != nil {
+	if err := scripts.Handle(context.Background(), &starform.EventRunData{
+		EventName:       "foo",
+		ThreadAppObject: userApp,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	log.WriteString("===\n")
-	if err := scripts.Handle(context.Background(), "bar"); err != nil {
+	if err := scripts.Handle(context.Background(), &starform.EventRunData{
+		EventName:       "bar",
+		ThreadAppObject: userApp,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if actualLog := log.String(); actualLog != expectedLog {
@@ -889,8 +914,12 @@ func TestEventHandling(t *testing.T) {
 func TestEventHandlingFailPropagation(t *testing.T) {
 	const expected = "fail: oh no!"
 
-	app := starform.NewAppObject("app", "App", nil)
+	app := starform.NewAppObject("App", nil)
 	app.Freeze()
+	userApp := &testAppObject{
+		safeAttr: func(thread *starlark.Thread, name string) (starlark.Value, error) { return starlark.None, nil },
+	}
+
 	opts := &starform.ScriptSetOptions{
 		AppObjectName: "app",
 		AppObject:     app,
@@ -914,7 +943,10 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle(context.Background(), "foo"); err == nil {
+	if err := scripts.Handle(context.Background(), &starform.EventRunData{
+		EventName:       "foo",
+		ThreadAppObject: userApp,
+	}); err == nil {
 		t.Fatal("expected error")
 	} else if err.Error() != expected {
 		t.Errorf("incorrect error: expected %s but got %v", expected, err)
@@ -922,8 +954,12 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 }
 
 func TestObserverFreezing(t *testing.T) {
-	app := starform.NewAppObject("app", "App", nil)
+	app := starform.NewAppObject("App", nil)
 	app.Freeze()
+	userApp := &testAppObject{
+		safeAttr: func(thread *starlark.Thread, name string) (starlark.Value, error) { return starlark.None, nil },
+	}
+
 	tests := []struct {
 		name   string
 		script string
@@ -970,11 +1006,189 @@ func TestObserverFreezing(t *testing.T) {
 			if err := scripts.LoadSources(context.Background(), sources); err != nil {
 				t.Fatal(err)
 			}
-			if err := scripts.Handle(context.Background(), "foo"); err == nil {
+			if err := scripts.Handle(context.Background(), &starform.EventRunData{
+				EventName:       "foo",
+				ThreadAppObject: userApp,
+			}); err == nil {
 				t.Error("expected error")
 			} else if err.Error() != "cannot insert into frozen hash table" {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
 	}
+}
+
+func TestAppObjectAttrs(t *testing.T) {
+	t.Run("observe", func(t *testing.T) {
+		testApp := starform.NewAppObject("Test", []string{"foo", "bar"})
+		foo := starlark.Value(starlark.String("foo"))
+		bar := starlark.Value(starlark.String("bar"))
+		testUserApp := &testAppObject{
+			safeAttr: func(thread *starlark.Thread, name string) (starlark.Value, error) {
+				switch name {
+				case "foo":
+					return foo, nil
+				case "bar":
+					return bar, nil
+				default:
+					return nil, starlark.ErrNoSuchAttr
+				}
+			},
+		}
+
+		t.Run("load", func(t *testing.T) {
+			set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+				AppObjectName: "test",
+				AppObject:     testApp,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+				name: "test.star",
+				content: `
+					def on_foo(event):
+						fail("unreachable")
+
+					test.observe("foo", on_foo)
+					fail("unreachable")
+				`,
+			}})
+			if err == nil {
+				t.Error("expected error, got success")
+			} else if !errors.Is(err, starform.ErrUnavailable) {
+				t.Errorf("expected %v, got %v", starform.ErrUnavailable, err)
+			}
+		})
+
+		t.Run("init", func(t *testing.T) {
+			const expectedLog = "foo handled"
+
+			log := strings.Builder{}
+			set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+				AppObjectName: "test",
+				AppObject:     testApp,
+				PrintHandler: func(thread *starlark.Thread, msg string) {
+					log.WriteString(msg)
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+				name: "test.star",
+				content: `
+					def on_foo(event):
+						print(test.foo, "handled")
+
+					def init():
+						test.observe("foo", on_foo)
+				`,
+			}})
+			if err != nil {
+				t.Error(err)
+			}
+			err = set.Handle(context.Background(), &starform.EventRunData{
+				EventName:       "foo",
+				ThreadAppObject: testUserApp,
+			})
+			if err != nil {
+				t.Error(err)
+			}
+			if log := log.String(); log != expectedLog {
+				t.Errorf("expected %v, got %v", expectedLog, log)
+			}
+		})
+
+		t.Run("event", func(t *testing.T) {
+			set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+				AppObjectName: "test",
+				AppObject:     testApp,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+				name: "test.star",
+				content: `
+					def init():
+						test.observe("foo", on_foo)
+					
+					def on_foo(event):
+						test.observe("bar", on_bar)
+						fail("unreachable")
+
+					def on_bar(event):
+						fail("unreachable")
+				`,
+			}})
+			if err != nil {
+				t.Error(err)
+			}
+			err = set.Handle(context.Background(), &starform.EventRunData{
+				EventName:       "foo",
+				ThreadAppObject: testUserApp,
+			})
+			if err == nil {
+				t.Error("expected error, got success")
+			} else if !errors.Is(err, starform.ErrUnavailable) {
+				t.Errorf("expected %v, got %v", starform.ErrUnavailable, err)
+			}
+		})
+	})
+
+	t.Run("overloading", func(t *testing.T) {
+		testApp := starform.NewAppObject("Test", []string{"observe", "foo", "bar"})
+
+		t.Run("load", func(t *testing.T) {
+			set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+				AppObjectName: "test",
+				AppObject:     testApp,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+				name: "test.star",
+				content: `
+					def on_foo(event):
+						fail("unreachable")
+
+					test.observe("foo", on_foo)
+					fail("unreachable")
+				`,
+			}})
+			if err == nil {
+				t.Error("expected error, got success")
+			} else if !errors.Is(err, starform.ErrUnavailable) {
+				t.Errorf("expected %v, got %v", starform.ErrUnavailable, err)
+			}
+		})
+
+		t.Run("init", func(t *testing.T) {
+			set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+				AppObjectName: "test",
+				AppObject:     testApp,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+				name: "test.star",
+				content: `
+					def on_foo(event):
+						fail("unreachable")
+
+					def init():
+						test.observe("foo", on_foo)
+						fail("unreachable")
+				`,
+			}})
+			if err == nil {
+				t.Error("expected error, got success")
+			} else if !errors.Is(err, starform.ErrUnavailable) {
+				t.Errorf("expected %v, got %v", starform.ErrUnavailable, err)
+			}
+		})
+	})
 }

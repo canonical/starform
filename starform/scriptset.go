@@ -261,14 +261,13 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func (ss *ScriptSet) Handle(ctx context.Context, eventName string) error {
-	observers, ok := ss.observers[eventName]
+func (ss *ScriptSet) Handle(ctx context.Context, event *EventRunData) error {
+	observers, ok := ss.observers[event.EventName]
 	if !ok {
 		return nil
 	}
 
-	data := &EventRunData{EventName: eventName} // FIXME
-	thread := makeThread(ss.options, data)
+	thread := makeThread(ss.options, event)
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	defer thread.Cancel("done")

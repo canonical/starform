@@ -15,15 +15,14 @@ type ThreadAppObject interface {
 // An appObject is the common point for exposing the state of the application
 // into Starlark and for Starlark to declare intents.
 type appObject struct {
-	name, typ string
+	typ       string
 	attrNames []string
 }
 
-func NewAppObject(name, typ string, attrNames []string) starlark.Value {
+func NewAppObject(typ string, attrNames []string) starlark.Value {
 	sort.Strings(attrNames)
 
 	return &appObject{
-		name:      name,
 		typ:       typ,
 		attrNames: attrNames,
 	}
@@ -33,7 +32,7 @@ var _ starlark.Value = &appObject{}
 var _ starlark.SafeStringer = &appObject{}
 var _ starlark.HasSafeAttrs = &appObject{}
 
-func (app *appObject) String() string       { return app.name }
+func (app *appObject) String() string       { return fmt.Sprintf("<%s object>", app.typ) }
 func (app *appObject) Type() string         { return app.typ }
 func (app *appObject) Freeze()              {}
 func (app *appObject) Truth() starlark.Bool { return true }
@@ -46,7 +45,7 @@ func (app *appObject) SafeString(thread *starlark.Thread, sb starlark.StringBuil
 		return err
 	}
 
-	_, err := sb.WriteString(app.String())
+	_, err := fmt.Fprintf(sb, "<%s object>", app.typ)
 	return err
 }
 
@@ -65,7 +64,7 @@ func (app *appObject) AttrNames() []string {
 func hasAttr(haystack []string, needle string) bool {
 	_, found := sort.Find(len(haystack), func(i int) int {
 		// FIXME(marco6): check if it's the right args order
-		return strings.Compare(haystack[i], needle)
+		return strings.Compare(needle, haystack[i])
 	})
 	return found
 }
@@ -78,7 +77,7 @@ var errUnavailable = fmt.Errorf("unavailable") // FIXME(marco6): better error me
 
 func (app *appObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
-		return nil, fmt.Errorf("can't access %s.%s in unconstrained environment", app.name, name)
+		return nil, fmt.Errorf("can't access %s fields in unconstrained environment", app.typ)
 	}
 	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {

@@ -2,6 +2,8 @@ package starform
 
 import "github.com/canonical/starlark/starlark"
 
+var ErrUnavailable = errUnavailable
+
 type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
