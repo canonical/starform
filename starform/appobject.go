@@ -23,8 +23,9 @@ type appValue struct {
 }
 
 func newAppValue(app *App) *appValue {
-	// FIXME should I duplicate AttrNames?
-	sort.Strings(app.AttrNames)
+	attrNames := make([]string, len(app.AttrNames))
+	copy(attrNames, app.AttrNames)
+	sort.Strings(attrNames)
 
 	attr := app.Attr
 	if attr == nil {
@@ -34,7 +35,7 @@ func newAppValue(app *App) *appValue {
 	}
 	return &appValue{
 		name:      app.Name,
-		attrNames: app.AttrNames,
+		attrNames: attrNames,
 		attr:      attr,
 	}
 }
