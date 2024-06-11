@@ -828,7 +828,7 @@ func TestObserverTypes(t *testing.T) {
 				t.Errorf("expected error")
 			}
 
-			if err := scripts.Handle(context.Background(), &starform.EventRunData{
+			if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 				EventName:       "foo",
 				ThreadAppObject: userApp,
 			}); err != nil {
@@ -893,14 +893,14 @@ func TestEventHandling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle(context.Background(), &starform.EventRunData{
+	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 		EventName:       "foo",
 		ThreadAppObject: userApp,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	log.WriteString("===\n")
-	if err := scripts.Handle(context.Background(), &starform.EventRunData{
+	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 		EventName:       "bar",
 		ThreadAppObject: userApp,
 	}); err != nil {
@@ -943,7 +943,7 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle(context.Background(), &starform.EventRunData{
+	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 		EventName:       "foo",
 		ThreadAppObject: userApp,
 	}); err == nil {
@@ -1006,7 +1006,7 @@ func TestObserverFreezing(t *testing.T) {
 			if err := scripts.LoadSources(context.Background(), sources); err != nil {
 				t.Fatal(err)
 			}
-			if err := scripts.Handle(context.Background(), &starform.EventRunData{
+			if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 				EventName:       "foo",
 				ThreadAppObject: userApp,
 			}); err == nil {
@@ -1088,7 +1088,7 @@ func TestAppObjectAttrs(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			err = set.Handle(context.Background(), &starform.EventRunData{
+			err = set.Handle(context.Background(), &starform.HandleOptions{
 				EventName:       "foo",
 				ThreadAppObject: testUserApp,
 			})
@@ -1125,7 +1125,7 @@ func TestAppObjectAttrs(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			err = set.Handle(context.Background(), &starform.EventRunData{
+			err = set.Handle(context.Background(), &starform.HandleOptions{
 				EventName:       "foo",
 				ThreadAppObject: testUserApp,
 			})
