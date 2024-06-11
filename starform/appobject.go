@@ -63,7 +63,6 @@ func (app *appObject) AttrNames() []string {
 
 func hasAttr(haystack []string, needle string) bool {
 	_, found := sort.Find(len(haystack), func(i int) int {
-		// FIXME(marco6): check if it's the right args order
 		return strings.Compare(needle, haystack[i])
 	})
 	return found
