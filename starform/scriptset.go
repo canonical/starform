@@ -310,24 +310,33 @@ func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) 
 	}
 
 	return func(thread *starlark.Thread, msg string) {
-		currentFrame := thread.CallFrame(0)
-		callerFrame := thread.CallFrame(1)
-		level := PrintLevel
-		if currentFrame.Name == "debug" {
-			level = DebugLevel
-		}
-		eventName := "<unknown>"
 		data, err := getRunData(thread)
+
+		eventName := "<unknown>"
 		if err == nil {
 			eventName = data.eventName
 		}
-		path := data.GetPath(callerFrame.Pos.Filename())
+
+		level := PrintLevel
+		currentFrame := thread.CallFrame(0)
+		if currentFrame.Name == "debug" {
+			level = DebugLevel
+		}
+
+		line := int32(0)
+		path := "<unknown>"
+		if thread.CallStackDepth() > 1 {
+			callerFrame := thread.CallFrame(1)
+			path = data.GetPath(callerFrame.Pos.Filename())
+			line = callerFrame.Pos.Line
+		}
+
 		logger.Log(thread.Context(), LogEntry{
 			Message:   msg,
 			Level:     level,
 			EventName: eventName,
 			Path:      path,
-			Line:      callerFrame.Pos.Line,
+			Line:      line,
 		})
 	}
 }
