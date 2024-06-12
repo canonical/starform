@@ -2,6 +2,7 @@ package starform_test
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ var noAttrFunc = func(thread *starlark.Thread, name string) (starlark.Value, err
 	return nil, starlark.ErrNoSuchAttr
 }
 
-func TestAppObjectAsStarlarkValue(t *testing.T) {
+func TestAppAsStarlarkValue(t *testing.T) {
 	const appName = "testApp"
 
 	app := &starform.App{
@@ -27,11 +28,12 @@ func TestAppObjectAsStarlarkValue(t *testing.T) {
 		Attr:      noAttrFunc,
 	}
 	appValue := app.Value()
+	appValue.Freeze()
 
 	if !bool(appValue.Truth()) {
 		t.Errorf("app should be truthy")
 	}
-	if appString := appValue.String(); appString != fmt.Sprintf("<App %s>", appName) {
+	if appString := appValue.String(); appString != fmt.Sprintf("<app %s>", appName) {
 		t.Errorf("incorrect string representation: expected %q but got %q", appName, appString)
 	}
 	if appType := appValue.Type(); appType != "App" {
@@ -42,7 +44,7 @@ func TestAppObjectAsStarlarkValue(t *testing.T) {
 	}
 }
 
-func TestAppObjectSafeString(t *testing.T) {
+func TestAppSafeString(t *testing.T) {
 	const appName = "testApp"
 
 	t.Run("nil-thread", func(t *testing.T) {
@@ -58,9 +60,10 @@ func TestAppObjectSafeString(t *testing.T) {
 			Attr:      noAttrFunc,
 		}
 		appValue := app.Value()
+		appValue.Freeze()
 		sb := &strings.Builder{}
 		appValue.(starlark.SafeStringer).SafeString(nil, sb)
-		if str := sb.String(); str != fmt.Sprintf("<App %s>", appName) {
+		if str := sb.String(); str != fmt.Sprintf("<app %s>", appName) {
 			t.Error("invalid SafeString value")
 		}
 	})
@@ -68,7 +71,7 @@ func TestAppObjectSafeString(t *testing.T) {
 	t.Run("regular-operation", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		st.SetMaxSteps(uint64(len(fmt.Sprintf("<%s object>", appName))))
+		st.SetMaxSteps(uint64(len(fmt.Sprintf("<app %s>", appName))))
 		st.RunThread(func(thread *starlark.Thread) {
 			app := &starform.App{
 				Name:      appName,
@@ -76,6 +79,7 @@ func TestAppObjectSafeString(t *testing.T) {
 				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
+			appValue.Freeze()
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
 				if err := appValue.(starlark.SafeStringer).SafeString(thread, sb); err != nil {
@@ -104,6 +108,7 @@ func TestAppObjectSafeString(t *testing.T) {
 				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
+			appValue.Freeze()
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
 				if err := appValue.(starlark.SafeStringer).SafeString(thread, sb); err == nil {
@@ -116,22 +121,23 @@ func TestAppObjectSafeString(t *testing.T) {
 	})
 }
 
-func TestAppObjectSafeAttr(t *testing.T) {
+func TestAppSafeAttr(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
 		Attr:      noAttrFunc,
 	}
 	appValue := app.Value()
+	appValue.Freeze()
 
 	t.Run("allocs-steps-io", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.PutRunDataIn(thread, &starform.EventRunData{
+			starform.SetRunData(thread, &starform.EventRunData{
 				EventName: starform.LoadEventName,
-				State:     make(map[string][]starlark.Callable),
+				State:     starform.InitState(),
 			})
 			for i := 0; i < st.N; i++ {
 				result, err := appValue.SafeAttr(thread, "observe")
@@ -149,9 +155,9 @@ func TestAppObjectSafeAttr(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.PutRunDataIn(thread, &starform.EventRunData{
+			starform.SetRunData(thread, &starform.EventRunData{
 				EventName: starform.LoadEventName,
-				State:     make(map[string][]starlark.Callable),
+				State:     starform.InitState(),
 			})
 			for i := 0; i < st.N; i++ {
 				_, err := appValue.SafeAttr(thread, "observe")
@@ -163,16 +169,56 @@ func TestAppObjectSafeAttr(t *testing.T) {
 	})
 }
 
-func TestAppObjectObserveSafety(t *testing.T) {
+func TestAppAttrNames(t *testing.T) {
+	tests := []struct {
+		name          string
+		customAttrs   []string
+		expectedAttrs []string
+	}{{
+		name:          "non-overloading",
+		customAttrs:   []string{"foo", "bar", "baz", "qux"},
+		expectedAttrs: []string{"bar", "baz", "foo", "observe", "qux"},
+	}, {
+		name:          "overloading",
+		customAttrs:   []string{"foo", "bar", "baz", "observe", "qux"},
+		expectedAttrs: []string{"bar", "baz", "foo", "observe", "qux"},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app := &starform.App{
+				Name:      "test",
+				AttrNames: test.customAttrs,
+				Attr:      noAttrFunc,
+			}
+			appValue := app.Value()
+			appValue.Freeze()
+
+			attrNames := appValue.AttrNames()
+			if len(attrNames) != len(test.expectedAttrs) {
+				t.Errorf("unexpected number of attributes: expected %d, got %d", len(test.expectedAttrs), len(attrNames))
+			}
+			if !sort.StringsAreSorted(attrNames) {
+				t.Error("unsorted attr names")
+			}
+			for i := range test.expectedAttrs {
+				if test.expectedAttrs[i] != attrNames[i] {
+					t.Errorf("unexpected attribute %v", attrNames[i])
+				}
+			}
+		})
+	}
+}
+
+func TestAppObserveSafety(t *testing.T) {
 	observer := starlark.NewBuiltin("observer", func(*starlark.Thread, *starlark.Builtin, starlark.Tuple, []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	})
 
 	t.Run("return-value", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		starform.PutRunDataIn(thread, &starform.EventRunData{
+		starform.SetRunData(thread, &starform.EventRunData{
 			EventName: starform.LoadEventName,
-			State:     make(map[string][]starlark.Callable),
+			State:     starform.InitState(),
 		})
 
 		app := &starform.App{
@@ -181,6 +227,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 			Attr:      noAttrFunc,
 		}
 		appValue := app.Value()
+		appValue.Freeze()
 		observe, _ := appValue.SafeAttr(thread, "observe")
 		if observe == nil {
 			t.Fatal("no such method: test.observe")
@@ -200,9 +247,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.PutRunDataIn(thread, &starform.EventRunData{
+			starform.SetRunData(thread, &starform.EventRunData{
 				EventName: starform.LoadEventName,
-				State:     make(map[string][]starlark.Callable),
+				State:     starform.InitState(),
 			})
 
 			app := &starform.App{
@@ -211,6 +258,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
+			appValue.Freeze()
 			observe, _ := appValue.SafeAttr(thread, "observe")
 			if observe == nil {
 				t.Fatal("no such method: test.observe")
@@ -218,12 +266,12 @@ func TestAppObjectObserveSafety(t *testing.T) {
 
 			data := &starform.EventRunData{
 				EventName: starform.LoadEventName,
-				State:     make(map[string][]starlark.Callable),
+				State:     starform.InitState(),
 			}
 			if err := thread.AddAllocs(starlark.EstimateSize(data)); err != nil {
 				t.Error(err)
 			}
-			starform.PutRunDataIn(thread, data)
+			starform.SetRunData(thread, data)
 
 			args := starlark.Tuple{starlark.String("event_name"), observer}
 			for i := 0; i < st.N; i++ {
@@ -242,9 +290,9 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.PutRunDataIn(thread, &starform.EventRunData{
+			starform.SetRunData(thread, &starform.EventRunData{
 				EventName: starform.LoadEventName,
-				State:     make(map[string][]starlark.Callable),
+				State:     starform.InitState(),
 			})
 
 			app := &starform.App{
@@ -253,6 +301,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 				Attr:      noAttrFunc,
 			}
 			appValue := app.Value()
+			appValue.Freeze()
 			observe, _ := appValue.SafeAttr(thread, "observe")
 			if observe == nil {
 				t.Fatal("no such method: test.observe")

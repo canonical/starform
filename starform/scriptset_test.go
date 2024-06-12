@@ -1003,7 +1003,7 @@ func TestObserverFreezing(t *testing.T) {
 	}
 }
 
-func TestAppObjectAttrs(t *testing.T) {
+func TestAppAttrs(t *testing.T) {
 	t.Run("observe", func(t *testing.T) {
 		foo := starlark.Value(starlark.String("foo"))
 		bar := starlark.Value(starlark.String("bar"))

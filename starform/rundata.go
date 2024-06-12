@@ -11,6 +11,10 @@ type EventRunData struct {
 	State     interface{}
 }
 
+type initState struct {
+	observers map[string][]starlark.Callable
+}
+
 const runDataLocalKey = "starform-run-data"
 
 func RunData(thread *starlark.Thread) *EventRunData {

@@ -6,10 +6,16 @@ type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
 
-func PutRunDataIn(thread *starlark.Thread, data *EventRunData) {
+func SetRunData(thread *starlark.Thread, data *EventRunData) {
 	thread.SetLocal(runDataLocalKey, data)
 }
 
 func (app *App) Value() starlark.HasSafeAttrs {
 	return app.value()
+}
+
+func InitState() interface{} {
+	return &initState{
+		observers: make(map[string][]starlark.Callable),
+	}
 }

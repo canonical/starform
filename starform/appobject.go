@@ -1,6 +1,7 @@
 package starform
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -8,6 +9,8 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
+// An App is the common point for exposing the state of the application
+// into Starlark and for Starlark to declare intents.
 type App struct {
 	Name      string
 	AttrNames []string
@@ -26,8 +29,7 @@ func (app *App) value() *appValue {
 	}
 }
 
-// An appValue is the common point for exposing the state of the application
-// into Starlark and for Starlark to declare intents.
+// appValue represents the global app value available in all scripts in a script set.
 type appValue struct {
 	name      string
 	attrNames []string
@@ -38,7 +40,7 @@ var _ starlark.Value = &appValue{}
 var _ starlark.SafeStringer = &appValue{}
 var _ starlark.HasSafeAttrs = &appValue{}
 
-func (app *appValue) String() string       { return fmt.Sprintf("<App %s>", app.name) }
+func (app *appValue) String() string       { return fmt.Sprintf("<app %s>", app.name) }
 func (app *appValue) Type() string         { return "App" }
 func (app *appValue) Freeze()              {}
 func (app *appValue) Truth() starlark.Bool { return true }
@@ -51,15 +53,15 @@ func (app *appValue) SafeString(thread *starlark.Thread, sb starlark.StringBuild
 		return err
 	}
 
-	_, err := fmt.Fprintf(sb, "<App %s>", app.name)
+	_, err := fmt.Fprintf(sb, "<app %s>", app.name)
 	return err
 }
 
 func (app *appValue) AttrNames() []string {
 	// TODO(marco6): use slice package when we bump Go version
-	attrNames := make([]string, 0, len(app.attrNames)+len(appObjectMethods))
-	for attr := range appObjectMethods {
-		if hasAttr(app.attrNames, attr) {
+	attrNames := make([]string, 0, len(app.attrNames)+len(appMethods))
+	for attr := range appMethods {
+		if !app.hasAttr(attr) {
 			attrNames = append(attrNames, attr)
 		}
 	}
@@ -68,9 +70,9 @@ func (app *appValue) AttrNames() []string {
 	return attrNames
 }
 
-func hasAttr(haystack []string, needle string) bool {
-	_, found := sort.Find(len(haystack), func(i int) int {
-		return strings.Compare(needle, haystack[i])
+func (app *appValue) hasAttr(needle string) bool {
+	_, found := sort.Find(len(app.attrNames), func(i int) int {
+		return strings.Compare(needle, app.attrNames[i])
 	})
 	return found
 }
@@ -79,7 +81,7 @@ func (app *appValue) Attr(name string) (starlark.Value, error) {
 	return app.SafeAttr(nil, name)
 }
 
-var ErrUnavailable = fmt.Errorf("unavailable") // FIXME(marco6): better error message
+var ErrUnavailable = errors.New("unavailable") // FIXME(marco6): better error message
 
 func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
@@ -92,10 +94,10 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 
 	rundata := RunData(thread)
 	if rundata.EventName == LoadEventName {
-		if hasAttr(app.attrNames, name) {
+		if app.hasAttr(name) {
 			return nil, ErrUnavailable
 		}
-		b := appObjectMethods[name]
+		b := appMethods[name]
 		if b == nil {
 			return nil, starlark.ErrNoSuchAttr
 		}
@@ -110,14 +112,25 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 
 	attr, err := app.attr(thread, name)
 	if isNoSuchAttr(err) {
-		if _, ok := appObjectMethods[name]; ok {
+		if _, ok := appMethods[name]; ok {
 			return nil, ErrUnavailable
 		}
 	}
 	return attr, err
 }
 
-var appObjectMethods = map[string]*starlark.Builtin{
+func isNoSuchAttr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if err == starlark.ErrNoSuchAttr {
+		return true
+	}
+	_, ok := err.(*starlark.NoSuchAttrError)
+	return ok
+}
+
+var appMethods = map[string]*starlark.Builtin{
 	"observe": starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, observe),
 }
 
@@ -131,11 +144,11 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 	}
 
 	data := RunData(thread)
-	observers := data.State.(map[string][]starlark.Callable)
-	obs, ok := observers[eventName]
+	state := data.State.(*initState)
+	obs, ok := state.observers[eventName]
 	if !ok {
-		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(observers))
-		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(observers))
+		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.observers))
+		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.observers))
 		if err := thread.AddAllocs(newSize, -oldSize); err != nil {
 			return nil, err
 		}
@@ -144,18 +157,7 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 	if err := safeAppender.Append(observer); err != nil {
 		return nil, err
 	}
-	observers[eventName] = obs
+	state.observers[eventName] = obs
 
 	return starlark.None, nil
-}
-
-func isNoSuchAttr(err error) bool {
-	if err == nil {
-		return false
-	}
-	if err == starlark.ErrNoSuchAttr {
-		return true
-	}
-	_, ok := err.(*starlark.NoSuchAttrError)
-	return ok
 }

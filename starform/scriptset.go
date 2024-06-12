@@ -102,8 +102,10 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		EventName: LoadEventName,
 		State:     nil,
 	}
+	appValue := ss.options.App.value()
+	appValue.Freeze()
 	predeclared := starlark.StringDict{
-		ss.options.App.Name: ss.options.App.value(),
+		ss.options.App.Name: appValue,
 	}
 	thread := makeThread(ss.options, data)
 	defer thread.Cancel("done")
@@ -129,8 +131,10 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	observers := make(map[string][]starlark.Callable)
-	data.State = observers
+	state := &initState{
+		observers: make(map[string][]starlark.Callable),
+	}
+	data.State = state
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
@@ -145,12 +149,12 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	for _, eventObservers := range observers {
+	for _, eventObservers := range state.observers {
 		for _, observer := range eventObservers {
 			observer.Freeze()
 		}
 	}
-	ss.observers = observers
+	ss.observers = state.observers
 
 	return nil
 }
