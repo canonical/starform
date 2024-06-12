@@ -55,21 +55,29 @@ type scriptState struct {
 	toplevelEnv starlark.StringDict
 }
 
+var validIdentifier = regexp.MustCompile(`[a-z]\w*`)
+
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.App == nil {
-		return nil, fmt.Errorf("cannot create script set without app")
+		return nil, fmt.Errorf("cannot create script set: app not supplied")
 	}
 	if options.App.Name == "" {
-		return nil, fmt.Errorf("cannot create script set without app name")
+		return nil, fmt.Errorf("cannot create script set: app name missing")
+	}
+	if !validIdentifier.Match([]byte(options.App.Name)) {
+		return nil, fmt.Errorf("cannot create script set: app name invalid")
+	}
+	if len(options.App.Name) < 3 {
+		return nil, fmt.Errorf("cannot create script set: app name too short")
 	}
 	if options.App.Attr == nil {
-		return nil, fmt.Errorf("cannot create script set without app attr function")
+		return nil, fmt.Errorf("cannot create script set: app has no attr function")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
-		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
+		return nil, fmt.Errorf("cannot create script set: MemSafe requested but no MaxAllocs set")
 	}
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
-		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
+		return nil, fmt.Errorf("cannot create script set: CPUSafe requested but no MaxSteps set")
 	}
 
 	return &ScriptSet{

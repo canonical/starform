@@ -8,7 +8,10 @@ var LoadEventName = "<load>"
 
 type EventRunData struct {
 	EventName string
-	State     interface{}
+
+	// State is the user-supplied value passed to the (*ScriptSet).Handle
+	// method. This is never used by Starform.
+	State interface{}
 }
 
 type initState struct {

@@ -117,7 +117,7 @@ func TestOptionsValidation(t *testing.T) {
 			App:            app,
 			RequiredSafety: starlark.MemSafe,
 		},
-		expected: "cannot run MemSafe Starlark with unbounded MaxAllocs",
+		expected: "cannot create script set: MemSafe requested but no MaxAllocs set",
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
@@ -131,7 +131,7 @@ func TestOptionsValidation(t *testing.T) {
 			App:            app,
 			RequiredSafety: starlark.CPUSafe,
 		},
-		expected: "cannot run CPUSafe Starlark with unbounded MaxSteps",
+		expected: "cannot create script set: CPUSafe requested but no MaxSteps set",
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{

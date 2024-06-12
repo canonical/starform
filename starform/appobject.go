@@ -14,8 +14,14 @@ import (
 type App struct {
 	Name      string
 	AttrNames []string
-	Attr      func(thread *starlark.Thread, name string) (starlark.Value, error)
+
+	// Attr returns the attribute with the given name for the thread's current event.
+	// If the attribute does not exists, it should return starlark.ErrNoSuchAttr.
+	// If the attribute is not available for thread's current event, it should return ErrUnavailable.
+	Attr func(thread *starlark.Thread, name string) (starlark.Value, error)
 }
+
+var ErrUnavailable = errors.New("unavailable")
 
 func (app *App) value() *appValue {
 	attrNames := make([]string, len(app.AttrNames))
@@ -81,8 +87,6 @@ func (app *appValue) Attr(name string) (starlark.Value, error) {
 	return app.SafeAttr(nil, name)
 }
 
-var ErrUnavailable = errors.New("unavailable") // FIXME(marco6): better error message
-
 func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
 		return nil, fmt.Errorf("can't access app fields in unconstrained environment")
@@ -145,7 +149,7 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 
 	data := RunData(thread)
 	state := data.State.(*initState)
-	obs, ok := state.eventObservers[eventName]
+	observers, ok := state.eventObservers[eventName]
 	if !ok {
 		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers))
 		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
@@ -153,11 +157,11 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 			return nil, err
 		}
 	}
-	safeAppender := starlark.NewSafeAppender(thread, &obs)
-	if err := safeAppender.Append(observer); err != nil {
+	observersAppender := starlark.NewSafeAppender(thread, &observers)
+	if err := observersAppender.Append(observer); err != nil {
 		return nil, err
 	}
-	state.eventObservers[eventName] = obs
+	state.eventObservers[eventName] = observers
 
 	return starlark.None, nil
 }
