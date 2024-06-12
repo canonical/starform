@@ -172,22 +172,22 @@ func TestAppSafeAttr(t *testing.T) {
 func TestAppAttrNames(t *testing.T) {
 	tests := []struct {
 		name          string
-		customAttrs   []string
+		inputAttrs    []string
 		expectedAttrs []string
 	}{{
 		name:          "non-overloading",
-		customAttrs:   []string{"foo", "bar", "baz", "qux"},
+		inputAttrs:    []string{"foo", "bar", "baz", "qux"},
 		expectedAttrs: []string{"bar", "baz", "foo", "observe", "qux"},
 	}, {
 		name:          "overloading",
-		customAttrs:   []string{"foo", "bar", "baz", "observe", "qux"},
+		inputAttrs:    []string{"foo", "bar", "baz", "observe", "qux"},
 		expectedAttrs: []string{"bar", "baz", "foo", "observe", "qux"},
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			app := &starform.App{
 				Name:      "test",
-				AttrNames: test.customAttrs,
+				AttrNames: test.inputAttrs,
 				Attr:      noAttrs,
 			}
 			appValue := app.Value()

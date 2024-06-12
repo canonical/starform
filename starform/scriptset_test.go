@@ -999,7 +999,7 @@ func TestObserverFreezing(t *testing.T) {
 }
 
 func TestAppAttrs(t *testing.T) {
-	t.Run("observe", func(t *testing.T) {
+	t.Run("non-overloaded", func(t *testing.T) {
 		foo := starlark.Value(starlark.String("foo"))
 		bar := starlark.Value(starlark.String("bar"))
 		app := &starform.App{
@@ -1030,6 +1030,7 @@ func TestAppAttrs(t *testing.T) {
 					def on_foo(event):
 						fail("unreachable")
 
+					# observe is not available during module loading.
 					test.observe("foo", on_foo)
 					fail("unreachable")
 				`,
@@ -1078,7 +1079,7 @@ func TestAppAttrs(t *testing.T) {
 			}
 		})
 
-		t.Run("event", func(t *testing.T) {
+		t.Run("event-handling", func(t *testing.T) {
 			set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 				App: app,
 			})
@@ -1092,6 +1093,7 @@ func TestAppAttrs(t *testing.T) {
 						test.observe("foo", on_foo)
 					
 					def on_foo(event):
+						# observe is not available during event handling.
 						test.observe("bar", on_bar)
 						fail("unreachable")
 
@@ -1113,7 +1115,7 @@ func TestAppAttrs(t *testing.T) {
 		})
 	})
 
-	t.Run("overloading", func(t *testing.T) {
+	t.Run("overloaded", func(t *testing.T) {
 		testApp := &starform.App{
 			Name:      "test",
 			AttrNames: []string{"observe", "foo", "bar"},
@@ -1135,6 +1137,7 @@ func TestAppAttrs(t *testing.T) {
 					def on_foo(event):
 						fail("unreachable")
 
+					# Custom fields are not available outside of event handling.
 					test.observe("foo", on_foo)
 					fail("unreachable")
 				`,
@@ -1160,6 +1163,7 @@ func TestAppAttrs(t *testing.T) {
 						fail("unreachable")
 
 					def init():
+						# Custom fields are not available outside of event handling.
 						test.observe("foo", on_foo)
 						fail("unreachable")
 				`,

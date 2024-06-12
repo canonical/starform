@@ -87,15 +87,15 @@ func (app *appValue) Attr(name string) (starlark.Value, error) {
 
 func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
-		return nil, fmt.Errorf("can't access app fields in unconstrained environment")
+		return nil, fmt.Errorf("cannot access app fields in unconstrained environment")
 	}
 	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
 	}
 
-	rundata := RunData(thread)
-	if rundata.EventName == LoadEventName {
+	runData := RunData(thread)
+	if runData.EventName == LoadEventName {
 		if app.hasAttr(name) {
 			return nil, ErrUnavailable
 		}
@@ -103,7 +103,7 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		if b == nil {
 			return nil, starlark.ErrNoSuchAttr
 		}
-		if rundata.State == nil {
+		if runData.State == nil {
 			return nil, ErrUnavailable
 		}
 		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
@@ -115,6 +115,7 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 	attr, err := app.attr(thread, name)
 	if isNoSuchAttr(err) {
 		if _, ok := appMethods[name]; ok {
+			// Provided App methods are only available during init.
 			return nil, ErrUnavailable
 		}
 	}
@@ -145,8 +146,8 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 		return nil, err
 	}
 
-	data := RunData(thread)
-	state := data.State.(*initState)
+	runData := RunData(thread)
+	state := runData.State.(*initState)
 	observers, ok := state.eventObservers[eventName]
 	if !ok {
 		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers))
