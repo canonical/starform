@@ -1176,3 +1176,90 @@ func TestAppAttrs(t *testing.T) {
 		})
 	})
 }
+
+func TestEventState(t *testing.T) {
+	type startAppState struct {
+		currentOs, targetOs string
+	}
+	app := &starform.App{
+		Name:      "exec",
+		AttrNames: []string{"current_os", "target_os"},
+		Attr: func(thread *starlark.Thread, name string) (starlark.Value, error) {
+			runData := starform.RunData(thread)
+			if runData.EventName == "startup" {
+				state := runData.State.(*startAppState)
+				switch name {
+				case "current_os":
+					if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
+						return nil, err
+					}
+					return starlark.String(state.currentOs), nil
+				case "target_os":
+					if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
+						return nil, err
+					}
+					return starlark.String(state.targetOs), nil
+				default:
+					return nil, starlark.ErrNoSuchAttr
+				}
+			}
+			return nil, starlark.ErrNoSuchAttr
+		},
+	}
+
+	set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+		App: app,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def on_startup(event):
+				if exec.current_os != exec.target_os:
+					if exec.target_os == "windows" and exec.current_os == "linux":
+						print("use wine for this!")
+					else:
+						fail("cannot run app for %s on %s" % (exec.target_os, exec.current_os))
+
+			def init():
+				exec.observe("startup", on_startup)
+		`,
+	}})
+	if err != nil {
+		t.Error(err)
+	}
+
+	tests := []struct {
+		targetOs, currentOs string
+		expectError         bool
+	}{{
+		targetOs:    "linux",
+		currentOs:   "linux",
+		expectError: false,
+	}, {
+		targetOs:    "android",
+		currentOs:   "linux",
+		expectError: true,
+	}, {
+		targetOs:    "windows",
+		currentOs:   "linux",
+		expectError: false,
+	}}
+
+	for _, test := range tests {
+		err = set.Handle(context.Background(), &starform.HandleOptions{
+			EventName: "startup",
+			State: &startAppState{
+				currentOs: test.currentOs,
+				targetOs:  test.targetOs,
+			},
+		})
+		if test.expectError && err == nil {
+			t.Error("expected error")
+		} else if !test.expectError && err != nil {
+			t.Error(err)
+		}
+	}
+}
