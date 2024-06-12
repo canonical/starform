@@ -9,7 +9,7 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-// An App is the common point for exposing the state of the application
+// App is the common point for exposing the state of the application
 // into Starlark and for Starlark to declare intents.
 type App struct {
 	Name      string
@@ -26,7 +26,7 @@ var ErrUnavailable = errors.New("unavailable")
 func (app *App) value() *appValue {
 	attrNames := make([]string, len(app.AttrNames))
 	copy(attrNames, app.AttrNames)
-	sort.Strings(attrNames)
+	sort.Strings(attrNames) // this is necessary for hasAttr to work
 
 	return &appValue{
 		name:      app.Name,
@@ -59,7 +59,7 @@ func (app *appValue) SafeString(thread *starlark.Thread, sb starlark.StringBuild
 		return err
 	}
 
-	_, err := fmt.Fprintf(sb, "<app %s>", app.name)
+	_, err := sb.WriteString(app.String())
 	return err
 }
 
@@ -71,9 +71,7 @@ func (app *appValue) AttrNames() []string {
 			attrNames = append(attrNames, attr)
 		}
 	}
-	attrNames = append(attrNames, app.attrNames...)
-	sort.Strings(attrNames)
-	return attrNames
+	return append(attrNames, app.attrNames...)
 }
 
 func (app *appValue) hasAttr(needle string) bool {

@@ -70,6 +70,9 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if len(options.App.Name) < 3 {
 		return nil, fmt.Errorf("cannot create script set: app name too short")
 	}
+	if len(options.App.Name) > 25 {
+		return nil, fmt.Errorf("cannot create script set: app name too long")
+	}
 	if options.App.Attr == nil {
 		return nil, fmt.Errorf("cannot create script set: app has no attr function")
 	}

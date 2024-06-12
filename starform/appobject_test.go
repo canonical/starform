@@ -197,9 +197,7 @@ func TestAppAttrNames(t *testing.T) {
 			if len(attrNames) != len(test.expectedAttrs) {
 				t.Errorf("unexpected number of attributes: expected %d, got %d", len(test.expectedAttrs), len(attrNames))
 			}
-			if !sort.StringsAreSorted(attrNames) {
-				t.Error("unsorted attr names")
-			}
+			sort.Strings(attrNames)
 			for i := range test.expectedAttrs {
 				if test.expectedAttrs[i] != attrNames[i] {
 					t.Errorf("unexpected attribute %v", attrNames[i])
