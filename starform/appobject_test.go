@@ -15,7 +15,7 @@ func isStarlarkCancellation(err error) bool {
 	return strings.Contains(err.Error(), "Starlark computation cancelled:")
 }
 
-var noAttrFunc = func(thread *starlark.Thread, name string) (starlark.Value, error) {
+var noAttrs = func(thread *starlark.Thread, name string) (starlark.Value, error) {
 	return nil, starlark.ErrNoSuchAttr
 }
 
@@ -25,7 +25,7 @@ func TestAppAsStarlarkValue(t *testing.T) {
 	app := &starform.App{
 		Name:      appName,
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	appValue := app.Value()
 	appValue.Freeze()
@@ -57,7 +57,7 @@ func TestAppSafeString(t *testing.T) {
 		app := &starform.App{
 			Name:      appName,
 			AttrNames: []string{},
-			Attr:      noAttrFunc,
+			Attr:      noAttrs,
 		}
 		appValue := app.Value()
 		appValue.Freeze()
@@ -76,7 +76,7 @@ func TestAppSafeString(t *testing.T) {
 			app := &starform.App{
 				Name:      appName,
 				AttrNames: []string{},
-				Attr:      noAttrFunc,
+				Attr:      noAttrs,
 			}
 			appValue := app.Value()
 			appValue.Freeze()
@@ -105,7 +105,7 @@ func TestAppSafeString(t *testing.T) {
 			app := &starform.App{
 				Name:      appName,
 				AttrNames: []string{},
-				Attr:      noAttrFunc,
+				Attr:      noAttrs,
 			}
 			appValue := app.Value()
 			appValue.Freeze()
@@ -125,7 +125,7 @@ func TestAppSafeAttr(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	appValue := app.Value()
 	appValue.Freeze()
@@ -188,7 +188,7 @@ func TestAppAttrNames(t *testing.T) {
 			app := &starform.App{
 				Name:      "test",
 				AttrNames: test.customAttrs,
-				Attr:      noAttrFunc,
+				Attr:      noAttrs,
 			}
 			appValue := app.Value()
 			appValue.Freeze()
@@ -224,7 +224,7 @@ func TestAppObserveSafety(t *testing.T) {
 		app := &starform.App{
 			Name:      "test",
 			AttrNames: []string{},
-			Attr:      noAttrFunc,
+			Attr:      noAttrs,
 		}
 		appValue := app.Value()
 		appValue.Freeze()
@@ -255,7 +255,7 @@ func TestAppObserveSafety(t *testing.T) {
 			app := &starform.App{
 				Name:      "test",
 				AttrNames: []string{},
-				Attr:      noAttrFunc,
+				Attr:      noAttrs,
 			}
 			appValue := app.Value()
 			appValue.Freeze()
@@ -298,7 +298,7 @@ func TestAppObserveSafety(t *testing.T) {
 			app := &starform.App{
 				Name:      "test",
 				AttrNames: []string{},
-				Attr:      noAttrFunc,
+				Attr:      noAttrs,
 			}
 			appValue := app.Value()
 			appValue.Freeze()

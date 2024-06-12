@@ -15,8 +15,8 @@ import (
 )
 
 type ScriptSet struct {
-	options   *ScriptSetOptions
-	observers map[string][]starlark.Callable
+	options        *ScriptSetOptions
+	eventObservers map[string][]starlark.Callable
 }
 
 type ScriptSource interface {
@@ -31,8 +31,6 @@ type ScriptSetOptions struct {
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
 }
-
-var EmptyState = struct{}{}
 
 var starlarkDialect = syntax.FileOptions{
 	Set:             true,
@@ -102,8 +100,10 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		EventName: LoadEventName,
 		State:     nil,
 	}
+
 	appValue := ss.options.App.value()
 	appValue.Freeze()
+
 	predeclared := starlark.StringDict{
 		ss.options.App.Name: appValue,
 	}
@@ -132,7 +132,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	}
 
 	state := &initState{
-		observers: make(map[string][]starlark.Callable),
+		eventObservers: make(map[string][]starlark.Callable),
 	}
 	data.State = state
 	for _, script := range scripts {
@@ -149,12 +149,12 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	for _, eventObservers := range state.observers {
-		for _, observer := range eventObservers {
+	for _, observers := range state.eventObservers {
+		for _, observer := range observers {
 			observer.Freeze()
 		}
 	}
-	ss.observers = state.observers
+	ss.eventObservers = state.eventObservers
 
 	return nil
 }
@@ -275,7 +275,7 @@ type HandleOptions struct {
 }
 
 func (ss *ScriptSet) Handle(ctx context.Context, opts *HandleOptions) error {
-	observers, ok := ss.observers[opts.EventName]
+	observers, ok := ss.eventObservers[opts.EventName]
 	if !ok {
 		return nil
 	}

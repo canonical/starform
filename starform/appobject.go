@@ -145,10 +145,10 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 
 	data := RunData(thread)
 	state := data.State.(*initState)
-	obs, ok := state.observers[eventName]
+	obs, ok := state.eventObservers[eventName]
 	if !ok {
-		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.observers))
-		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.observers))
+		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers))
+		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
 		if err := thread.AddAllocs(newSize, -oldSize); err != nil {
 			return nil, err
 		}
@@ -157,7 +157,7 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 	if err := safeAppender.Append(observer); err != nil {
 		return nil, err
 	}
-	state.observers[eventName] = obs
+	state.eventObservers[eventName] = obs
 
 	return starlark.None, nil
 }

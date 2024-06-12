@@ -12,7 +12,7 @@ type EventRunData struct {
 }
 
 type initState struct {
-	observers map[string][]starlark.Callable
+	eventObservers map[string][]starlark.Callable
 }
 
 const runDataLocalKey = "starform-run-data"

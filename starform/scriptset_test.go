@@ -100,7 +100,7 @@ func TestOptionsValidation(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	tests := []struct {
 		name     string
@@ -158,7 +158,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	tests := []struct {
 		name        string
@@ -293,7 +293,7 @@ func TestCheckLoadPath(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	tests := []struct {
 		name   string
@@ -468,7 +468,7 @@ func TestCancelLoad(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	opts := &starform.ScriptSetOptions{
 		App: app,
@@ -496,7 +496,7 @@ func TestLoadStatement(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	tests := []struct {
 		name        string
@@ -673,7 +673,7 @@ func TestProgramCache(t *testing.T) {
 	app := &starform.App{
 		Name:      "test",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 
 	t.Run("total-reuse", func(t *testing.T) {
@@ -767,7 +767,7 @@ func TestObserverTypes(t *testing.T) {
 	app := &starform.App{
 		Name:      "app",
 		AttrNames: []string{},
-		Attr:      noAttrFunc,
+		Attr:      noAttrs,
 	}
 	tests := []struct {
 		name        string
@@ -823,7 +823,6 @@ func TestObserverTypes(t *testing.T) {
 
 			if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 				EventName: "foo",
-				State:     starform.EmptyState,
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -842,7 +841,7 @@ func TestEventHandling(t *testing.T) {
 		App: &starform.App{
 			Name:      "app",
 			AttrNames: []string{},
-			Attr:      noAttrFunc,
+			Attr:      noAttrs,
 		},
 		PrintHandler: func(thread *starlark.Thread, msg string) {
 			log.WriteString(msg)
@@ -886,14 +885,12 @@ func TestEventHandling(t *testing.T) {
 
 	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 		EventName: "foo",
-		State:     starform.EmptyState,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	log.WriteString("===\n")
 	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 		EventName: "bar",
-		State:     starform.EmptyState,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -909,7 +906,7 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 		App: &starform.App{
 			Name:      "app",
 			AttrNames: []string{},
-			Attr:      noAttrFunc,
+			Attr:      noAttrs,
 		},
 		PrintHandler: func(thread *starlark.Thread, msg string) {},
 	}
@@ -933,7 +930,6 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 
 	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 		EventName: "foo",
-		State:     starform.EmptyState,
 	}); err == nil {
 		t.Fatal("expected error")
 	} else if err.Error() != expected {
@@ -976,7 +972,7 @@ func TestObserverFreezing(t *testing.T) {
 				App: &starform.App{
 					Name:      "app",
 					AttrNames: []string{},
-					Attr:      noAttrFunc,
+					Attr:      noAttrs,
 				},
 				PrintHandler: func(thread *starlark.Thread, msg string) {},
 			}
@@ -993,7 +989,6 @@ func TestObserverFreezing(t *testing.T) {
 			}
 			if err := scripts.Handle(context.Background(), &starform.HandleOptions{
 				EventName: "foo",
-				State:     starform.EmptyState,
 			}); err == nil {
 				t.Error("expected error")
 			} else if err.Error() != "cannot insert into frozen hash table" {
@@ -1074,7 +1069,6 @@ func TestAppAttrs(t *testing.T) {
 			}
 			err = set.Handle(context.Background(), &starform.HandleOptions{
 				EventName: "foo",
-				State:     struct{}{},
 			})
 			if err != nil {
 				t.Error(err)
@@ -1110,7 +1104,6 @@ func TestAppAttrs(t *testing.T) {
 			}
 			err = set.Handle(context.Background(), &starform.HandleOptions{
 				EventName: "foo",
-				State:     starform.EmptyState,
 			})
 			if err == nil {
 				t.Error("expected error, got success")

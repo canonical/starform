@@ -16,6 +16,6 @@ func (app *App) Value() starlark.HasSafeAttrs {
 
 func InitState() interface{} {
 	return &initState{
-		observers: make(map[string][]starlark.Callable),
+		eventObservers: make(map[string][]starlark.Callable),
 	}
 }
