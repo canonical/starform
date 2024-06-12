@@ -17,6 +17,7 @@ import (
 type ScriptSet struct {
 	options        *ScriptSetOptions
 	pathByFilename map[string]string
+	observers      map[string][]starlark.Callable
 }
 
 type ScriptSource interface {
@@ -72,6 +73,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	}, nil
 }
 
+// LoadSources loads the given sources into the script set and runs their init
+// functions. Any previously-loaded scripts are discarded.
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
 	scriptStates, err := ss.compilePrograms(ctx, sources)
 	if err != nil {
@@ -94,6 +97,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 	data := &runData{eventName: LoadEventName, pathByFilename: pathByFilename}
 	thread := makeThread(ss.options, data)
+	defer thread.Cancel("done")
+	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
+	defer stop()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
@@ -108,21 +114,14 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 		return script.toplevelEnv, nil
 	}
-	done := make(chan struct{})
-	defer close(done)
-	go func() {
-		select {
-		case <-ctx.Done():
-			thread.Cancel("operation cancelled")
-		case <-done:
-		}
-	}()
 	for _, script := range scripts {
 		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
 			return err
 		}
 	}
 
+	data.observeAvailable = true
+	data.observers = make(map[string][]starlark.Callable)
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
@@ -137,7 +136,14 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
+	for _, eventObservers := range data.observers {
+		for _, observer := range eventObservers {
+			observer.Freeze()
+		}
+	}
+	ss.observers = data.observers
 	ss.pathByFilename = pathByFilename
+
 	return nil
 }
 
@@ -177,11 +183,13 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
 			}
 			if err := cache.Put(programKey, program, source); err != nil {
-				ss.options.Logger.Log(ctx, LogEntry{
-					Message:   fmt.Sprintf("failed to put %s into cache: %v", path, err),
-					Level:     DebugLevel,
-					EventName: LoadEventName,
-				})
+				if ss.options.Logger != nil {
+					ss.options.Logger.Log(ctx, LogEntry{
+						Message:   fmt.Sprintf("failed to put %s into cache: %v", path, err),
+						Level:     DebugLevel,
+						EventName: LoadEventName,
+					})
+				}
 			}
 		} else if p, ok := entry.(*starlark.Program); ok {
 			program = p
@@ -260,6 +268,26 @@ func checkLoadPath(loadPath string) (err error) {
 		return miscInvalidPathError
 	}
 
+	return nil
+}
+
+func (ss *ScriptSet) Handle(ctx context.Context, eventName string) error {
+	observers, ok := ss.observers[eventName]
+	if !ok {
+		return nil
+	}
+
+	data := &runData{eventName: eventName}
+	thread := makeThread(ss.options, data)
+	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
+	defer stop()
+	defer thread.Cancel("done")
+	for _, observer := range observers {
+		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

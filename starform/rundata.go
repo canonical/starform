@@ -1,7 +1,7 @@
 package starform
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/canonical/starlark/starlark"
 )
@@ -9,16 +9,22 @@ import (
 var LoadEventName = "<load>"
 
 type runData struct {
-	eventName      string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
-	pathByFilename map[string]string
+	eventName        string // TODO(kcza): Generalise this to include some ID for more efficient comparison.
+	pathByFilename   map[string]string
+	observeAvailable bool
+	observers        map[string][]starlark.Callable
 }
 
-const runDataLocalKey = "starform.runData"
+const runDataLocalKey = "starform-run-data"
 
-var errRunDataMissing = fmt.Errorf("%s missing", runDataLocalKey)
+var errRunDataMissing = errors.New("starform internal data missing")
 
 func getRunData(thread *starlark.Thread) (*runData, error) {
-	ret, ok := thread.Local(runDataLocalKey).(*runData)
+	storedData := thread.Local(runDataLocalKey)
+	if storedData == nil {
+		return nil, errRunDataMissing
+	}
+	ret, ok := storedData.(*runData)
 	if !ok {
 		return nil, errRunDataMissing
 	}
