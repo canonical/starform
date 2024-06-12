@@ -1001,7 +1001,7 @@ func TestLog(t *testing.T) {
 		EventName: "event",
 		Message:   "debug handling event",
 		Line:      8,
-	}}[:4] // TODO(marco6): remove this slice operation when we can handle events
+	}}
 	const testProgram = `
 		def init():
 			# app.on("event", on_event) # TODO: allow this after #11
@@ -1061,9 +1061,8 @@ func TestLog(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), []starform.ScriptSource{&source}); err != nil {
 			t.Fatal(err)
 		}
-		// TODO(marco6): uncomment when we can handle events
-		// if err := scripts.Handle(context.Background(), "event"); err != nil {
-		// 	t.Fatal(err)
-		// }
+		if err := scripts.Handle(context.Background(), "event"); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
