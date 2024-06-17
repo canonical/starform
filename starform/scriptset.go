@@ -180,6 +180,9 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			cachedFilename := fmt.Sprintf("cache-%x.star", programKey[:4])
 			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, cachedFilename, content, isPredeclared)
 			if err != nil {
+				if err, ok := err.(*syntax.Error); ok {
+					err.Pos = syntax.MakePosition(&path, err.Pos.Line, err.Pos.Col)
+				}
 				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
 			}
 			if err := cache.Put(programKey, program, source); err != nil {
