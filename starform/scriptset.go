@@ -294,6 +294,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, eventName string) error {
 func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = makePrintFunction(options.Logger)
+	thread.PrintSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
