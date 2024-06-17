@@ -87,8 +87,9 @@ func (app *appValue) Attr(name string) (starlark.Value, error) {
 
 func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
-		return nil, fmt.Errorf("cannot access app fields in unconstrained environment")
+		return nil, errors.New("cannot access app fields in unconstrained environment")
 	}
+
 	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return nil, err
