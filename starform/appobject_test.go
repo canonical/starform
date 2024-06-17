@@ -101,7 +101,10 @@ func TestAppObjectSafeAttr(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.PutRunDataIn(thread, starform.InitingRunData())
+			starform.SetRunData(thread, &starform.EventRunData{
+				EventName: starform.LoadEventName,
+				State:     starform.InitState(),
+			})
 			for i := 0; i < st.N; i++ {
 				result, err := app.SafeAttr(thread, "observe")
 				if err != nil {
@@ -118,7 +121,10 @@ func TestAppObjectSafeAttr(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.PutRunDataIn(thread, starform.InitingRunData())
+			starform.SetRunData(thread, &starform.EventRunData{
+				EventName: starform.LoadEventName,
+				State:     starform.InitState(),
+			})
 			for i := 0; i < st.N; i++ {
 				_, err := app.SafeAttr(thread, "observe")
 				if err != nil && !isStarlarkCancellation(err) {
@@ -136,7 +142,10 @@ func TestAppObjectObserveSafety(t *testing.T) {
 
 	t.Run("return-value", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		starform.PutRunDataIn(thread, starform.InitingRunData())
+		starform.SetRunData(thread, &starform.EventRunData{
+			EventName: starform.LoadEventName,
+			State:     starform.InitState(),
+		})
 
 		app := starform.NewAppObject("test")
 		app.Freeze()
@@ -159,7 +168,10 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.PutRunDataIn(thread, starform.InitingRunData())
+			starform.SetRunData(thread, &starform.EventRunData{
+				EventName: starform.LoadEventName,
+				State:     starform.InitState(),
+			})
 
 			app := starform.NewAppObject("test")
 			app.Freeze()
@@ -168,11 +180,14 @@ func TestAppObjectObserveSafety(t *testing.T) {
 				t.Fatal("no such method: test.observe")
 			}
 
-			data := starform.InitingRunData()
-			if err := thread.AddAllocs(starlark.EstimateSize(data)); err != nil {
+			initState := starform.InitState()
+			if err := thread.AddAllocs(starlark.EstimateSize(initState)); err != nil {
 				t.Error(err)
 			}
-			starform.PutRunDataIn(thread, data)
+			starform.SetRunData(thread, &starform.EventRunData{
+				EventName: starform.LoadEventName,
+				State:     initState,
+			})
 
 			args := starlark.Tuple{starlark.String("event_name"), observer}
 			for i := 0; i < st.N; i++ {
@@ -181,7 +196,7 @@ func TestAppObjectObserveSafety(t *testing.T) {
 					st.Error(err)
 				}
 			}
-			st.KeepAlive(data)
+			st.KeepAlive(initState)
 		})
 	})
 
@@ -191,7 +206,10 @@ func TestAppObjectObserveSafety(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.PutRunDataIn(thread, starform.InitingRunData())
+			starform.SetRunData(thread, &starform.EventRunData{
+				EventName: starform.LoadEventName,
+				State:     starform.InitState(),
+			})
 
 			app := starform.NewAppObject("test")
 			app.Freeze()
