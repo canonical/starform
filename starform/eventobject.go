@@ -26,7 +26,12 @@ func (e *EventObject) Truth() starlark.Bool  { return starlark.True }
 func (e *EventObject) Type() string          { return "Event" }
 func (e *EventObject) String() string        { return fmt.Sprintf("<Event %s>", e.Name) }
 
-func (e *EventObject) SafeString(_ *starlark.Thread, sb starlark.StringBuilder) error {
+func (e *EventObject) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return err
+	}
+
 	_, err := sb.WriteString(e.String())
 	return err
 }
@@ -50,6 +55,11 @@ func (e *EventObject) Attr(name string) (starlark.Value, error) {
 }
 
 func (e *EventObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return nil, err
+	}
+
 	if attr, ok := e.Attrs[name]; ok {
 		return attr, nil
 	}

@@ -71,3 +71,52 @@ func TestEventSafeString(t *testing.T) {
 		})
 	})
 }
+
+func TestEventObjectSafeAttr(t *testing.T) {
+	event := &starform.EventObject{
+		Name: "test-event",
+		Attrs: starlark.StringDict{
+			"foo": starlark.String("bar"),
+		},
+	}
+	event.Freeze()
+
+	attrNames := event.AttrNames()
+	if len(attrNames) != 2 {
+		t.Fatalf("expected 2 attributes, got %d", len(attrNames))
+	}
+
+	for _, attrName := range attrNames {
+		t.Run(attrName, func(t *testing.T) {
+			t.Run("allocs-steps-io-safety", func(t *testing.T) {
+				st := startest.From(t)
+				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+				st.SetMaxSteps(0)
+				st.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < st.N; i++ {
+						result, err := event.SafeAttr(thread, attrName)
+						if err != nil {
+							st.Error(err)
+						}
+						st.KeepAlive(result)
+					}
+				})
+			})
+		})
+
+		t.Run("cancellaton", func(t *testing.T) {
+			st := startest.From(t)
+			st.RequireSafety(starlark.TimeSafe)
+			st.SetMaxSteps(0)
+			st.RunThread(func(thread *starlark.Thread) {
+				thread.Cancel("done")
+				for i := 0; i < st.N; i++ {
+					_, err := event.SafeAttr(thread, attrName)
+					if err != nil && !isStarlarkCancellation(err) {
+						st.Error(err)
+					}
+				}
+			})
+		})
+	}
+}
