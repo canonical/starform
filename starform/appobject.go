@@ -58,8 +58,8 @@ func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 	}
 
 	if name == "observe" {
-		data := RunData(thread)
-		if data.State == nil {
+		event := Event(thread)
+		if event.State == nil {
 			return nil, ErrUnavailable
 		}
 		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
@@ -78,8 +78,8 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 		return nil, err
 	}
 
-	data := RunData(thread)
-	state := data.State.(*initState)
+	event := Event(thread)
+	state := event.State.(*initState)
 	obs, ok := state.eventObservers[eventName]
 	if !ok {
 		// Precondition: events are never removed from data.observers.

@@ -6,8 +6,8 @@ import (
 
 var LoadEventName = "<load>"
 
-type EventRunData struct {
-	EventName string
+type EventObject struct {
+	Name string
 
 	// State is the user-supplied value passed to the (*ScriptSet).Handle
 	// method. This is never used by Starform.
@@ -18,10 +18,10 @@ type initState struct {
 	eventObservers map[string][]starlark.Callable
 }
 
-const runDataLocalKey = "starform-run-data"
+const eventObjectLocalKey = "starform-event-object"
 
-func RunData(thread *starlark.Thread) *EventRunData {
-	ret, ok := thread.Local(runDataLocalKey).(*EventRunData)
+func Event(thread *starlark.Thread) *EventObject {
+	ret, ok := thread.Local(eventObjectLocalKey).(*EventObject)
 	if !ok {
 		panic("starform internal data missing")
 	}

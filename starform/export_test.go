@@ -6,8 +6,8 @@ type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
 
-func SetRunData(thread *starlark.Thread, data *EventRunData) {
-	thread.SetLocal(runDataLocalKey, data)
+func SetEventObject(thread *starlark.Thread, data *EventObject) {
+	thread.SetLocal(eventObjectLocalKey, data)
 }
 
 func InitState() interface{} {

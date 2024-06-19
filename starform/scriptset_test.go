@@ -801,8 +801,8 @@ func TestObserverTypes(t *testing.T) {
 				t.Errorf("expected error")
 			}
 
-			if err := scripts.Handle(context.Background(), &starform.HandleOptions{
-				EventName: "foo",
+			if err := scripts.Handle(context.Background(), &starform.EventObject{
+				Name: "foo",
 			}); err != nil {
 				t.Fatal(err)
 			}
@@ -861,14 +861,14 @@ func TestEventHandling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
-		EventName: "foo",
+	if err := scripts.Handle(context.Background(), &starform.EventObject{
+		Name: "foo",
 	}); err != nil {
 		t.Fatal(err)
 	}
 	log.WriteString("===\n")
-	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
-		EventName: "bar",
+	if err := scripts.Handle(context.Background(), &starform.EventObject{
+		Name: "bar",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -904,8 +904,8 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := scripts.Handle(context.Background(), &starform.HandleOptions{
-		EventName: "foo",
+	if err := scripts.Handle(context.Background(), &starform.EventObject{
+		Name: "foo",
 	}); err == nil {
 		t.Fatal("expected error")
 	} else if err.Error() != expected {
@@ -961,8 +961,8 @@ func TestObserverFreezing(t *testing.T) {
 			if err := scripts.LoadSources(context.Background(), sources); err != nil {
 				t.Fatal(err)
 			}
-			if err := scripts.Handle(context.Background(), &starform.HandleOptions{
-				EventName: "foo",
+			if err := scripts.Handle(context.Background(), &starform.EventObject{
+				Name: "foo",
 			}); err == nil {
 				t.Error("expected error")
 			} else if err.Error() != "cannot insert into frozen hash table" {

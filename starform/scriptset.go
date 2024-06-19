@@ -90,9 +90,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &EventRunData{
-		EventName: LoadEventName,
-		State:     nil,
+	event := &EventObject{
+		Name:  LoadEventName,
+		State: nil,
 	}
 
 	appValue := ss.options.AppObject
@@ -101,7 +101,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	predeclared := starlark.StringDict{
 		ss.options.AppObject.name: appValue,
 	}
-	thread := makeThread(ss.options, data)
+	thread := makeThread(ss.options, event)
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
@@ -128,7 +128,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	state := &initState{
 		eventObservers: make(map[string][]starlark.Callable),
 	}
-	data.State = state
+	event.State = state
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
@@ -263,22 +263,13 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-type HandleOptions struct {
-	EventName string
-	State     interface{}
-}
-
-func (ss *ScriptSet) Handle(ctx context.Context, opts *HandleOptions) error {
-	observers, ok := ss.eventObservers[opts.EventName]
+func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
+	observers, ok := ss.eventObservers[event.Name]
 	if !ok {
 		return nil
 	}
 
-	runData := &EventRunData{
-		EventName: opts.EventName,
-		State:     opts.State,
-	}
-	thread := makeThread(ss.options, runData)
+	thread := makeThread(ss.options, event)
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	defer thread.Cancel("done")
@@ -291,12 +282,12 @@ func (ss *ScriptSet) Handle(ctx context.Context, opts *HandleOptions) error {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions, data *EventRunData) *starlark.Thread {
+func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = options.PrintHandler
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(runDataLocalKey, data)
+	thread.SetLocal(eventObjectLocalKey, data)
 	return thread
 }
