@@ -44,10 +44,6 @@ var debugBuiltin = starlark.NewBuiltinWithSafety(
 		if thread.Print == nil {
 			return starlark.None, nil
 		}
-		// Early stop if calling Print would cause a safety violation
-		if err := starlark.CheckSafety(thread, thread.PrintSafety); err != nil {
-			return nil, err
-		}
 
 		sep := " "
 		if err := starlark.UnpackArgs(b.Name(), nil, kwargs, "sep?", &sep); err != nil {

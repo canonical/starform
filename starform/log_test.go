@@ -60,7 +60,6 @@ func TestDebugSafety(t *testing.T) {
 			thread.Print = func(thread *starlark.Thread, msg string) {
 				// Do nothing.
 			}
-			thread.PrintSafety = safety
 			thread.RequireSafety(safety)
 
 			stringer := &unsafeTestStringer{t: t}
@@ -77,7 +76,6 @@ func TestDebugSafety(t *testing.T) {
 			thread.Print = func(thread *starlark.Thread, msg string) {
 				// Do nothing.
 			}
-			thread.PrintSafety = starlark.NotSafe
 			thread.RequireSafety(safety)
 
 			_, err := starlark.Call(thread, starform.DebugBuiltin, starlark.Tuple{starlark.None}, nil)
@@ -91,7 +89,6 @@ func TestDebugSafety(t *testing.T) {
 		t.Run("no-print", func(t *testing.T) {
 			thread := &starlark.Thread{}
 			thread.Print = nil
-			thread.PrintSafety = starlark.NotSafe
 			thread.RequireSafety(safety)
 
 			_, err := starlark.Call(thread, starform.DebugBuiltin, starlark.Tuple{starlark.None}, nil)
@@ -255,7 +252,6 @@ func TestDebugSteps(t *testing.T) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					// Do nothing.
 				}
-				thread.PrintSafety = starlark.CPUSafe
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, starform.DebugBuiltin, starlark.Tuple{test.input}, nil)
 					if err != nil {
@@ -292,7 +288,6 @@ func TestDebugAllocs(t *testing.T) {
 			}
 			st.KeepAlive(msg)
 		}
-		thread.PrintSafety = starlark.MemSafe
 
 		for i := 0; i < st.N; i++ {
 			res, err := starlark.Call(thread, starform.DebugBuiltin, args, nil)
@@ -434,7 +429,6 @@ func TestDebugCancellation(t *testing.T) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					// Do nothing.
 				}
-				thread.PrintSafety = starlark.TimeSafe
 				_, err := starlark.Call(thread, starform.DebugBuiltin, starlark.Tuple{test.input(st.N)}, nil)
 				if err == nil {
 					st.Error("expected cancellation")
