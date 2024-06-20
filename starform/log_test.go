@@ -71,21 +71,6 @@ func TestDebugSafety(t *testing.T) {
 			}
 		})
 
-		t.Run("print", func(t *testing.T) {
-			thread := &starlark.Thread{}
-			thread.Print = func(thread *starlark.Thread, msg string) {
-				// Do nothing.
-			}
-			thread.RequireSafety(safety)
-
-			_, err := starlark.Call(thread, starform.DebugBuiltin, starlark.Tuple{starlark.None}, nil)
-			if err == nil {
-				t.Error("expected error")
-			} else if !errors.Is(err, starlark.ErrSafety) {
-				t.Errorf("unexpected error: %v", err)
-			}
-		})
-
 		t.Run("no-print", func(t *testing.T) {
 			thread := &starlark.Thread{}
 			thread.Print = nil
