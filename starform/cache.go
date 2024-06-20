@@ -40,30 +40,30 @@ func (n *noopScriptCache) Drop(key interface{})                                 
 func (n *noopScriptCache) Len() int                                              { return 0 }
 func (n *noopScriptCache) Visit(f func(key, value interface{}) error) error      { return nil }
 
-type LRUCache struct {
+type DefaultCache struct {
 	mu      sync.Mutex
 	maxSize int
 	store   map[interface{}]*lruEntry
 	lruList lruList
 }
 
-var _ ScriptCache = &LRUCache{}
+var _ ScriptCache = &DefaultCache{}
 
-func NewLruCache(maxSize int) *LRUCache {
-	return &LRUCache{
+func NewDefaultCache(maxSize int) *DefaultCache {
+	return &DefaultCache{
 		maxSize: maxSize,
 		store:   make(map[interface{}]*lruEntry, maxSize),
 	}
 }
 
-func (lc *LRUCache) private() {} // TODO: remove once interface is stable
+func (lc *DefaultCache) private() {} // TODO: remove once interface is stable
 
-func (lc *LRUCache) touch(entry *lruEntry) {
+func (lc *DefaultCache) touch(entry *lruEntry) {
 	lc.lruList.remove(entry)
 	lc.lruList.add(entry)
 }
 
-func (lc *LRUCache) Get(key interface{}) (interface{}, error) {
+func (lc *DefaultCache) Get(key interface{}) (interface{}, error) {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
 
@@ -74,7 +74,7 @@ func (lc *LRUCache) Get(key interface{}) (interface{}, error) {
 	return nil, ErrNotCached
 }
 
-func (lc *LRUCache) Put(key, value interface{}, source ScriptSource) error {
+func (lc *DefaultCache) Put(key, value interface{}, source ScriptSource) error {
 	if lc.maxSize <= 0 {
 		return nil
 	}
@@ -102,7 +102,7 @@ func (lc *LRUCache) Put(key, value interface{}, source ScriptSource) error {
 	return nil
 }
 
-func (lc *LRUCache) Drop(key interface{}) {
+func (lc *DefaultCache) Drop(key interface{}) {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
 
@@ -111,19 +111,19 @@ func (lc *LRUCache) Drop(key interface{}) {
 	}
 }
 
-func (lc *LRUCache) drop(entry *lruEntry) {
+func (lc *DefaultCache) drop(entry *lruEntry) {
 	lc.lruList.remove(entry)
 	delete(lc.store, entry.key)
 }
 
-func (lc *LRUCache) Len() int {
+func (lc *DefaultCache) Len() int {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
 
 	return len(lc.store)
 }
 
-func (lc *LRUCache) Visit(f func(key, value interface{}) error) error {
+func (lc *DefaultCache) Visit(f func(key, value interface{}) error) error {
 	lc.mu.Lock()
 	defer lc.mu.Unlock()
 

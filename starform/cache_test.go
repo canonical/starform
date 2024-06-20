@@ -6,10 +6,10 @@ import (
 	"github.com/canonical/starform/starform"
 )
 
-func TestLRUCache(t *testing.T) {
+func TestDefaultCache(t *testing.T) {
 	t.Run("max-size-one", func(t *testing.T) {
 		t.Run("replace-key", func(t *testing.T) {
-			cache := starform.NewLruCache(1)
+			cache := starform.NewDefaultCache(1)
 			cache.Put(1, "one", &testScriptSource{})
 			cache.Put(2, "two", &testScriptSource{}) // Expect eviction to occur here.
 
@@ -27,7 +27,7 @@ func TestLRUCache(t *testing.T) {
 		})
 
 		t.Run("replace-value", func(t *testing.T) {
-			cache := starform.NewLruCache(1)
+			cache := starform.NewDefaultCache(1)
 			cache.Put(2, "two-old", &testScriptSource{})
 			cache.Put(2, "two", &testScriptSource{})
 
@@ -45,7 +45,7 @@ func TestLRUCache(t *testing.T) {
 		})
 
 		t.Run("drop-key", func(t *testing.T) {
-			cache := starform.NewLruCache(1)
+			cache := starform.NewDefaultCache(1)
 			cache.Put(2, "two", &testScriptSource{})
 			cache.Drop(2)
 
@@ -62,7 +62,7 @@ func TestLRUCache(t *testing.T) {
 		const maxEntries = 100
 
 		t.Run("replace-keys", func(t *testing.T) {
-			cache := starform.NewLruCache(maxEntries)
+			cache := starform.NewDefaultCache(maxEntries)
 			for i := 0; i < maxEntries*2; i++ {
 				cache.Put(i, i, &testScriptSource{})
 			}
@@ -85,7 +85,7 @@ func TestLRUCache(t *testing.T) {
 		})
 
 		t.Run("used-entries", func(t *testing.T) {
-			cache := starform.NewLruCache(maxEntries)
+			cache := starform.NewDefaultCache(maxEntries)
 			for i := 0; i < maxEntries; i++ {
 				cache.Put(i, i, &testScriptSource{})
 			}
@@ -115,7 +115,7 @@ func TestLRUCache(t *testing.T) {
 		})
 
 		t.Run("dropped-keys", func(t *testing.T) {
-			cache := starform.NewLruCache(maxEntries)
+			cache := starform.NewDefaultCache(maxEntries)
 			for i := 0; i < maxEntries; i++ {
 				cache.Put(i, i, &testScriptSource{})
 			}
