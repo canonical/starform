@@ -6,24 +6,14 @@ type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
 
-type RunData = runData
-
-func LoadingRunData() *RunData {
-	return &RunData{
-		eventName: LoadEventName,
-	}
+func SetEventObject(thread *starlark.Thread, data *EventObject) {
+	thread.SetLocal(eventObjectLocalKey, data)
 }
 
-func InitingRunData() *RunData {
-	return &RunData{
-		eventName:        LoadEventName,
-		observeAvailable: true,
-		observers:        make(map[string][]starlark.Callable),
+func InitState() interface{} {
+	return &initState{
+		eventObservers: make(map[string][]starlark.Callable),
 	}
-}
-
-func PutRunDataIn(thread *starlark.Thread, data *RunData) {
-	thread.SetLocal(runDataLocalKey, data)
 }
 
 var PrintBuiltin = printBuiltin

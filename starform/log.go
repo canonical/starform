@@ -54,24 +54,19 @@ func (sl *scriptLogger) log(thread *starlark.Thread, msg string, level LogLevel)
 	if sl.logger == nil {
 		return
 	}
-	data, err := getRunData(thread)
-
-	eventName := "<unknown>"
-	if err == nil {
-		eventName = data.eventName
-	}
 
 	line := int32(0)
-
 	if thread.CallStackDepth() > 1 {
 		callerFrame := thread.CallFrame(1)
 		line = callerFrame.Pos.Line
 	}
 
+	event := Event(thread)
+
 	sl.logger.Log(thread.Context(), LogEntry{
 		Message:   msg,
 		Level:     level,
-		EventName: eventName,
+		EventName: event.Name,
 		Path:      sl.path,
 		Line:      line,
 	})
