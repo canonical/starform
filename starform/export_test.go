@@ -26,4 +26,12 @@ func PutRunDataIn(thread *starlark.Thread, data *RunData) {
 	thread.SetLocal(runDataLocalKey, data)
 }
 
+var PrintBuiltin = printBuiltin
 var DebugBuiltin = debugBuiltin
+
+func NewScriptLogger(logger Logger, path string) starlark.Value {
+	return &scriptLogger{
+		logger: logger,
+		path:   path,
+	}
+}

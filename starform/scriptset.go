@@ -15,9 +15,8 @@ import (
 )
 
 type ScriptSet struct {
-	options        *ScriptSetOptions
-	pathByFilename map[string]string
-	observers      map[string][]starlark.Callable
+	options   *ScriptSetOptions
+	observers map[string][]starlark.Callable
 }
 
 type ScriptSource interface {
@@ -85,17 +84,15 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		scripts[i] = &scriptStates[i]
 	}
 
-	pathByFilename := make(map[string]string, len(scripts))
 	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
 		scriptsByPath[script.path] = script
-		pathByFilename[script.program.Filename()] = script.path
 	}
 	sort.Slice(scripts, func(i, j int) bool {
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{eventName: LoadEventName, pathByFilename: pathByFilename}
+	data := &runData{eventName: LoadEventName}
 	thread := makeThread(ss.options, data)
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
@@ -109,13 +106,13 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if !ok {
 			return nil, fmt.Errorf("%s not found", path)
 		}
-		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
+		if err := ss.runTopLevel(thread, script); err != nil {
 			return nil, err
 		}
 		return script.toplevelEnv, nil
 	}
 	for _, script := range scripts {
-		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
+		if err := ss.runTopLevel(thread, script); err != nil {
 			return err
 		}
 	}
@@ -142,7 +139,6 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 	ss.observers = data.observers
-	ss.pathByFilename = pathByFilename
 
 	return nil
 }
@@ -155,7 +151,8 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 	}
 	isPredeclared := func(name string) bool {
 		return name == ss.options.AppObject.name ||
-			name == "debug"
+			name == "debug" ||
+			name == "print"
 	}
 	for _, source := range sources {
 		path := source.Path()
@@ -208,15 +205,20 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 	return scriptStates, nil
 }
 
-func (script *scriptState) runTopLevel(thread *starlark.Thread, app *AppObject) error {
+func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) error {
 	switch script.status {
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
+		logger := &scriptLogger{
+			logger: ss.options.Logger,
+			path:   script.path,
+		}
 		predeclared := starlark.StringDict{
-			"debug":  debugBuiltin,
-			app.name: app,
+			ss.options.AppObject.name: ss.options.AppObject,
+			"print":                   printBuiltin.BindReceiver(logger),
+			"debug":                   debugBuiltin.BindReceiver(logger),
 		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
@@ -296,54 +298,10 @@ func (ss *ScriptSet) Handle(ctx context.Context, eventName string) error {
 
 func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
 	thread := &starlark.Thread{}
-	thread.Print = makePrintFunction(options.Logger)
+	thread.Print = func(thread *starlark.Thread, msg string) {}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(runDataLocalKey, data)
 	return thread
-}
-
-func makePrintFunction(logger Logger) func(thread *starlark.Thread, msg string) {
-	if logger == nil {
-		// Avoid default print behaviour which writes to stdout.
-		return func(thread *starlark.Thread, msg string) {
-			// Do nothing.
-		}
-	}
-
-	return func(thread *starlark.Thread, msg string) {
-		print(thread, msg, logger)
-	}
-}
-
-func print(thread *starlark.Thread, msg string, logger Logger) {
-	data, err := getRunData(thread)
-
-	eventName := "<unknown>"
-	if err == nil {
-		eventName = data.eventName
-	}
-
-	level := PrintLevel
-	currentFrame := thread.CallFrame(0)
-	if currentFrame.Name == "debug" {
-		level = DebugLevel
-	}
-
-	line := int32(0)
-	path := "<unknown>"
-	if thread.CallStackDepth() > 1 {
-		callerFrame := thread.CallFrame(1)
-		path = data.GetPath(callerFrame.Pos.Filename())
-		line = callerFrame.Pos.Line
-	}
-
-	logger.Log(thread.Context(), LogEntry{
-		Message:   msg,
-		Level:     level,
-		EventName: eventName,
-		Path:      path,
-		Line:      line,
-	})
 }
