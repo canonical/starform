@@ -4,12 +4,12 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-var LoadEventName = "<load>"
+const LoadEventName = "<load>"
 
 type EventObject struct {
 	Name string
 
-	// State is the user-supplied value passed to the (*ScriptSet).Handle
+	// State is the developer-supplied value passed to the (*ScriptSet).Handle
 	// method. This is never used by Starform.
 	State interface{}
 }
