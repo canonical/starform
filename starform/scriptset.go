@@ -95,11 +95,11 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	appValue := ss.options.AppObject
-	appValue.Freeze()
+	appObject := ss.options.AppObject
+	appObject.Freeze()
 
 	predeclared := starlark.StringDict{
-		ss.options.AppObject.name: appValue,
+		ss.options.AppObject.name: appObject,
 	}
 	thread := makeThread(ss.options, event)
 	defer thread.Cancel("done")
