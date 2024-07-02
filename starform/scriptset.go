@@ -91,7 +91,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	})
 
 	event := &EventObject{
-		Name:  LoadEventName,
+		Name:  loadEventName,
 		State: nil,
 	}
 

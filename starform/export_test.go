@@ -15,3 +15,5 @@ func InitState() interface{} {
 		eventObservers: make(map[string][]starlark.Callable),
 	}
 }
+
+const LoadEventName = loadEventName
