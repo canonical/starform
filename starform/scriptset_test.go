@@ -1067,7 +1067,7 @@ func TestObserverFreezing(t *testing.T) {
 
 func TestLog(t *testing.T) {
 	cache := &testScriptCache{}
-	app := starform.NewAppObject("test")
+	app := starform.NewAppObject("app")
 	app.Freeze()
 
 	expectedEntries := []starform.LogEntry{{
@@ -1103,11 +1103,11 @@ func TestLog(t *testing.T) {
 	}}
 	const testProgram = `
 		def init():
-			# app.on("event", on_event) # TODO: allow this after #11
+			app.observe("event", on_event)
 			print("print in init")
 			debug("debug in init")
 
-		def on_event():
+		def on_event(event):
 			print("print handling event")
 			debug("debug handling event")
 
