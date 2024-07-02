@@ -4,13 +4,13 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-var LoadEventName = "<load>"
+const loadEventName = "<load>"
 
 type EventObject struct {
 	Name string
 
-	// State is the user-supplied value passed to the (*ScriptSet).Handle
-	// method. This is never used by Starform.
+	// State is the developer-supplied value passed to the (*ScriptSet).Handle
+	// method. Starform itself does not use this after the load phase.
 	State interface{}
 }
 
@@ -23,7 +23,7 @@ const eventObjectLocalKey = "starform-event-object"
 func Event(thread *starlark.Thread) *EventObject {
 	ret, ok := thread.Local(eventObjectLocalKey).(*EventObject)
 	if !ok {
-		panic("starform internal data missing")
+		return &EventObject{} // avoid panics
 	}
 	return ret
 }

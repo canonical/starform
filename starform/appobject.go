@@ -71,7 +71,9 @@ func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 }
 
 var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
-var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, observe)
+
+func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var eventName string
 	var observer starlark.Callable
 	if err := starlark.UnpackPositionalArgs(b.Name(), args, kwargs, 2, &eventName, &observer); err != nil {
@@ -79,7 +81,14 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 	}
 
 	event := Event(thread)
-	state := event.State.(*initState)
+	if event.Name != loadEventName {
+		return nil, ErrUnavailable
+	}
+	state, ok := event.State.(*initState)
+	if !ok {
+		return nil, errors.New("starform internal data missing")
+	}
+
 	obs, ok := state.eventObservers[eventName]
 	if !ok {
 		// Precondition: events are never removed from data.observers.
@@ -96,4 +105,4 @@ var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafe
 	state.eventObservers[eventName] = obs
 
 	return starlark.None, nil
-})
+}

@@ -67,6 +67,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
 	}
 
+	options.AppObject.Freeze()
+
 	return &ScriptSet{
 		options: options,
 	}, nil
@@ -93,12 +95,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	})
 
 	event := &EventObject{
-		Name:  LoadEventName,
+		Name:  loadEventName,
 		State: nil,
 	}
-
-	appValue := ss.options.AppObject
-	appValue.Freeze()
 
 	thread := makeThread(ss.options, event)
 	defer thread.Cancel("done")
@@ -196,7 +195,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 					ss.options.Logger.Log(ctx, LogEntry{
 						Message:   fmt.Sprintf("failed to put %s into cache: %v", path, err),
 						Level:     DebugLevel,
-						EventName: LoadEventName,
+						EventName: loadEventName,
 					})
 				}
 			}

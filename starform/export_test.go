@@ -6,6 +6,8 @@ type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
 
+const LoadEventName = loadEventName
+
 func SetEventObject(thread *starlark.Thread, data *EventObject) {
 	thread.SetLocal(eventObjectLocalKey, data)
 }
