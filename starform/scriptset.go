@@ -15,8 +15,8 @@ import (
 )
 
 type ScriptSet struct {
-	options   *ScriptSetOptions
-	observers map[string][]starlark.Callable
+	options        *ScriptSetOptions
+	eventObservers map[string][]starlark.Callable
 }
 
 type ScriptSource interface {
@@ -25,7 +25,7 @@ type ScriptSource interface {
 }
 
 type ScriptSetOptions struct {
-	AppObject           *AppObject
+	App                 *AppObject
 	Cache               ScriptCache
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
@@ -56,7 +56,7 @@ type scriptState struct {
 }
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
-	if options.AppObject == nil {
+	if options.App == nil {
 		return nil, fmt.Errorf("cannot create script set without app object")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
@@ -90,8 +90,18 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return scripts[i].path < scripts[j].path
 	})
 
-	data := &runData{eventName: LoadEventName}
-	thread := makeThread(ss.options, data)
+	event := &EventObject{
+		Name:  loadEventName,
+		State: nil,
+	}
+
+	appObject := ss.options.App
+	appObject.Freeze()
+
+	predeclared := starlark.StringDict{
+		ss.options.App.name: appObject,
+	}
+	thread := makeThread(ss.options, event)
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
@@ -104,19 +114,21 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if !ok {
 			return nil, fmt.Errorf("%s not found", path)
 		}
-		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
+		if err := script.runTopLevel(thread, predeclared); err != nil {
 			return nil, err
 		}
 		return script.toplevelEnv, nil
 	}
 	for _, script := range scripts {
-		if err := script.runTopLevel(thread, ss.options.AppObject); err != nil {
+		if err := script.runTopLevel(thread, predeclared); err != nil {
 			return err
 		}
 	}
 
-	data.observeAvailable = true
-	data.observers = make(map[string][]starlark.Callable)
+	state := &initState{
+		eventObservers: make(map[string][]starlark.Callable),
+	}
+	event.State = state
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
@@ -131,12 +143,12 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	for _, eventObservers := range data.observers {
-		for _, observer := range eventObservers {
+	for _, observers := range state.eventObservers {
+		for _, observer := range observers {
 			observer.Freeze()
 		}
 	}
-	ss.observers = data.observers
+	ss.eventObservers = state.eventObservers
 
 	return nil
 }
@@ -147,7 +159,9 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 	if cache == nil {
 		cache = &noopScriptCache{}
 	}
-	isPredeclared := func(name string) bool { return name == ss.options.AppObject.name }
+	isPredeclared := func(name string) bool {
+		return name == ss.options.App.name
+	}
 	for _, source := range sources {
 		path := source.Path()
 		if !strings.HasSuffix(path, ".star") {
@@ -187,15 +201,12 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 	return scriptStates, nil
 }
 
-func (script *scriptState) runTopLevel(thread *starlark.Thread, app *AppObject) error {
+func (script *scriptState) runTopLevel(thread *starlark.Thread, predeclared starlark.StringDict) error {
 	switch script.status {
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
-		predeclared := starlark.StringDict{
-			app.name: app,
-		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
 			return err
@@ -252,14 +263,13 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func (ss *ScriptSet) Handle(ctx context.Context, eventName string) error {
-	observers, ok := ss.observers[eventName]
+func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
+	observers, ok := ss.eventObservers[event.Name]
 	if !ok {
 		return nil
 	}
 
-	data := &runData{eventName: eventName}
-	thread := makeThread(ss.options, data)
+	thread := makeThread(ss.options, event)
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	defer thread.Cancel("done")
@@ -272,12 +282,12 @@ func (ss *ScriptSet) Handle(ctx context.Context, eventName string) error {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions, data *runData) *starlark.Thread {
+func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = options.PrintHandler
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(runDataLocalKey, data)
+	thread.SetLocal(eventObjectLocalKey, data)
 	return thread
 }
