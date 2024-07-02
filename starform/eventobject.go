@@ -9,8 +9,7 @@ const loadEventName = "<load>"
 type EventObject struct {
 	Name string
 
-	// State is the developer-supplied value passed to the (*ScriptSet).Handle
-	// method. Starform itself does not use this after the load phase.
+	// State is the developer-supplied value passed to the ScriptSet.Handle method.
 	State interface{}
 }
 
@@ -23,7 +22,7 @@ const eventObjectLocalKey = "starform-event-object"
 func Event(thread *starlark.Thread) *EventObject {
 	ret, ok := thread.Local(eventObjectLocalKey).(*EventObject)
 	if !ok {
-		return &EventObject{} // avoid panics
+		return &EventObject{} // Avoid panics.
 	}
 	return ret
 }
