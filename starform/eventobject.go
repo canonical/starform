@@ -23,7 +23,7 @@ const eventObjectLocalKey = "starform-event-object"
 func Event(thread *starlark.Thread) *EventObject {
 	ret, ok := thread.Local(eventObjectLocalKey).(*EventObject)
 	if !ok {
-		panic("starform internal data missing")
+		return &EventObject{} // avoid panics
 	}
 	return ret
 }
