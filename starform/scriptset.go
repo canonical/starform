@@ -25,7 +25,7 @@ type ScriptSource interface {
 }
 
 type ScriptSetOptions struct {
-	AppObject           *AppObject
+	App                 *AppObject
 	Cache               ScriptCache
 	PrintHandler        func(thread *starlark.Thread, msg string)
 	RequiredSafety      starlark.SafetyFlags
@@ -56,7 +56,7 @@ type scriptState struct {
 }
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
-	if options.AppObject == nil {
+	if options.App == nil {
 		return nil, fmt.Errorf("cannot create script set without app object")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
@@ -95,11 +95,11 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	appObject := ss.options.AppObject
+	appObject := ss.options.App
 	appObject.Freeze()
 
 	predeclared := starlark.StringDict{
-		ss.options.AppObject.name: appObject,
+		ss.options.App.name: appObject,
 	}
 	thread := makeThread(ss.options, event)
 	defer thread.Cancel("done")
@@ -160,7 +160,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		cache = &noopScriptCache{}
 	}
 	isPredeclared := func(name string) bool {
-		return name == ss.options.AppObject.name
+		return name == ss.options.App.name
 	}
 	for _, source := range sources {
 		path := source.Path()
