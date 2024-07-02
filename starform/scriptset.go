@@ -25,7 +25,7 @@ type ScriptSource interface {
 }
 
 type ScriptSetOptions struct {
-	AppObject           *AppObject
+	App                 *AppObject
 	Cache               ScriptCache
 	Logger              Logger
 	RequiredSafety      starlark.SafetyFlags
@@ -57,7 +57,7 @@ type scriptState struct {
 }
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
-	if options.AppObject == nil {
+	if options.App == nil {
 		return nil, fmt.Errorf("cannot create script set without app object")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
@@ -67,7 +67,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
 	}
 
-	options.AppObject.Freeze()
+	options.App.Freeze()
 
 	return &ScriptSet{
 		options: options,
@@ -158,7 +158,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		cache = &noopScriptCache{}
 	}
 	isPredeclared := func(name string) bool {
-		return name == ss.options.AppObject.name ||
+		return name == ss.options.App.name ||
 			name == "debug" ||
 			name == "print"
 	}
@@ -224,9 +224,9 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			path:   script.path,
 		}
 		predeclared := starlark.StringDict{
-			ss.options.AppObject.name: ss.options.AppObject,
-			"print":                   printBuiltin.BindReceiver(logger),
-			"debug":                   debugBuiltin.BindReceiver(logger),
+			ss.options.App.name: ss.options.App,
+			"print":             printBuiltin.BindReceiver(logger),
+			"debug":             debugBuiltin.BindReceiver(logger),
 		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
