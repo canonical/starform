@@ -85,7 +85,6 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	for i := range scriptStates {
 		scripts[i] = &scriptStates[i]
 	}
-
 	scriptsByPath := make(map[string]*scriptState, len(scripts))
 	for _, script := range scripts {
 		scriptsByPath[script.path] = script

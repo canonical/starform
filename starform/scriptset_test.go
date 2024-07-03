@@ -1070,6 +1070,19 @@ func TestLog(t *testing.T) {
 	app := starform.NewAppObject("app")
 	app.Freeze()
 
+	const testProgram = `
+		def init():
+			app.observe("event", on_event)
+			print("print in init")
+			debug("debug in init")
+
+		def on_event(event):
+			print("print handling event")
+			debug("debug handling event")
+
+		print("print at toplevel")
+		debug("debug at toplevel")
+	`
 	expectedEntries := []starform.LogEntry{{
 		Level:     starform.PrintLevel,
 		EventName: starform.LoadEventName,
@@ -1101,19 +1114,6 @@ func TestLog(t *testing.T) {
 		Message:   "debug handling event",
 		Line:      8,
 	}}
-	const testProgram = `
-		def init():
-			app.observe("event", on_event)
-			print("print in init")
-			debug("debug in init")
-
-		def on_event(event):
-			print("print handling event")
-			debug("debug handling event")
-
-		print("print at toplevel")
-		debug("debug at toplevel")
-	`
 	sources := []testScriptSource{{
 		name:    "foo.star",
 		content: testProgram,
