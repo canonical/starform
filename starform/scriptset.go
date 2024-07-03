@@ -181,7 +181,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			if err != ErrNotCached {
 				return nil, err
 			}
-			cachedFilename := fmt.Sprintf("cache-%x.star", programKey[:4])
+			cachedFilename := fmt.Sprintf("cached-%x.star", programKey[:4])
 			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, cachedFilename, content, isPredeclared)
 			if err != nil {
 				if err, ok := err.(*syntax.Error); ok {
