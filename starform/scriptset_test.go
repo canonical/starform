@@ -97,34 +97,42 @@ func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
 }
 
 func TestOptionsValidation(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name     string
 		opts     *starform.ScriptSetOptions
 		expected string
 	}{{
 		name: "NotSafe",
-		opts: &starform.ScriptSetOptions{},
+		opts: &starform.ScriptSetOptions{
+			App: app,
+		},
 	}, {
 		name: "MemSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			App:            app,
 			RequiredSafety: starlark.MemSafe,
 		},
 		expected: "cannot run MemSafe Starlark with unbounded MaxAllocs",
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			App:            app,
 			RequiredSafety: starlark.MemSafe,
 			MaxAllocs:      100,
 		},
 	}, {
 		name: "CPUSafe (unbounded)",
 		opts: &starform.ScriptSetOptions{
+			App:            app,
 			RequiredSafety: starlark.CPUSafe,
 		},
 		expected: "cannot run CPUSafe Starlark with unbounded MaxSteps",
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
+			App:            app,
 			RequiredSafety: starlark.CPUSafe,
 			MaxSteps:       100,
 		},
@@ -144,6 +152,8 @@ func TestOptionsValidation(t *testing.T) {
 }
 
 func TestLoadSimpleScriptSet(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name        string
 		sources     []starform.ScriptSource
@@ -248,6 +258,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 				log.WriteByte('\n')
 			}
 			opts := &starform.ScriptSetOptions{
+				App:          app,
 				PrintHandler: printHandler,
 			}
 			scripts, err := starform.NewScriptSet(opts)
@@ -273,6 +284,8 @@ func TestCheckLoadPath(t *testing.T) {
 		return fmt.Sprintf("cannot load %s: path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md", path)
 	}
 
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name   string
 		path   string
@@ -411,7 +424,9 @@ func TestCheckLoadPath(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &starform.ScriptSetOptions{}
+			opts := &starform.ScriptSetOptions{
+				App: app,
+			}
 			set, err := starform.NewScriptSet(opts)
 			if err != nil {
 				t.Fatal(err)
@@ -441,7 +456,11 @@ func TestCheckLoadPath(t *testing.T) {
 }
 
 func TestCancelLoad(t *testing.T) {
-	opts := &starform.ScriptSetOptions{}
+	app := starform.NewAppObject("test")
+	app.Freeze()
+	opts := &starform.ScriptSetOptions{
+		App: app,
+	}
 	scripts, err := starform.NewScriptSet(opts)
 	if err != nil {
 		t.Fatal(err)
@@ -462,6 +481,8 @@ func TestCancelLoad(t *testing.T) {
 }
 
 func TestLoadStatement(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
 	tests := []struct {
 		name        string
 		sources     []starform.ScriptSource
@@ -563,6 +584,7 @@ func TestLoadStatement(t *testing.T) {
 				log.WriteByte('\n')
 			}
 			opts := &starform.ScriptSetOptions{
+				App:          app,
 				PrintHandler: printHandler,
 			}
 			scripts, err := starform.NewScriptSet(opts)
@@ -581,6 +603,7 @@ func TestLoadStatement(t *testing.T) {
 
 	t.Run("nonexistent loads", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
+			App: app,
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
 			},
@@ -603,6 +626,7 @@ func TestLoadStatement(t *testing.T) {
 
 	t.Run("load-cycle", func(t *testing.T) {
 		opts := &starform.ScriptSetOptions{
+			App: app,
 			PrintHandler: func(thread *starlark.Thread, msg string) {
 				t.Errorf("unexpected print call: %s", msg)
 			},
@@ -631,9 +655,13 @@ func TestLoadStatement(t *testing.T) {
 }
 
 func TestProgramCache(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
+
 	t.Run("total-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
+			App:          app,
 			PrintHandler: func(thread *starlark.Thread, msg string) {},
 			Cache:        cache,
 		}
@@ -662,6 +690,7 @@ func TestProgramCache(t *testing.T) {
 	t.Run("partial-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
+			App:          app,
 			PrintHandler: func(thread *starlark.Thread, msg string) {},
 			Cache:        cache,
 		}
@@ -712,4 +741,327 @@ func TestProgramCache(t *testing.T) {
 			t.Error("unexpected cache misses")
 		}
 	})
+}
+
+func TestObserverTypes(t *testing.T) {
+	const expected = "asdf"
+
+	app := starform.NewAppObject("app")
+	app.Freeze()
+
+	tests := []struct {
+		name        string
+		observer    string
+		expectedErr string
+		expectedLog string
+	}{{
+		name:        "builtin",
+		observer:    "print",
+		expectedLog: "None\n", // TODO(kcza/macro6): replace me once simple event objects are added.
+	}, {
+		name:        "lambda",
+		observer:    "lambda event: print('handled event')",
+		expectedLog: "handled event\n",
+	}, {
+		name:        "non-callable",
+		observer:    `"interloper"`,
+		expectedErr: "cannot load script: observe: for parameter 2: got string, want callable",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			log := &strings.Builder{}
+			opts := &starform.ScriptSetOptions{
+				App: app,
+				PrintHandler: func(thread *starlark.Thread, msg string) {
+					log.WriteString(msg)
+					log.WriteRune('\n')
+				},
+			}
+			scripts, err := starform.NewScriptSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sources := []starform.ScriptSource{&testScriptSource{
+				name: "test.star",
+				content: fmt.Sprintf(
+					`
+						def init():
+							app.observe('foo', %s)
+					`,
+					test.observer,
+				),
+			}}
+			if err := scripts.LoadSources(context.Background(), sources); err != nil {
+				if test.expectedErr == "" {
+					t.Errorf("unexpected error: %q", err)
+				} else if err.Error() != test.expectedErr {
+					t.Errorf("unexpected error: expected %q but got %q", test.expectedErr, err)
+				}
+			} else if test.expectedErr != "" {
+				t.Errorf("expected error")
+			}
+
+			event := &starform.EventObject{Name: "foo"}
+			if err := scripts.Handle(context.Background(), event); err != nil {
+				t.Fatal(err)
+			}
+			if actualLog := log.String(); actualLog != test.expectedLog {
+				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
+			}
+		})
+	}
+}
+
+func TestEventHandling(t *testing.T) {
+	const expectedLog = "1\n2\n3\n===\n4\n"
+
+	app := starform.NewAppObject("app")
+	app.Freeze()
+	log := &strings.Builder{}
+	opts := &starform.ScriptSetOptions{
+		App: app,
+		PrintHandler: func(thread *starlark.Thread, msg string) {
+			log.WriteString(msg)
+			log.WriteRune('\n')
+		},
+	}
+	scripts, err := starform.NewScriptSet(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sources := []starform.ScriptSource{&testScriptSource{
+		name: "111.star",
+		content: `
+			def init():
+				app.observe('foo', on_foo_1)
+				app.observe('foo', on_foo_2)
+				app.observe('bar', on_bar)
+
+			def on_foo_1(event):
+				print(1)
+
+			def on_foo_2(event):
+				print(2)
+
+			def on_bar(event):
+				print(4)
+		`,
+	}, &testScriptSource{
+		name: "222.star",
+		content: `
+			def init():
+				app.observe('foo', on_foo_3)
+
+			def on_foo_3(event):
+				print(3)
+		`,
+	}}
+	if err := scripts.LoadSources(context.Background(), sources); err != nil {
+		t.Fatal(err)
+	}
+
+	event := &starform.EventObject{Name: "foo"}
+	if err := scripts.Handle(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	log.WriteString("===\n")
+
+	event = &starform.EventObject{Name: "bar"}
+	if err := scripts.Handle(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	if actualLog := log.String(); actualLog != expectedLog {
+		t.Errorf("output error: expected %v got %v", expectedLog, actualLog)
+	}
+}
+
+func TestEventHandlingFailPropagation(t *testing.T) {
+	const expected = "fail: oh no!"
+
+	app := starform.NewAppObject("app")
+	app.Freeze()
+	opts := &starform.ScriptSetOptions{
+		App:          app,
+		PrintHandler: func(thread *starlark.Thread, msg string) {},
+	}
+	scripts, err := starform.NewScriptSet(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sources := []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				app.observe('foo', on_foo)
+
+			def on_foo(event):
+				fail('oh no!')
+		`,
+	}}
+	if err := scripts.LoadSources(context.Background(), sources); err != nil {
+		t.Fatal(err)
+	}
+
+	event := &starform.EventObject{Name: "foo"}
+	if err := scripts.Handle(context.Background(), event); err == nil {
+		t.Fatal("expected error")
+	} else if err.Error() != expected {
+		t.Errorf("incorrect error: expected %s but got %v", expected, err)
+	}
+}
+
+func TestObserveAvailability(t *testing.T) {
+	runScript := func(name, code string) error {
+		app := starform.NewAppObject("app")
+		app.Freeze()
+		log := &strings.Builder{}
+		opts := &starform.ScriptSetOptions{
+			App: app,
+			PrintHandler: func(thread *starlark.Thread, msg string) {
+				log.WriteString(msg)
+				log.WriteRune('\n')
+			},
+		}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			return err
+		}
+		sources := []starform.ScriptSource{&testScriptSource{
+			name:    name + ".star",
+			content: code,
+		}}
+		if err := scripts.LoadSources(context.Background(), sources); err != nil {
+			return err
+		}
+		event := &starform.EventObject{Name: "foo"}
+		if err := scripts.Handle(context.Background(), event); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	tests := []struct {
+		name      string
+		available bool
+		code      string
+	}{{
+		name:      "toplevel",
+		available: false,
+		code: `
+			def on_foo(event):
+				fail('unexpectedly called')
+
+			app.observe('foo', on_foo)
+		`,
+	}, {
+		name:      "init",
+		available: true,
+		code: `
+			def init():
+				app.observe('foo', on_foo)
+
+			def on_foo(event):
+				pass
+		`,
+	}, {
+		name:      "event",
+		available: false,
+		code: `
+			def init():
+				app.observe('foo', on_foo)
+
+			def on_foo(event):
+				app.observe('bar', on_bar)
+				fail('unexpectedly called')
+			
+			def on_bar(event):
+				pass
+		`,
+	}, {
+		name:      "capture",
+		available: false,
+		code: `
+			def init():
+				observe = app.observe
+
+				def on_foo(event):
+					observe('bar', on_bar)
+					fail('unexpectedly called')
+
+				observe('foo', on_foo)
+			
+			def on_bar(event):
+				pass
+		`,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := runScript(test.name, test.code)
+			if test.available && err != nil {
+				t.Fatal(err)
+			} else if !test.available && err == nil {
+				t.Fatalf("expected ErrUnavailable, got success")
+			} else if !test.available && !errors.Is(err, starform.ErrUnavailable) {
+				t.Fatalf("expected ErrUnavailable, got %v", err)
+			}
+		})
+	}
+}
+
+func TestObserverFreezing(t *testing.T) {
+	app := starform.NewAppObject("app")
+	app.Freeze()
+	tests := []struct {
+		name   string
+		script string
+	}{{
+		name: "no-shared-state-by-closure",
+		script: `
+			def init():
+				shared_state = {'a': 1}
+
+				def on_foo(event):
+					shared_state['a'] = 100
+					fail('state change leaked')
+
+				app.observe('foo', on_foo)
+		`,
+	}, {
+		name: "no-shared-state-by-toplevel",
+		script: `
+			shared_state = {'a': 1}
+
+			def init():
+				app.observe('foo', on_foo)
+
+			def on_foo(event):
+				shared_state['a'] = 2
+				fail('state change leaked')
+		`,
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			opts := &starform.ScriptSetOptions{
+				App:          app,
+				PrintHandler: func(thread *starlark.Thread, msg string) {},
+			}
+			scripts, err := starform.NewScriptSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sources := []starform.ScriptSource{&testScriptSource{
+				name:    "test.star",
+				content: test.script,
+			}}
+			if err := scripts.LoadSources(context.Background(), sources); err != nil {
+				t.Fatal(err)
+			}
+			event := &starform.EventObject{Name: "foo"}
+			if err := scripts.Handle(context.Background(), event); err == nil {
+				t.Error("expected error")
+			} else if err.Error() != "cannot insert into frozen hash table" {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
 }
