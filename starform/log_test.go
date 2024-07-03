@@ -60,9 +60,9 @@ func TestDebugSafety(t *testing.T) {
 	testLogSafety(t, starform.DebugBuiltin)
 }
 
-func testLogSafety(t *testing.T, builtin *starlark.Builtin) {
+func testLogSafety(t *testing.T, logBuiltin *starlark.Builtin) {
 	logger := starform.NewScriptLogger(&testLogger{}, "")
-	builtin = builtin.BindReceiver(logger)
+	logBuiltin = logBuiltin.BindReceiver(logger)
 
 	safeties := []starlark.SafetyFlags{starlark.CPUSafe, starlark.MemSafe, starlark.TimeSafe, starlark.IOSafe}
 	for _, safety := range safeties {
@@ -76,7 +76,7 @@ func testLogSafety(t *testing.T, builtin *starlark.Builtin) {
 				starform.SetEventObject(thread, &starform.EventObject{})
 
 				stringer := &unsafeTestStringer{t: t}
-				_, err := starlark.Call(thread, builtin, starlark.Tuple{stringer}, nil)
+				_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{stringer}, nil)
 				if err == nil {
 					t.Error("expected error")
 				} else if !errors.Is(err, starlark.ErrSafety) {
@@ -89,7 +89,7 @@ func testLogSafety(t *testing.T, builtin *starlark.Builtin) {
 				thread.RequireSafety(safety)
 				starform.SetEventObject(thread, &starform.EventObject{})
 
-				_, err := starlark.Call(thread, builtin, starlark.Tuple{starlark.None}, nil)
+				_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{starlark.None}, nil)
 				if err != nil {
 					t.Error("unexpected error")
 				}
@@ -113,11 +113,17 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 	const arbitraryAddedSteps = 100
 
 	callFunction := func(value starlark.Value, args starlark.Tuple, kwargs []starlark.Tuple) starlark.Value {
-		result, _ := starlark.Call(&starlark.Thread{}, value, args, kwargs)
+		result, err := starlark.Call(&starlark.Thread{}, value, args, kwargs)
+		if err != nil {
+			t.Fatal(err)
+		}
 		return result
 	}
 	callMethod := func(value starlark.Value, method string, args starlark.Tuple, kwargs []starlark.Tuple) starlark.Value {
-		attr, _ := value.(starlark.HasAttrs).Attr(method)
+		attr, err := value.(starlark.HasAttrs).Attr(method)
+		if err != nil {
+			t.Fatal(err)
+		}
 		return callFunction(attr, args, kwargs)
 	}
 
@@ -298,24 +304,26 @@ func testLogAllocs(t *testing.T, builtin *starlark.Builtin) {
 		starlark.String(`"'{}🌋`),
 	}
 
-	st := startest.From(t)
-	st.RequireSafety(starlark.MemSafe)
-	st.RunThread(func(thread *starlark.Thread) {
-		logger := starform.NewScriptLogger(&testLogger{}, "")
-		builtin = builtin.BindReceiver(logger)
-		thread.Print = func(thread *starlark.Thread, msg string) {
-			t.Error("unexpected print call")
-		}
-		starform.SetEventObject(thread, &starform.EventObject{})
-
-		for i := 0; i < st.N; i++ {
-			res, err := starlark.Call(thread, builtin, args, nil)
-			if err != nil {
-				st.Error(err)
+	t.Run("no-separator", func(t *testing.T) {
+		st := startest.From(t)
+		st.RequireSafety(starlark.MemSafe)
+		st.RunThread(func(thread *starlark.Thread) {
+			logger := starform.NewScriptLogger(&testLogger{}, "")
+			builtin = builtin.BindReceiver(logger)
+			thread.Print = func(thread *starlark.Thread, msg string) {
+				t.Error("unexpected print call")
 			}
-			st.KeepAlive(res)
-		}
-		st.KeepAlive(logger)
+			starform.SetEventObject(thread, &starform.EventObject{})
+
+			for i := 0; i < st.N; i++ {
+				res, err := starlark.Call(thread, builtin, args, nil)
+				if err != nil {
+					st.Error(err)
+				}
+				st.KeepAlive(res)
+			}
+			st.KeepAlive(logger)
+		})
 	})
 }
 
@@ -469,5 +477,38 @@ func testLogCancellation(t *testing.T, builtin *starlark.Builtin) {
 				}
 			})
 		})
+	}
+}
+
+func TestPrintSeparator(t *testing.T) {
+	testLogSeparator(t, starform.PrintBuiltin)
+}
+
+func TestDebugSeparator(t *testing.T) {
+	testLogSeparator(t, starform.DebugBuiltin)
+}
+
+func testLogSeparator(t *testing.T, logBuiltin *starlark.Builtin) {
+	const expectedLog = "foo-bar\n"
+
+	thread := &starlark.Thread{}
+	thread.Print = func(thread *starlark.Thread, msg string) {
+		t.Error("unexpected print call")
+	}
+	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe)
+	starform.SetEventObject(thread, &starform.EventObject{})
+
+	logger := &testLogger{}
+	scriptLogger := starform.NewScriptLogger(logger, "")
+	logBuiltin = logBuiltin.BindReceiver(scriptLogger)
+
+	args := starlark.Tuple{starlark.String("foo"), starlark.String("bar")}
+	kwargs := []starlark.Tuple{{starlark.String("sep"), starlark.String("-")}}
+	_, err := starlark.Call(thread, logBuiltin, args, kwargs)
+	if err != nil {
+		t.Error(err)
+	}
+	if log := logger.String(); log != expectedLog {
+		t.Errorf("expected %s, got %s", expectedLog, log)
 	}
 }

@@ -14,7 +14,7 @@ type Logger interface {
 type LogLevel int
 
 const (
-	_ LogLevel = iota // Placeholder for possible future TraceLevel
+	_ LogLevel = iota
 	DebugLevel
 	PrintLevel
 )
@@ -24,7 +24,7 @@ type LogEntry struct {
 	Level     LogLevel
 	EventName string
 	Path      string
-	Line      int32
+	Line      int
 }
 
 func (le *LogEntry) String() string {
@@ -39,6 +39,8 @@ type scriptLogger struct {
 	logger Logger
 	path   string
 }
+
+var _ starlark.Builtin
 
 var _ starlark.Value = &scriptLogger{}
 
@@ -55,14 +57,12 @@ func (sl *scriptLogger) log(thread *starlark.Thread, msg string, level LogLevel)
 		return
 	}
 
-	line := int32(0)
+	line := 0
 	if thread.CallStackDepth() > 1 {
-		callerFrame := thread.CallFrame(1)
-		line = callerFrame.Pos.Line
+		line = int(thread.CallFrame(1).Pos.Line)
 	}
 
 	event := Event(thread)
-
 	sl.logger.Log(thread.Context(), LogEntry{
 		Message:   msg,
 		Level:     level,
@@ -78,14 +78,14 @@ var debugBuiltin = starlark.NewBuiltinWithSafety("debug", logSafety, debug)
 var printBuiltin = starlark.NewBuiltinWithSafety("print", logSafety, print)
 
 func print(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	return log(thread, b, args, kwargs, PrintLevel)
+	return logImpl(thread, b, args, kwargs, PrintLevel)
 }
 
 func debug(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-	return log(thread, b, args, kwargs, DebugLevel)
+	return logImpl(thread, b, args, kwargs, DebugLevel)
 }
 
-func log(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple, level LogLevel) (starlark.Value, error) {
+func logImpl(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple, level LogLevel) (starlark.Value, error) {
 	recv := b.Receiver().(*scriptLogger)
 
 	sep := " "
@@ -111,12 +111,12 @@ func formatMessage(thread *starlark.Thread, sep string, values starlark.Tuple) (
 			}
 		}
 		if s, ok := starlark.AsString(v); ok {
-			// Avoid quoted v.SafeString()/v.String() representation.
+			// Avoid quoted representation.
 			if _, err := sb.WriteString(s); err != nil {
 				return "", err
 			}
 		} else if b, ok := v.(starlark.Bytes); ok {
-			// Avoid quoted v.SafeString()/v.String() representation.
+			// Avoid quoted representation.
 			if _, err := sb.WriteString(string(b)); err != nil {
 				return "", err
 			}
