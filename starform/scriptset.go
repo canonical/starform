@@ -192,7 +192,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			if err := cache.Put(programKey, program, source); err != nil {
 				if ss.options.Logger != nil {
 					ss.options.Logger.Log(ctx, LogEntry{
-						Message:   fmt.Sprintf("failed to put %s into cache: %v", path, err),
+						Message:   fmt.Sprintf("cannot put %s into cache: %v", path, err),
 						Level:     DebugLevel,
 						EventName: loadEventName,
 					})
