@@ -27,7 +27,7 @@ type ScriptSource interface {
 type ScriptSetOptions struct {
 	App                 *AppObject
 	Cache               ScriptCache
-	PrintHandler        func(thread *starlark.Thread, msg string)
+	Logger              Logger
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps uint64
 }
@@ -50,6 +50,7 @@ const (
 
 type scriptState struct {
 	path        string
+	programKey  [sha512.Size384]byte
 	status      scriptStatus
 	program     *starlark.Program
 	toplevelEnv starlark.StringDict
@@ -65,6 +66,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
 		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
 	}
+
+	options.App.Freeze()
 
 	return &ScriptSet{
 		options: options,
@@ -95,12 +98,6 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	appObject := ss.options.App
-	appObject.Freeze()
-
-	predeclared := starlark.StringDict{
-		ss.options.App.name: appObject,
-	}
 	thread := makeThread(ss.options, event)
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
@@ -114,13 +111,13 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if !ok {
 			return nil, fmt.Errorf("%s not found", path)
 		}
-		if err := script.runTopLevel(thread, predeclared); err != nil {
+		if err := ss.runTopLevel(thread, script); err != nil {
 			return nil, err
 		}
 		return script.toplevelEnv, nil
 	}
 	for _, script := range scripts {
-		if err := script.runTopLevel(thread, predeclared); err != nil {
+		if err := ss.runTopLevel(thread, script); err != nil {
 			return err
 		}
 	}
@@ -160,7 +157,9 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		cache = &noopScriptCache{}
 	}
 	isPredeclared := func(name string) bool {
-		return name == ss.options.App.name
+		return name == ss.options.App.name ||
+			name == "debug" ||
+			name == "print"
 	}
 	for _, source := range sources {
 		path := source.Path()
@@ -182,31 +181,52 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			if err != ErrNotCached {
 				return nil, err
 			}
-			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, path, content, isPredeclared)
+			cachedFilename := fmt.Sprintf("cached-%x.star", programKey[:4])
+			_, program, err = starlark.SourceProgramOptions(&starlarkDialect, cachedFilename, content, isPredeclared)
 			if err != nil {
+				if err, ok := err.(*syntax.Error); ok {
+					err.Pos = syntax.MakePosition(&path, err.Pos.Line, err.Pos.Col)
+				}
 				return nil, fmt.Errorf("cannot load script %s: %w", path, err)
 			}
-			cache.Put(programKey, program, source)
+			if err := cache.Put(programKey, program, source); err != nil {
+				if ss.options.Logger != nil {
+					ss.options.Logger.Log(ctx, LogEntry{
+						Message:   fmt.Sprintf("cannot put %s into cache: %v", path, err),
+						Level:     DebugLevel,
+						EventName: loadEventName,
+					})
+				}
+			}
 		} else if p, ok := entry.(*starlark.Program); ok {
 			program = p
 		} else {
 			return nil, fmt.Errorf("unknown cache value: %v", entry)
 		}
-
 		scriptStates = append(scriptStates, scriptState{
-			path:    path,
-			program: program,
+			path:       path,
+			programKey: programKey,
+			program:    program,
 		})
 	}
 	return scriptStates, nil
 }
 
-func (script *scriptState) runTopLevel(thread *starlark.Thread, predeclared starlark.StringDict) error {
+func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) error {
 	switch script.status {
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
 		script.status = scriptInitialising
+		logger := &scriptLogger{
+			logger: ss.options.Logger,
+			path:   script.path,
+		}
+		predeclared := starlark.StringDict{
+			ss.options.App.name: ss.options.App,
+			"print":             printBuiltin.BindReceiver(logger),
+			"debug":             debugBuiltin.BindReceiver(logger),
+		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
 			return err
@@ -284,7 +304,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 
 func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{}
-	thread.Print = options.PrintHandler
+	thread.Print = func(thread *starlark.Thread, msg string) {}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)

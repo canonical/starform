@@ -2,6 +2,12 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/canonical/starlark v0.0.0-20240326140811-e9a17ef864c0 h1:ADHJa61FCNpFrL2DdgoxVQ3rDzgR6583GRGMAx/Mp/U=
 github.com/canonical/starlark v0.0.0-20240326140811-e9a17ef864c0/go.mod h1:o326pjKdpULwvH6RvmkfZM88jUkNEnKMp9PM23X9A6Q=
+github.com/canonical/starlark v0.0.0-20240410135158-fc31f76e321e h1:hEJewr2uIiog88bPHzQ0UTFGEk/FwMb6p5E9qmPLX5c=
+github.com/canonical/starlark v0.0.0-20240410135158-fc31f76e321e/go.mod h1:o326pjKdpULwvH6RvmkfZM88jUkNEnKMp9PM23X9A6Q=
+github.com/canonical/starlark v0.0.0-20240415121040-0871f896c39d h1:hgkzNiOISNW3xysjQpOq0ysiwCfNYp8RtUSbzGWlVYs=
+github.com/canonical/starlark v0.0.0-20240415121040-0871f896c39d/go.mod h1:o326pjKdpULwvH6RvmkfZM88jUkNEnKMp9PM23X9A6Q=
+github.com/canonical/starlark v0.0.0-20240618143323-888b011bd080 h1:9u9bHYqH5w1fZhJykDfqxRo8ODOntqZ0ASzuP77n6uY=
+github.com/canonical/starlark v0.0.0-20240618143323-888b011bd080/go.mod h1:o326pjKdpULwvH6RvmkfZM88jUkNEnKMp9PM23X9A6Q=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=

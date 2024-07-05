@@ -14,6 +14,25 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+type testLogger struct {
+	log    strings.Builder
+	format func(starform.LogEntry) string
+}
+
+var _ starform.Logger = &testLogger{}
+
+func (tl *testLogger) Log(ctx context.Context, entry starform.LogEntry) {
+	if tl.format == nil {
+		tl.format = func(le starform.LogEntry) string {
+			return le.Message + "\n"
+		}
+	}
+	message := tl.format(entry)
+	tl.log.WriteString(message)
+}
+
+func (tl *testLogger) String() string { return tl.log.String() }
+
 type testScriptSource struct {
 	name, content string
 }
@@ -252,14 +271,10 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := &strings.Builder{}
-			printHandler := func(thread *starlark.Thread, msg string) {
-				log.WriteString(msg)
-				log.WriteByte('\n')
-			}
+			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				App:          app,
-				PrintHandler: printHandler,
+				App:    app,
+				Logger: logger,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -272,7 +287,7 @@ func TestLoadSimpleScriptSet(t *testing.T) {
 			if err := scripts.LoadSources(context.Background(), test.sources); err != nil {
 				t.Error(err)
 			}
-			if actualLog := log.String(); actualLog != test.expectedLog {
+			if actualLog := logger.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v go %v", test.expectedLog, actualLog)
 			}
 		})
@@ -578,14 +593,10 @@ func TestLoadStatement(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := &strings.Builder{}
-			printHandler := func(thread *starlark.Thread, msg string) {
-				log.WriteString(msg)
-				log.WriteByte('\n')
-			}
+			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				App:          app,
-				PrintHandler: printHandler,
+				App:    app,
+				Logger: logger,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -595,18 +606,17 @@ func TestLoadStatement(t *testing.T) {
 				t.Error(err)
 			}
 
-			if actualLog := log.String(); actualLog != test.expectedLog {
+			if actualLog := logger.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
 			}
 		})
 	}
 
 	t.Run("nonexistent loads", func(t *testing.T) {
+		logger := &testLogger{}
 		opts := &starform.ScriptSetOptions{
-			App: app,
-			PrintHandler: func(thread *starlark.Thread, msg string) {
-				t.Errorf("unexpected print call: %s", msg)
-			},
+			App:    app,
+			Logger: logger,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
@@ -622,14 +632,16 @@ func TestLoadStatement(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatal("expected error, got success")
 		}
+		if log := logger.String(); log != "" {
+			t.Errorf("unexpected log output: %s", log)
+		}
 	})
 
 	t.Run("load-cycle", func(t *testing.T) {
+		logger := &testLogger{}
 		opts := &starform.ScriptSetOptions{
-			App: app,
-			PrintHandler: func(thread *starlark.Thread, msg string) {
-				t.Errorf("unexpected print call: %s", msg)
-			},
+			App:    app,
+			Logger: logger,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "chicken.star",
@@ -651,6 +663,9 @@ func TestLoadStatement(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), sources); err == nil {
 			t.Fatalf("expected error, got success")
 		}
+		if log := logger.String(); log != "" {
+			t.Errorf("unexpected log output: %s", log)
+		}
 	})
 }
 
@@ -661,9 +676,8 @@ func TestProgramCache(t *testing.T) {
 	t.Run("total-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			App:          app,
-			PrintHandler: func(thread *starlark.Thread, msg string) {},
-			Cache:        cache,
+			App:   app,
+			Cache: cache,
 		}
 		sources := []starform.ScriptSource{&testScriptSource{
 			name: "test.star",
@@ -690,9 +704,8 @@ func TestProgramCache(t *testing.T) {
 	t.Run("partial-reuse", func(t *testing.T) {
 		cache := &testScriptCache{}
 		opts := &starform.ScriptSetOptions{
-			App:          app,
-			PrintHandler: func(thread *starlark.Thread, msg string) {},
-			Cache:        cache,
+			App:   app,
+			Cache: cache,
 		}
 		sets := [][]starform.ScriptSource{{
 			&testScriptSource{
@@ -769,13 +782,10 @@ func TestObserverTypes(t *testing.T) {
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			log := &strings.Builder{}
+			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				App: app,
-				PrintHandler: func(thread *starlark.Thread, msg string) {
-					log.WriteString(msg)
-					log.WriteRune('\n')
-				},
+				App:    app,
+				Logger: logger,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -805,7 +815,7 @@ func TestObserverTypes(t *testing.T) {
 			if err := scripts.Handle(context.Background(), event); err != nil {
 				t.Fatal(err)
 			}
-			if actualLog := log.String(); actualLog != test.expectedLog {
+			if actualLog := logger.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
 			}
 		})
@@ -813,17 +823,14 @@ func TestObserverTypes(t *testing.T) {
 }
 
 func TestEventHandling(t *testing.T) {
-	const expectedLog = "1\n2\n3\n===\n4\n"
+	const expectedLog = "1\n2\n3\n4\n"
 
 	app := starform.NewAppObject("app")
 	app.Freeze()
-	log := &strings.Builder{}
+	logger := &testLogger{}
 	opts := &starform.ScriptSetOptions{
-		App: app,
-		PrintHandler: func(thread *starlark.Thread, msg string) {
-			log.WriteString(msg)
-			log.WriteRune('\n')
-		},
+		App:    app,
+		Logger: logger,
 	}
 	scripts, err := starform.NewScriptSet(opts)
 	if err != nil {
@@ -864,13 +871,12 @@ func TestEventHandling(t *testing.T) {
 	if err := scripts.Handle(context.Background(), event); err != nil {
 		t.Fatal(err)
 	}
-	log.WriteString("===\n")
 
 	event = &starform.EventObject{Name: "bar"}
 	if err := scripts.Handle(context.Background(), event); err != nil {
 		t.Fatal(err)
 	}
-	if actualLog := log.String(); actualLog != expectedLog {
+	if actualLog := logger.String(); actualLog != expectedLog {
 		t.Errorf("output error: expected %v got %v", expectedLog, actualLog)
 	}
 }
@@ -881,8 +887,7 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 	app := starform.NewAppObject("app")
 	app.Freeze()
 	opts := &starform.ScriptSetOptions{
-		App:          app,
-		PrintHandler: func(thread *starlark.Thread, msg string) {},
+		App: app,
 	}
 	scripts, err := starform.NewScriptSet(opts)
 	if err != nil {
@@ -914,13 +919,8 @@ func TestObserveAvailability(t *testing.T) {
 	runScript := func(name, code string) error {
 		app := starform.NewAppObject("app")
 		app.Freeze()
-		log := &strings.Builder{}
 		opts := &starform.ScriptSetOptions{
 			App: app,
-			PrintHandler: func(thread *starlark.Thread, msg string) {
-				log.WriteString(msg)
-				log.WriteRune('\n')
-			},
 		}
 		scripts, err := starform.NewScriptSet(opts)
 		if err != nil {
@@ -1042,8 +1042,7 @@ func TestObserverFreezing(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			opts := &starform.ScriptSetOptions{
-				App:          app,
-				PrintHandler: func(thread *starlark.Thread, msg string) {},
+				App: app,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -1063,5 +1062,108 @@ func TestObserverFreezing(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+func TestLog(t *testing.T) {
+	cache := &testScriptCache{}
+	app := starform.NewAppObject("app")
+	app.Freeze()
+
+	const testProgram = `
+		def init():
+			app.observe("event", on_event)
+			print("print in init")
+			debug("debug in init")
+
+		def on_event(event):
+			print("print handling event")
+			debug("debug handling event")
+
+		print("print at toplevel")
+		debug("debug at toplevel")
+	`
+	expectedEntries := []starform.LogEntry{{
+		Level:     starform.PrintLevel,
+		EventName: starform.LoadEventName,
+		Message:   "print at toplevel",
+		Line:      10,
+	}, {
+		Level:     starform.DebugLevel,
+		EventName: starform.LoadEventName,
+		Message:   "debug at toplevel",
+		Line:      11,
+	}, {
+		Level:     starform.PrintLevel,
+		EventName: starform.LoadEventName,
+		Message:   "print in init",
+		Line:      3,
+	}, {
+		Level:     starform.DebugLevel,
+		EventName: starform.LoadEventName,
+		Message:   "debug in init",
+		Line:      4,
+	}, {
+		Level:     starform.PrintLevel,
+		EventName: "event",
+		Message:   "print handling event",
+		Line:      7,
+	}, {
+		Level:     starform.DebugLevel,
+		EventName: "event",
+		Message:   "debug handling event",
+		Line:      8,
+	}}
+	sources := []testScriptSource{{
+		name:    "foo.star",
+		content: testProgram,
+	}, {
+		name:    "bar.star",
+		content: testProgram,
+	}}
+	for _, source := range sources {
+		expectedEntries := expectedEntries // Shadow to keep the original entries available for next round.
+		logger := &testLogger{
+			format: func(entry starform.LogEntry) string {
+				if len(expectedEntries) == 0 {
+					t.Errorf("unexpected log entry: %v", entry)
+				}
+				expectedEntry := expectedEntries[0]
+				expectedEntries = expectedEntries[1:]
+				if expectedEntry.Level != entry.Level {
+					t.Errorf("unexpected log level: want %v got %v", expectedEntry.Level, entry.Level)
+				}
+				if expectedEntry.EventName != entry.EventName {
+					t.Errorf("unexpected event name: want %s got %s", expectedEntry.EventName, entry.EventName)
+				}
+				if expectedEntry.Line != entry.Line {
+					t.Errorf("unexpected line reference: want %d got %d", expectedEntry.Line, entry.Line)
+				}
+				if source.name != entry.Path {
+					t.Errorf("unexpected path reference: want %s got %s", source.name, entry.Path)
+				}
+				if expectedEntry.Message != entry.Message {
+					t.Errorf("unexpected log level: want %s got %s", expectedEntry.Message, entry.Message)
+				}
+				return ""
+			},
+		}
+		opts := &starform.ScriptSetOptions{
+			App:    app,
+			Cache:  cache,
+			Logger: logger,
+		}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.LoadSources(context.Background(), []starform.ScriptSource{&source}); err != nil {
+			t.Fatal(err)
+		}
+		if err := scripts.Handle(context.Background(), &starform.EventObject{
+			Name: "event",
+		}); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
