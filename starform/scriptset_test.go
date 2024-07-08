@@ -749,9 +749,9 @@ func TestRelativeLoads(t *testing.T) {
 			cache := &testScriptCache{}
 			logger := &testLogger{}
 			opts := &starform.ScriptSetOptions{
-				AppObject: app,
-				Cache:     cache,
-				Logger:    logger,
+				App:    app,
+				Cache:  cache,
+				Logger: logger,
 			}
 			scripts, err := starform.NewScriptSet(opts)
 			if err != nil {
@@ -786,6 +786,97 @@ func TestRelativeLoads(t *testing.T) {
 				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
 			}
 		})
+	}
+}
+
+func TestCachedRelativeLoads(t *testing.T) {
+	app := starform.NewAppObject("test")
+	app.Freeze()
+
+	type fileSpec struct {
+		path  string
+		loads []string
+	}
+
+	commonFile := fileSpec{
+		path:  "aaa/bbb/bbb.star",
+		loads: []string{"../../ccc.star"},
+	}
+	setA := []fileSpec{commonFile, {
+		path:  "ccc.star",
+		loads: []string{"ddd.star"},
+	}, {
+		path:  "ddd.star",
+		loads: nil,
+	}}
+	setB := []fileSpec{{
+		path:  "aaa/aaa.star",
+		loads: []string{"./bbb/bbb.star", "../ccc.star"},
+	}, commonFile, {
+		path:  "ccc.star",
+		loads: nil,
+	}}
+
+	makeSourcesSet := func(specs []fileSpec) []starform.ScriptSource {
+		ret := make([]starform.ScriptSource, 0, len(specs))
+		for _, spec := range specs {
+			content := &strings.Builder{}
+			for i, load := range spec.loads {
+				content.WriteString(fmt.Sprintf("\nload('%s', name_%d='name')", load, i))
+			}
+			content.WriteString(fmt.Sprintf("\nprint('%s:'", spec.path))
+			for i := range spec.loads {
+				content.WriteString(fmt.Sprintf(", name_%d", i))
+			}
+			content.WriteString(")")
+			content.WriteString(fmt.Sprintf("\nname = '%s'", spec.path))
+
+			ret = append(ret, &testScriptSource{
+				name:    spec.path,
+				content: content.String(),
+			})
+		}
+		return ret
+	}
+	setASources := makeSourcesSet(setA)
+	setBSources := makeSourcesSet(setB)
+
+	load := func(cache starform.ScriptCache, sources []starform.ScriptSource) (string, error) {
+		logger := &testLogger{
+			format: func(le starform.LogEntry) string {
+				return fmt.Sprintf("[%s]: %s\n", le.Path, le.Message)
+			},
+		}
+		opts := &starform.ScriptSetOptions{
+			App:    app,
+			Cache:  cache,
+			Logger: logger,
+		}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			return "", err
+		}
+		err = scripts.LoadSources(context.Background(), sources)
+		if err != nil {
+			return "", err
+		}
+		return logger.String(), nil
+	}
+
+	cache := &testScriptCache{}
+	if _, err := load(cache, setASources); err != nil {
+		t.Fatal(err)
+	}
+
+	const expectedLogB = "[ccc.star]: ccc.star:\n[aaa/bbb/bbb.star]: aaa/bbb/bbb.star: ccc.star\n[aaa/aaa.star]: aaa/aaa.star: aaa/bbb/bbb.star ccc.star\n"
+	if actualLog, err := load(cache, setBSources); err != nil {
+		t.Error(err)
+	} else if actualLog != expectedLogB {
+		t.Errorf("incorrect log: expected %q but got %q", expectedLogB, actualLog)
+	}
+
+	if expectedMisses := len(setA) + len(setB) - 1; int(cache.Misses) != expectedMisses {
+		t.Errorf("caching failed, expected %d misses, got %d", expectedMisses, cache.Misses)
 	}
 }
 
