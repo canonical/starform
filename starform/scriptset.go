@@ -74,8 +74,6 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	}, nil
 }
 
-const currentlyLoadingFileLocalKey = "starform-currently-loading-file"
-
 // LoadSources loads the given sources into the script set and runs their init
 // functions. Any previously-loaded scripts are discarded.
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
@@ -104,6 +102,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
+	loadStack := []string{}
 	thread.Load = func(thread *starlark.Thread, loadPath string) (starlark.StringDict, error) {
 		if err := checkLoadPath(loadPath); err != nil {
 			return nil, err
@@ -111,7 +110,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 		normalisedLoadPath := loadPath
 		if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
-			currPath := thread.Local(currentlyLoadingFileLocalKey).(string)
+			currPath := loadStack[len(loadStack)-1]
 			dir := path.Dir(currPath)
 			sb := &strings.Builder{}
 			sb.Grow(len(dir) + 1 + len(loadPath))
@@ -125,12 +124,17 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if !ok {
 			return nil, fmt.Errorf("%s not found", loadPath)
 		}
+
+		loadStack = append(loadStack, normalisedLoadPath)
+		defer func() { loadStack = loadStack[:len(loadStack)-1] }()
+
 		if err := ss.runTopLevel(thread, script); err != nil {
 			return nil, err
 		}
 		return script.toplevelEnv, nil
 	}
 	for _, script := range scripts {
+		loadStack = append(loadStack[:], script.path)
 		if err := ss.runTopLevel(thread, script); err != nil {
 			return err
 		}
@@ -231,10 +235,6 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
-		prevFile := thread.Local(currentlyLoadingFileLocalKey)
-		defer thread.SetLocal(currentlyLoadingFileLocalKey, prevFile)
-		thread.SetLocal(currentlyLoadingFileLocalKey, script.path)
-
 		script.status = scriptInitialising
 		logger := &scriptLogger{
 			logger: ss.options.Logger,
