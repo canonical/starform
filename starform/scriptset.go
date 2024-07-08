@@ -74,6 +74,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	}, nil
 }
 
+const currentlyLoadingFileLocalKey = "starform-currently-loading-file"
+
 // LoadSources loads the given sources into the script set and runs their init
 // functions. Any previously-loaded scripts are discarded.
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
@@ -109,16 +111,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 		normalisedLoadPath := loadPath
 		if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
-			frame := thread.CallFrame(0)
-			var programKey [sha512.Size384]byte
-			copy(programKey[:], []byte(frame.Pos.Filename()))
-
-			currState, ok := scriptsByPath[string(programKey[:])]
-			if !ok {
-				return nil, fmt.Errorf("no file with hash %#v", programKey[:])
-			}
-			currPath := currState.path
-
+			currPath := thread.Local(currentlyLoadingFileLocalKey).(string)
 			dir := path.Dir(currPath)
 			sb := &strings.Builder{}
 			sb.Grow(len(dir) + 1 + len(loadPath))
@@ -238,6 +231,10 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 	case scriptInitialising:
 		return fmt.Errorf("load cycle detected")
 	case scriptUninitialised:
+		prevFile := thread.Local(currentlyLoadingFileLocalKey)
+		defer thread.SetLocal(currentlyLoadingFileLocalKey, prevFile)
+		thread.SetLocal(currentlyLoadingFileLocalKey, script.path)
+
 		script.status = scriptInitialising
 		logger := &scriptLogger{
 			logger: ss.options.Logger,
