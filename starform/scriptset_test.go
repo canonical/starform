@@ -678,7 +678,7 @@ func TestRelativeLoads(t *testing.T) {
 	app.Freeze()
 
 	type fileSpec struct {
-		name  string
+		file  string
 		loads []string
 	}
 	tests := []struct {
@@ -688,44 +688,60 @@ func TestRelativeLoads(t *testing.T) {
 		expectedLog   string
 	}{{
 		name: "absolute-toplevel",
-		files: []fileSpec{
-			{"aaa.star", []string{"bbb.star"}},
-			{"bbb.star", []string{}},
-		},
+		files: []fileSpec{{
+			file:  "aaa.star",
+			loads: []string{"bbb.star"},
+		}, {
+			file:  "bbb.star",
+			loads: []string{},
+		}},
 		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
 	}, {
 		name: "absolute-nested",
-		files: []fileSpec{
-			{"aaa/bbb.star", []string{"ccc.star"}},
-			{"ccc.star", []string{}},
-		},
+		files: []fileSpec{{
+			file:  "aaa/bbb.star",
+			loads: []string{"ccc.star"},
+		}, {
+			file:  "ccc.star",
+			loads: []string{},
+		}},
 		expectedLog: "ccc.star:\naaa/bbb.star: ccc.star\n",
 	}, {
 		name: "relative-toplevel",
-		files: []fileSpec{
-			{"aaa.star", []string{"./bbb.star"}},
-			{"bbb.star", []string{}},
-		},
+		files: []fileSpec{{
+			file:  "aaa.star",
+			loads: []string{"./bbb.star"},
+		}, {
+			file:  "bbb.star",
+			loads: []string{},
+		}},
 		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
 	}, {
 		name: "relative-nested",
-		files: []fileSpec{
-			{"aaa/bbb.star", []string{"./ccc/ddd.star"}},
-			{"aaa/ccc/ddd.star", []string{}},
-		},
+		files: []fileSpec{{
+			file:  "aaa/bbb.star",
+			loads: []string{"./ccc/ddd.star"},
+		}, {
+			file:  "aaa/ccc/ddd.star",
+			loads: []string{},
+		}},
 		expectedLog: "aaa/ccc/ddd.star:\naaa/bbb.star: aaa/ccc/ddd.star\n",
 	}, {
 		name: "parent-nested",
-		files: []fileSpec{
-			{"aaa/bbb/ccc.star", []string{"../ddd/eee.star"}},
-			{"aaa/ddd/eee.star", []string{}},
-		},
+		files: []fileSpec{{
+			file:  "aaa/bbb/ccc.star",
+			loads: []string{"../ddd/eee.star"},
+		}, {
+			file:  "aaa/ddd/eee.star",
+			loads: []string{},
+		}},
 		expectedLog: "aaa/ddd/eee.star:\naaa/bbb/ccc.star: aaa/ddd/eee.star\n",
 	}, {
 		name: "parent-toplevel",
-		files: []fileSpec{
-			{"aaa.star", []string{"../nonexistent.star"}},
-		},
+		files: []fileSpec{{
+			file:  "aaa.star",
+			loads: []string{"../nonexistent.star"},
+		}},
 		expectedError: "cannot load ../nonexistent.star: ../nonexistent.star not found",
 	}}
 	for _, test := range tests {
@@ -747,14 +763,14 @@ func TestRelativeLoads(t *testing.T) {
 				for i, load := range file.loads {
 					content.WriteString(fmt.Sprintf("\nload('%s', name_%d='name')", load, i))
 				}
-				content.WriteString(fmt.Sprintf("\nprint('%s:'", file.name))
+				content.WriteString(fmt.Sprintf("\nprint('%s:'", file.file))
 				for i := range file.loads {
 					content.WriteString(fmt.Sprintf(", name_%d", i))
 				}
 				content.WriteString(")")
-				content.WriteString(fmt.Sprintf("\nname = '%s'", file.name))
+				content.WriteString(fmt.Sprintf("\nname = '%s'", file.file))
 				sources = append(sources, &testScriptSource{
-					name:    file.name,
+					name:    file.file,
 					content: content.String(),
 				})
 			}
