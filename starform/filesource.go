@@ -36,10 +36,9 @@ func NewFileSource(fsys fs.FS, path string) ScriptSource {
 	}
 }
 
-// LoadDirSources walks the file tree rooted at root
-// and returns a slice of ScriptSources containing all
-// .star files that can be loaded.
-// If a folder cannot be accessed, the error is ignored.
+// LoadDirSources returns the valid script sources found in the
+// given file system under the given root. Individual files are
+// not accessed, directory access errors are ignored.
 func LoadDirSources(ctx context.Context, fsys fs.FS, root string) ([]ScriptSource, error) {
 	sources := []ScriptSource{}
 	err := fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
