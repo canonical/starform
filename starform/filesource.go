@@ -26,10 +26,10 @@ func (f *fileSource) Content(ctx context.Context) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
-// FileSource creates a ScriptSource for the file pointed by
+// NewFileSource creates a ScriptSource for the file pointed by
 // path in the filesystem fsys. The filesystem is not
 // accessed untile ScriptSource.Content is called.
-func FileSource(fsys fs.FS, path string) ScriptSource {
+func NewFileSource(fsys fs.FS, path string) ScriptSource {
 	return &fileSource{
 		fsys: fsys,
 		path: path,
@@ -56,13 +56,9 @@ func LoadDirSources(ctx context.Context, fsys fs.FS, root string) ([]ScriptSourc
 			return nil
 		}
 
-		sources = append(sources, &fileSource{
-			fsys: fsys,
-			path: path,
-		})
+		sources = append(sources, NewFileSource(fsys, path))
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
