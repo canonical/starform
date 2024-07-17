@@ -115,7 +115,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	thread := makeThread(ss.options, event)
+	store := &intentStore{}
+	thread := makeThread(ss.options, event, store)
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
@@ -300,31 +301,33 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
+func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) (intents []interface{}, err error) {
 	observers, ok := ss.eventObservers[event.Name]
 	if !ok {
-		return nil
+		return []interface{}{}, nil
 	}
 
-	thread := makeThread(ss.options, event)
+	store := &intentStore{}
+	thread := makeThread(ss.options, event, store)
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	defer thread.Cancel("done")
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return store.entries, nil
 }
 
-func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
+func makeThread(options *ScriptSetOptions, data *EventObject, intents *intentStore) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(intentStoreLocalKey, intents)
 	return thread
 }

@@ -818,7 +818,7 @@ func TestObserverTypes(t *testing.T) {
 			}
 
 			event := &starform.EventObject{Name: "foo"}
-			if err := scripts.Handle(context.Background(), event); err != nil {
+			if _, err := scripts.Handle(context.Background(), event); err != nil {
 				t.Fatal(err)
 			}
 			if actualLog := logger.String(); actualLog != test.expectedLog {
@@ -874,12 +874,12 @@ func TestEventHandling(t *testing.T) {
 	}
 
 	event := &starform.EventObject{Name: "foo"}
-	if err := scripts.Handle(context.Background(), event); err != nil {
+	if _, err := scripts.Handle(context.Background(), event); err != nil {
 		t.Fatal(err)
 	}
 
 	event = &starform.EventObject{Name: "bar"}
-	if err := scripts.Handle(context.Background(), event); err != nil {
+	if _, err := scripts.Handle(context.Background(), event); err != nil {
 		t.Fatal(err)
 	}
 	if actualLog := logger.String(); actualLog != expectedLog {
@@ -914,7 +914,7 @@ func TestEventHandlingFailPropagation(t *testing.T) {
 	}
 
 	event := &starform.EventObject{Name: "foo"}
-	if err := scripts.Handle(context.Background(), event); err == nil {
+	if _, err := scripts.Handle(context.Background(), event); err == nil {
 		t.Fatal("expected error")
 	} else if err.Error() != expected {
 		t.Errorf("incorrect error: expected %s but got %v", expected, err)
@@ -940,7 +940,7 @@ func TestObserveAvailability(t *testing.T) {
 			return err
 		}
 		event := &starform.EventObject{Name: "foo"}
-		if err := scripts.Handle(context.Background(), event); err != nil {
+		if _, err := scripts.Handle(context.Background(), event); err != nil {
 			return err
 		}
 		return nil
@@ -979,7 +979,7 @@ func TestObserveAvailability(t *testing.T) {
 			def on_foo(event):
 				app.observe('bar', on_bar)
 				fail('unexpectedly called')
-			
+
 			def on_bar(event):
 				pass
 		`,
@@ -995,7 +995,7 @@ func TestObserveAvailability(t *testing.T) {
 					fail('unexpectedly called')
 
 				observe('foo', on_foo)
-			
+
 			def on_bar(event):
 				pass
 		`,
@@ -1062,7 +1062,7 @@ func TestObserverFreezing(t *testing.T) {
 				t.Fatal(err)
 			}
 			event := &starform.EventObject{Name: "foo"}
-			if err := scripts.Handle(context.Background(), event); err == nil {
+			if _, err := scripts.Handle(context.Background(), event); err == nil {
 				t.Error("expected error")
 			} else if err.Error() != "cannot insert into frozen hash table" {
 				t.Errorf("unexpected error: %v", err)
@@ -1166,7 +1166,7 @@ func TestLog(t *testing.T) {
 		if err := scripts.LoadSources(context.Background(), []starform.ScriptSource{&source}); err != nil {
 			t.Fatal(err)
 		}
-		if err := scripts.Handle(context.Background(), &starform.EventObject{
+		if _, err := scripts.Handle(context.Background(), &starform.EventObject{
 			Name: "event",
 		}); err != nil {
 			t.Fatal(err)
@@ -1252,7 +1252,7 @@ func TestAppAttrs(t *testing.T) {
 			}
 
 			event := &starform.EventObject{Name: "foo"}
-			err = set.Handle(context.Background(), event)
+			_, err = set.Handle(context.Background(), event)
 			if err != nil {
 				t.Error(err)
 			}
@@ -1273,7 +1273,7 @@ func TestAppAttrs(t *testing.T) {
 				content: `
 					def init():
 						test.observe("foo", on_foo)
-					
+
 					def on_foo(event):
 						# observe is not available during event handling.
 						test.observe("bar", on_bar)
@@ -1288,7 +1288,7 @@ func TestAppAttrs(t *testing.T) {
 			}
 
 			event := &starform.EventObject{Name: "foo"}
-			err = set.Handle(context.Background(), event)
+			_, err = set.Handle(context.Background(), event)
 			if err == nil {
 				t.Error("expected error, got success")
 			} else if !errors.Is(err, starform.ErrUnavailable) {
@@ -1446,11 +1446,70 @@ func TestEventState(t *testing.T) {
 				targetOs:  test.targetOs,
 			},
 		}
-		err = set.Handle(context.Background(), event)
+		_, err = set.Handle(context.Background(), event)
 		if test.expectError && err == nil {
 			t.Error("expected error")
 		} else if !test.expectError && err != nil {
 			t.Error(err)
 		}
+	}
+}
+func TestIntentDeclaration(t *testing.T) {
+	type testIntentType struct {
+		action string
+	}
+
+	declareIntent := starlark.NewBuiltin("declare_intent", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		intent := &testIntentType{
+			action: string(args[0].(starlark.String)),
+		}
+		if err := starform.DeclareIntent(thread, intent); err != nil {
+			return nil, err
+		}
+		return starlark.None, nil
+	})
+	app := &starform.AppObject{
+		Name: "test",
+		Methods: []*starlark.Builtin{
+			declareIntent,
+		},
+	}
+	opts := &starform.ScriptSetOptions{
+		App: app,
+	}
+	set, err := starform.NewScriptSet(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sources := []starform.ScriptSource{
+		&testScriptSource{
+			name: "test.star",
+			content: `
+				def init():
+					test.observe('event', on_event)
+
+				def on_event(event):
+					test.declare_intent('sudo make me a sandwich')
+			`,
+		},
+	}
+	if err := set.LoadSources(context.Background(), sources); err != nil {
+		t.Fatal(err)
+	}
+
+	intents, err := set.Handle(context.Background(), &starform.EventObject{
+		Name: "event",
+	})
+	if len(intents) != 1 {
+		t.Fatalf("expected 1 intent, got %d", len(intents))
+	}
+	soleIntent := intents[0]
+	if soleIntent, ok := soleIntent.(*testIntentType); ok {
+		if soleIntent.action != "sudo make me a sandwich" {
+			t.Errorf("incorrect intent: action is %q", soleIntent.action)
+		}
+	} else {
+		t.Errorf("incorrect intent: got a %T", soleIntent)
 	}
 }
