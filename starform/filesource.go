@@ -28,7 +28,7 @@ func (f *fileSource) Content(ctx context.Context) ([]byte, error) {
 
 // NewFileSource creates a ScriptSource for the file pointed by
 // path in the filesystem fsys. The filesystem is not
-// accessed untile ScriptSource.Content is called.
+// accessed until ScriptSource.Content is called.
 func NewFileSource(fsys fs.FS, path string) ScriptSource {
 	return &fileSource{
 		fsys: fsys,
