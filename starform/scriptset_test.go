@@ -1454,6 +1454,7 @@ func TestEventState(t *testing.T) {
 		}
 	}
 }
+
 func TestIntentDeclaration(t *testing.T) {
 	type testIntentType struct {
 		action string
