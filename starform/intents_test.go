@@ -16,7 +16,8 @@ func TestDeclareIntentsSteps(t *testing.T) {
 	st.SetMinSteps(1)
 	st.SetMaxSteps(1)
 	st.RunThread(func(thread *starlark.Thread) {
-		starform.InsertEmptyIntentStoreInto(thread)
+		event := &starform.EventObject{Name: "unused"}
+		starform.PrepareEvent(thread, event)
 		for i := 0; i < st.N; i++ {
 			if err := starform.DeclareIntent(thread, intent); err != nil {
 				t.Error(err)
@@ -31,7 +32,8 @@ func TestDeclareIntentsAllocs(t *testing.T) {
 	st := startest.From(t)
 	st.RequireSafety(starlark.MemSafe)
 	st.RunThread(func(thread *starlark.Thread) {
-		starform.InsertEmptyIntentStoreInto(thread)
+		event := &starform.EventObject{Name: "unused"}
+		starform.PrepareEvent(thread, event)
 		for i := 0; i < st.N; i++ {
 			if err := starform.DeclareIntent(thread, intent); err != nil {
 				t.Error(err)
@@ -47,7 +49,10 @@ func TestDeclareIntentsCancellation(t *testing.T) {
 	st.RequireSafety(starlark.TimeSafe)
 	st.RunThread(func(thread *starlark.Thread) {
 		thread.Cancel("done")
-		starform.InsertEmptyIntentStoreInto(thread)
+
+		event := &starform.EventObject{Name: "unused"}
+		starform.PrepareEvent(thread, event)
+
 		if err := starform.DeclareIntent(thread, intent); err != nil && !isStarlarkCancellation(err) {
 			t.Errorf("unexpected error: %v", err)
 		}

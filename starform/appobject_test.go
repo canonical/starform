@@ -125,7 +125,7 @@ func TestAppSafeAttr(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.SetEventObject(thread, &starform.EventObject{
+			starform.PrepareEvent(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
@@ -145,7 +145,7 @@ func TestAppSafeAttr(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.SetEventObject(thread, &starform.EventObject{
+			starform.PrepareEvent(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
@@ -221,7 +221,7 @@ func TestAppObserveSafety(t *testing.T) {
 
 	t.Run("return-value", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		starform.SetEventObject(thread, &starform.EventObject{
+		starform.PrepareEvent(thread, &starform.EventObject{
 			Name:  starform.LoadEventName,
 			State: starform.InitState(),
 		})
@@ -250,7 +250,7 @@ func TestAppObserveSafety(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.SetEventObject(thread, &starform.EventObject{
+			starform.PrepareEvent(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
@@ -272,7 +272,7 @@ func TestAppObserveSafety(t *testing.T) {
 			if err := thread.AddAllocs(starlark.EstimateSize(event)); err != nil {
 				t.Error(err)
 			}
-			starform.SetEventObject(thread, event)
+			starform.PrepareEvent(thread, event)
 
 			args := starlark.Tuple{starlark.String("event_name"), observer}
 			for i := 0; i < st.N; i++ {
@@ -291,7 +291,7 @@ func TestAppObserveSafety(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.SetEventObject(thread, &starform.EventObject{
+			starform.PrepareEvent(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
