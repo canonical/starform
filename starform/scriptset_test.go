@@ -1511,12 +1511,12 @@ func TestIntentDeclaration(t *testing.T) {
 	if len(intents) != 1 {
 		t.Fatalf("expected 1 intent, got %d", len(intents))
 	}
-	soleIntent := intents[0]
-	if soleIntent, ok := soleIntent.(*testIntent); ok {
-		if soleIntent.action != "sudo make me a sandwich" {
-			t.Errorf("incorrect intent: action is %q", soleIntent.action)
-		}
-	} else {
+
+	soleIntent, ok := intents[0].(*testIntent)
+	if !ok {
 		t.Errorf("incorrect intent: got a %T", soleIntent)
+	}
+	if soleIntent.action != "sudo make me a sandwich" {
+		t.Errorf("incorrect intent: action is %q", soleIntent.action)
 	}
 }
