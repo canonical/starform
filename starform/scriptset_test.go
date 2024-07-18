@@ -1501,6 +1501,9 @@ func TestIntentDeclaration(t *testing.T) {
 	intents, err := set.Handle(context.Background(), &starform.EventObject{
 		Name: "event",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(intents) != 1 {
 		t.Fatalf("expected 1 intent, got %d", len(intents))
 	}
