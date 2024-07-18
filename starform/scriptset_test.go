@@ -1456,13 +1456,16 @@ func TestEventState(t *testing.T) {
 }
 
 func TestIntentDeclaration(t *testing.T) {
-	type testIntentType struct {
+	type testIntent struct {
 		action string
 	}
 
 	declareIntent := starlark.NewBuiltin("declare_intent", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
-		intent := &testIntentType{
+		intent := &testIntent{
 			action: string(args[0].(starlark.String)),
+		}
+		if err := thread.AddAllocs(starlark.EstimateSize(&testIntent{})); err != nil {
+			return nil, err
 		}
 		if err := starform.DeclareIntent(thread, intent); err != nil {
 			return nil, err
@@ -1509,7 +1512,7 @@ func TestIntentDeclaration(t *testing.T) {
 		t.Fatalf("expected 1 intent, got %d", len(intents))
 	}
 	soleIntent := intents[0]
-	if soleIntent, ok := soleIntent.(*testIntentType); ok {
+	if soleIntent, ok := soleIntent.(*testIntent); ok {
 		if soleIntent.action != "sudo make me a sandwich" {
 			t.Errorf("incorrect intent: action is %q", soleIntent.action)
 		}
