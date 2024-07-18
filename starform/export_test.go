@@ -31,3 +31,7 @@ func NewScriptLogger(logger Logger, path string) starlark.Value {
 		path:   path,
 	}
 }
+
+func InsertEmptyIntentStoreInto(thread *starlark.Thread) {
+	thread.SetLocal(intentStoreLocalKey, &intentStore{})
+}

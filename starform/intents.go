@@ -17,6 +17,11 @@ const intentStoreLocalKey = "starform-intents"
 var errIntentsLocalMissing = fmt.Errorf("local %q missing", intentStoreLocalKey)
 
 func DeclareIntent(thread *starlark.Thread, intent interface{}) error {
+	const safety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
+		return err
+	}
+
 	intents, ok := thread.Local(intentStoreLocalKey).(*intentStore)
 	if !ok {
 		return errIntentsLocalMissing
