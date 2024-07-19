@@ -16,6 +16,7 @@ import (
 
 type ScriptSet struct {
 	options        *ScriptSetOptions
+	appValue       *appValue
 	eventObservers map[string][]starlark.Callable
 }
 
@@ -56,21 +57,37 @@ type scriptState struct {
 	toplevelEnv starlark.StringDict
 }
 
+var validIdentifier = regexp.MustCompile(`[a-z]\w*`)
+
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.App == nil {
-		return nil, fmt.Errorf("cannot create script set without app object")
+		return nil, fmt.Errorf("cannot create script set: app not supplied")
+	}
+	if options.App.Name == "" {
+		return nil, fmt.Errorf("cannot create script set: app name missing")
+	}
+	if !validIdentifier.Match([]byte(options.App.Name)) {
+		return nil, fmt.Errorf("cannot create script set: app name invalid")
+	}
+	if len(options.App.Name) < 3 {
+		return nil, fmt.Errorf("cannot create script set: app name too short")
+	}
+	if len(options.App.Name) > 25 {
+		return nil, fmt.Errorf("cannot create script set: app name too long")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
-		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
+		return nil, fmt.Errorf("cannot create script set: MemSafe requested but no MaxAllocs set")
 	}
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
-		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
+		return nil, fmt.Errorf("cannot create script set: CPUSafe requested but no MaxSteps set")
 	}
 
-	options.App.Freeze()
+	appValue := options.App.value()
+	appValue.Freeze()
 
 	return &ScriptSet{
-		options: options,
+		options:  options,
+		appValue: appValue,
 	}, nil
 }
 
@@ -98,7 +115,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	thread := makeThread(ss.options, event)
+	store := &intentStore{}
+	thread := makeThread(ss.options, event, store)
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
@@ -157,7 +175,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		cache = &noopScriptCache{}
 	}
 	isPredeclared := func(name string) bool {
-		return name == ss.options.App.name ||
+		return name == ss.options.App.Name ||
 			name == "debug" ||
 			name == "print"
 	}
@@ -223,7 +241,7 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			path:   script.path,
 		}
 		predeclared := starlark.StringDict{
-			ss.options.App.name: ss.options.App,
+			ss.options.App.Name: ss.appValue,
 			"print":             printBuiltin.BindReceiver(logger),
 			"debug":             debugBuiltin.BindReceiver(logger),
 		}
@@ -283,31 +301,33 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
+func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) (intents []interface{}, err error) {
 	observers, ok := ss.eventObservers[event.Name]
 	if !ok {
-		return nil
+		return []interface{}{}, nil
 	}
 
-	thread := makeThread(ss.options, event)
+	store := &intentStore{}
+	thread := makeThread(ss.options, event, store)
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	defer thread.Cancel("done")
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return store.entries, nil
 }
 
-func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
+func makeThread(options *ScriptSetOptions, data *EventObject, intents *intentStore) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(intentStoreLocalKey, intents)
 	return thread
 }

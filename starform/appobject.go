@@ -3,35 +3,60 @@ package starform
 import (
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/canonical/starlark/starlark"
 )
 
-// An AppObject is the common point for exposing the state of the application
+// AppObject is the common point for exposing the state of the application
 // into Starlark and for Starlark to declare intents.
 type AppObject struct {
-	name string
+	Name string
+
+	Methods []*starlark.Builtin
 }
 
 var ErrUnavailable = errors.New("unavailable")
 
-func NewAppObject(name string) *AppObject {
-	return &AppObject{name: name}
+func (app *AppObject) value() *appValue {
+	attrNames := make([]string, len(app.Methods))
+	methods := make(map[string]*starlark.Builtin, len(app.Methods))
+	for i, method := range app.Methods {
+		methodName := method.Name()
+		attrNames[i] = methodName
+		methods[methodName] = method
+	}
+	sort.Strings(attrNames) // this is necessary for hasAttr to work
+
+	return &appValue{
+		name:      app.Name,
+		attrNames: attrNames,
+		methods:   methods,
+	}
 }
 
-var _ starlark.Value = &AppObject{}
-var _ starlark.SafeStringer = &AppObject{}
-var _ starlark.HasSafeAttrs = &AppObject{}
+// appValue represents the global app value available in all scripts in a script set.
+type appValue struct {
+	name      string
+	attrNames []string
+	methods   map[string]*starlark.Builtin
+}
 
-func (app *AppObject) String() string       { return app.name }
-func (app *AppObject) Type() string         { return app.name }
-func (app *AppObject) Freeze()              {}
-func (app *AppObject) Truth() starlark.Bool { return true }
-func (app *AppObject) Hash() (uint32, error) {
+var _ starlark.Value = &appValue{}
+var _ starlark.SafeStringer = &appValue{}
+var _ starlark.HasSafeAttrs = &appValue{}
+
+func (app *appValue) String() string       { return fmt.Sprintf("<app %s>", app.name) }
+func (app *appValue) Type() string         { return "App" }
+func (app *appValue) Freeze()              {}
+func (app *appValue) Truth() starlark.Bool { return true }
+func (app *appValue) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable type: %s", app.Type())
 }
-func (app *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	if err := starlark.CheckSafety(thread, starlark.CPUSafe|starlark.MemSafe|starlark.TimeSafe|starlark.IOSafe); err != nil {
+func (app *appValue) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
 
@@ -39,15 +64,29 @@ func (app *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuil
 	return err
 }
 
-func (app *AppObject) AttrNames() []string {
-	return []string{"observe"}
+func (app *appValue) AttrNames() []string {
+	// TODO(marco6): use slice package when we bump Go version
+	attrNames := make([]string, 0, len(app.attrNames)+len(commonAppMethods))
+	for attr := range commonAppMethods {
+		if !app.hasAttr(attr) {
+			attrNames = append(attrNames, attr)
+		}
+	}
+	return append(attrNames, app.attrNames...)
 }
 
-func (app *AppObject) Attr(name string) (starlark.Value, error) {
+func (app *appValue) hasAttr(needle string) bool {
+	_, found := sort.Find(len(app.attrNames), func(i int) int {
+		return strings.Compare(needle, app.attrNames[i])
+	})
+	return found
+}
+
+func (app *appValue) Attr(name string) (starlark.Value, error) {
 	return app.SafeAttr(nil, name)
 }
 
-func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
 		return nil, errors.New("cannot access app fields in unconstrained environment")
 	}
@@ -57,21 +96,40 @@ func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 		return nil, err
 	}
 
-	if name == "observe" {
-		event := Event(thread)
+	event := Event(thread)
+	if event.Name == loadEventName {
+		if app.hasAttr(name) {
+			return nil, ErrUnavailable
+		}
+		b := commonAppMethods[name]
+		if b == nil {
+			return nil, starlark.ErrNoSuchAttr
+		}
 		if event.State == nil {
 			return nil, ErrUnavailable
 		}
 		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
 			return nil, err
 		}
-		return observeBuiltin.BindReceiver(app), nil
+		return b.BindReceiver(app), nil
 	}
-	return nil, nil
+
+	method, ok := app.methods[name]
+	if !ok {
+		if _, ok := commonAppMethods[name]; ok {
+			// Provided App methods are only available during init.
+			return nil, ErrUnavailable
+		}
+		return nil, starlark.ErrNoSuchAttr
+	}
+	return method.BindReceiver(app), nil
+}
+
+var commonAppMethods = map[string]*starlark.Builtin{
+	"observe": starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, observe),
 }
 
 var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
-var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, observe)
 
 func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var eventName string
@@ -84,25 +142,25 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 	if event.Name != loadEventName {
 		return nil, ErrUnavailable
 	}
+
 	state, ok := event.State.(*initState)
 	if !ok {
 		return nil, errors.New("starform internal data missing")
 	}
 
-	obs, ok := state.eventObservers[eventName]
+	observers, ok := state.eventObservers[eventName]
 	if !ok {
-		// Precondition: events are never removed from data.observers.
-		delta := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers)) -
-			starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
-		if err := thread.AddAllocs(delta); err != nil {
+		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers))
+		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
+		if err := thread.AddAllocs(newSize, -oldSize); err != nil {
 			return nil, err
 		}
 	}
-	safeAppender := starlark.NewSafeAppender(thread, &obs)
-	if err := safeAppender.Append(observer); err != nil {
+	observersAppender := starlark.NewSafeAppender(thread, &observers)
+	if err := observersAppender.Append(observer); err != nil {
 		return nil, err
 	}
-	state.eventObservers[eventName] = obs
+	state.eventObservers[eventName] = observers
 
 	return starlark.None, nil
 }
