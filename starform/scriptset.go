@@ -110,9 +110,12 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return scripts[i].path < scripts[j].path
 	})
 
+	initState := &initState{
+		phase: topLevelPhase,
+	}
 	event := &EventObject{
 		Name:  loadEventName,
-		State: nil,
+		State: initState,
 	}
 
 	store := &intentStore{}
@@ -140,10 +143,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	state := &initState{
-		eventObservers: make(map[string][]starlark.Callable),
-	}
-	event.State = state
+	initState.phase = initPhase
 	for _, script := range scripts {
 		init, ok := script.toplevelEnv["init"]
 		if !ok {
@@ -158,12 +158,15 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	for _, observers := range state.eventObservers {
-		for _, observer := range observers {
-			observer.Freeze()
+	ss.eventObservers = make(map[string][]starlark.Callable)
+	for _, entry := range store.entries {
+		intent, ok := entry.(*observeIntent)
+		if !ok {
+			return fmt.Errorf("unexpected intent: %v", intent)
 		}
+		intent.observer.Freeze()
+		ss.eventObservers[intent.event] = append(ss.eventObservers[intent.event], intent.observer)
 	}
-	ss.eventObservers = state.eventObservers
 
 	return nil
 }

@@ -13,8 +13,20 @@ type EventObject struct {
 	State interface{}
 }
 
+type loadPhase int
+
+const (
+	topLevelPhase loadPhase = iota
+	initPhase
+)
+
 type initState struct {
-	eventObservers map[string][]starlark.Callable
+	phase loadPhase
+}
+
+type observeIntent struct {
+	event    string
+	observer starlark.Callable
 }
 
 const eventObjectLocalKey = "starform-event-object"

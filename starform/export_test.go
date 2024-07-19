@@ -19,7 +19,7 @@ func (app *AppObject) Value() starlark.HasSafeAttrs {
 
 func InitState() interface{} {
 	return &initState{
-		eventObservers: make(map[string][]starlark.Callable),
+		phase: initPhase,
 	}
 }
 

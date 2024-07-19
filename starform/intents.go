@@ -23,10 +23,14 @@ func DeclareIntent(thread *starlark.Thread, intent interface{}) error {
 	}
 
 	event := Event(thread)
-	if event.Name == loadEventName && event.State == nil {
+	if event.Name == loadEventName {
 		return ErrUnavailable
 	}
 
+	return declareIntent(thread, intent)
+}
+
+func declareIntent(thread *starlark.Thread, intent interface{}) error {
 	intents, ok := thread.Local(intentStoreLocalKey).(*intentStore)
 	if !ok {
 		return errIntentsLocalMissing

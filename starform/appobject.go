@@ -105,7 +105,8 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		if b == nil {
 			return nil, starlark.ErrNoSuchAttr
 		}
-		if event.State == nil {
+		state, ok := event.State.(*initState)
+		if !ok || state.phase != initPhase {
 			return nil, ErrUnavailable
 		}
 		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
@@ -143,24 +144,15 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 		return nil, ErrUnavailable
 	}
 
-	state, ok := event.State.(*initState)
-	if !ok {
-		return nil, errors.New("starform internal data missing")
-	}
-
-	observers, ok := state.eventObservers[eventName]
-	if !ok {
-		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers))
-		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
-		if err := thread.AddAllocs(newSize, -oldSize); err != nil {
-			return nil, err
-		}
-	}
-	observersAppender := starlark.NewSafeAppender(thread, &observers)
-	if err := observersAppender.Append(observer); err != nil {
+	if err := thread.AddAllocs(starlark.EstimateSize(&observeIntent{})); err != nil {
 		return nil, err
 	}
-	state.eventObservers[eventName] = observers
-
+	intent := &observeIntent{
+		event:    eventName,
+		observer: observer,
+	}
+	if err := declareIntent(thread, intent); err != nil {
+		return nil, err
+	}
 	return starlark.None, nil
 }
