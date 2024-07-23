@@ -101,8 +101,8 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		if app.hasAttr(name) {
 			return nil, ErrUnavailable
 		}
-		b := commonAppMethods[name]
-		if b == nil {
+		method := commonAppMethods[name]
+		if method == nil {
 			return nil, starlark.ErrNoSuchAttr
 		}
 		if event.State == nil {
@@ -111,7 +111,7 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
 			return nil, err
 		}
-		return b.BindReceiver(app), nil
+		return method.BindReceiver(app), nil
 	}
 
 	method, ok := app.methods[name]

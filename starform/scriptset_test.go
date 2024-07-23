@@ -1175,20 +1175,20 @@ func TestLog(t *testing.T) {
 }
 
 func TestAppAttrs(t *testing.T) {
-	const allSafe = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
-	get_foo := starlark.NewBuiltinWithSafety("get_foo", allSafe, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	const methodSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	get_foo := starlark.NewBuiltinWithSafety("get_foo", methodSafety, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
 			return nil, err
 		}
 		return starlark.Value(starlark.String("foo")), nil
 	})
-	get_bar := starlark.NewBuiltinWithSafety("get_bar", allSafe, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	get_bar := starlark.NewBuiltinWithSafety("get_bar", methodSafety, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
 			return nil, err
 		}
 		return starlark.Value(starlark.String("bar")), nil
 	})
-	observe := starlark.NewBuiltinWithSafety("observe", allSafe, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	observe := starlark.NewBuiltinWithSafety("observe", methodSafety, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		return starlark.None, nil
 	})
 
@@ -1303,7 +1303,7 @@ func TestAppAttrs(t *testing.T) {
 			Methods: []*starlark.Builtin{
 				get_bar,
 				get_foo,
-				observe, // overload observe
+				observe, // Overload observe.
 			},
 		}
 
@@ -1361,14 +1361,16 @@ func TestAppAttrs(t *testing.T) {
 }
 
 func TestEventState(t *testing.T) {
-	type startAppState struct {
+	// Example app state
+	type startupEventState struct {
 		currentOs, targetOs string
 	}
-	const allSafe = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
-	getCurrentOs := starlark.NewBuiltinWithSafety("get_current_os", allSafe, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+
+	const methodSafety = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
+	getCurrentOS := starlark.NewBuiltinWithSafety("current_os", methodSafety, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		event := starform.Event(thread)
 		if event.Name == "startup" {
-			state := event.State.(*startAppState)
+			state := event.State.(*startupEventState)
 			if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
 				return nil, err
 			}
@@ -1376,10 +1378,10 @@ func TestEventState(t *testing.T) {
 		}
 		return nil, starform.ErrUnavailable
 	})
-	getTargetOs := starlark.NewBuiltinWithSafety("get_target_os", allSafe, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	getTargetOS := starlark.NewBuiltinWithSafety("target_os", methodSafety, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		event := starform.Event(thread)
 		if event.Name == "startup" {
-			state := event.State.(*startAppState)
+			state := event.State.(*startupEventState)
 			if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
 				return nil, err
 			}
@@ -1390,35 +1392,9 @@ func TestEventState(t *testing.T) {
 	app := &starform.AppObject{
 		Name: "exec",
 		Methods: []*starlark.Builtin{
-			getCurrentOs,
-			getTargetOs,
+			getCurrentOS,
+			getTargetOS,
 		},
-	}
-
-	set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
-		App: app,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
-		name: "test.star",
-		content: `
-			def on_startup(event):
-				current_os = exec.get_current_os()
-				target_os = exec.get_target_os()
-				if current_os != target_os:
-					if target_os == "windows" and current_os == "linux":
-						print("use wine for this!")
-					else:
-						fail("cannot run app for %s on %s" % (target_os, current_os))
-
-			def init():
-				exec.observe("startup", on_startup)
-		`,
-	}})
-	if err != nil {
-		t.Error(err)
 	}
 
 	tests := []struct {
@@ -1437,11 +1413,35 @@ func TestEventState(t *testing.T) {
 		currentOs:   "linux",
 		expectError: false,
 	}}
-
 	for _, test := range tests {
+		set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+			App: app,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+			name: "test.star",
+			content: `
+				def on_startup(event):
+					current_os = exec.current_os()
+					target_os = exec.target_os()
+					if current_os != target_os:
+						if target_os == "windows" and current_os == "linux":
+							print("use wine for this!")
+						else:
+							fail("cannot run app for %s on %s" % (target_os, current_os))
+
+				def init():
+					exec.observe("startup", on_startup)
+			`,
+		}})
+		if err != nil {
+			t.Error(err)
+		}
 		event := &starform.EventObject{
 			Name: "startup",
-			State: &startAppState{
+			State: &startupEventState{
 				currentOs: test.currentOs,
 				targetOs:  test.targetOs,
 			},
