@@ -816,57 +816,51 @@ func TestRelativeLoads(t *testing.T) {
 }
 
 func TestCachedRelativeLoads(t *testing.T) {
+	commonFile := &testScriptSource{
+		name: "aaa/bbb/bbb.star",
+		content: `
+			load('../../ccc.star', 'ccc')
+			bbb = 'aaa/bbb/bbb.star'
+			print('aaa/bbb/bbb.star:', ccc)
+		`,
+	}
+	setASources := []starform.ScriptSource{
+		commonFile,
+		&testScriptSource{
+			name: "ccc.star",
+			content: `
+				load('ddd.star', 'ddd')
+				ccc = 'ccc.star'
+				print('ccc.star:')
+			`,
+		}, &testScriptSource{
+			name: "ddd.star",
+			content: `
+				ddd = 'ddd.star'
+			`,
+		},
+	}
+	setBSources := []starform.ScriptSource{
+		&testScriptSource{
+			name: "aaa/aaa.star",
+			content: `
+				load('./bbb/bbb.star', 'bbb')
+				load('../ccc.star', 'ccc')
+				print('aaa/aaa.star:', bbb, ccc)
+			`,
+		},
+		commonFile,
+		&testScriptSource{
+			name: "ccc.star",
+			content: `
+				ccc = 'ccc.star'
+				print('ccc.star:')
+			`,
+		},
+	}
+
 	app := starform.NewAppObject("test")
 	app.Freeze()
-
-	type fileSpec struct {
-		path  string
-		loads []string
-	}
-
-	commonFile := fileSpec{
-		path:  "aaa/bbb/bbb.star",
-		loads: []string{"../../ccc.star"},
-	}
-	setA := []fileSpec{commonFile, {
-		path:  "ccc.star",
-		loads: []string{"ddd.star"},
-	}, {
-		path:  "ddd.star",
-		loads: nil,
-	}}
-	setB := []fileSpec{{
-		path:  "aaa/aaa.star",
-		loads: []string{"./bbb/bbb.star", "../ccc.star"},
-	}, commonFile, {
-		path:  "ccc.star",
-		loads: nil,
-	}}
-
-	makeSourcesSet := func(specs []fileSpec) []starform.ScriptSource {
-		ret := make([]starform.ScriptSource, 0, len(specs))
-		for _, spec := range specs {
-			content := &strings.Builder{}
-			for i, load := range spec.loads {
-				content.WriteString(fmt.Sprintf("\nload('%s', name_%d='name')", load, i))
-			}
-			content.WriteString(fmt.Sprintf("\nprint('%s:'", spec.path))
-			for i := range spec.loads {
-				content.WriteString(fmt.Sprintf(", name_%d", i))
-			}
-			content.WriteString(")")
-			content.WriteString(fmt.Sprintf("\nname = '%s'", spec.path))
-
-			ret = append(ret, &testScriptSource{
-				name:    spec.path,
-				content: content.String(),
-			})
-		}
-		return ret
-	}
-	setASources := makeSourcesSet(setA)
-	setBSources := makeSourcesSet(setB)
-
 	load := func(cache starform.ScriptCache, sources []starform.ScriptSource) (string, error) {
 		logger := &testLogger{
 			format: func(le starform.LogEntry) string {
@@ -901,7 +895,7 @@ func TestCachedRelativeLoads(t *testing.T) {
 		t.Errorf("incorrect log: expected %q but got %q", expectedLogB, actualLog)
 	}
 
-	if expectedMisses := len(setA) + len(setB) - 1; int(cache.Misses) != expectedMisses {
+	if expectedMisses := len(setASources) + len(setBSources) - 1; int(cache.Misses) != expectedMisses {
 		t.Errorf("caching failed, expected %d misses, got %d", expectedMisses, cache.Misses)
 	}
 }
