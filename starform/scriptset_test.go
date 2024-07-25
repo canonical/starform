@@ -447,16 +447,17 @@ func TestCheckLoadPath(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			path := test.path // Setting the path verbatim is a hack for testing, in practice, these should never start with either ./ or ../
-			if strings.HasPrefix(path, "./") {
-				path = path[2:] // Remove sanitised prefix.
+			sourceName := test.path // This is a hack, ScriptSource names should never start with path operators.
+			for strings.HasPrefix(sourceName, "./") {
+				// Leading ./ gets removed during load-path cleaning, hence must be removed from the source path.
+				sourceName = sourceName[2:]
 			}
 			sources := []starform.ScriptSource{
 				&testScriptSource{
 					name:    "init.star",
 					content: fmt.Sprintf("load('%s', 'unused')", test.path),
 				}, &testScriptSource{
-					name:    path,
+					name:    sourceName,
 					content: "unused = None",
 				},
 			}
