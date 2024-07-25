@@ -677,71 +677,113 @@ func TestRelativeLoads(t *testing.T) {
 	app := starform.NewAppObject("test")
 	app.Freeze()
 
-	type fileSpec struct {
-		file  string
-		loads []string
-	}
 	tests := []struct {
 		name          string
-		files         []fileSpec
+		sources       []starform.ScriptSource
 		expectedError string
 		expectedLog   string
 	}{{
 		name: "absolute-toplevel",
-		files: []fileSpec{{
-			file:  "aaa.star",
-			loads: []string{"bbb.star"},
-		}, {
-			file:  "bbb.star",
-			loads: []string{},
-		}},
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa.star",
+				content: `
+					load('bbb.star', 'bbb')
+					print('aaa.star:', bbb)
+				`,
+			}, &testScriptSource{
+				name: "bbb.star",
+				content: `
+					bbb = 'bbb.star'
+					print('bbb.star:')
+				`,
+			},
+		},
 		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
 	}, {
 		name: "absolute-nested",
-		files: []fileSpec{{
-			file:  "aaa/bbb.star",
-			loads: []string{"ccc.star"},
-		}, {
-			file:  "ccc.star",
-			loads: []string{},
-		}},
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa/bbb.star",
+				content: `
+					load('ccc.star', 'ccc')
+					print('aaa/bbb.star:', ccc)
+				`,
+			},
+			&testScriptSource{
+				name: "ccc.star",
+				content: `
+					ccc = 'ccc.star'
+					print('ccc.star:')
+				`,
+			},
+		},
 		expectedLog: "ccc.star:\naaa/bbb.star: ccc.star\n",
 	}, {
 		name: "relative-toplevel",
-		files: []fileSpec{{
-			file:  "aaa.star",
-			loads: []string{"./bbb.star"},
-		}, {
-			file:  "bbb.star",
-			loads: []string{},
-		}},
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa.star",
+				content: `
+					load('./bbb.star', 'bbb')
+					print('aaa.star:', bbb)
+				`,
+			}, &testScriptSource{
+				name: "bbb.star",
+				content: `
+					bbb = 'bbb.star'
+					print('bbb.star:')
+				`,
+			},
+		},
 		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
 	}, {
 		name: "relative-nested",
-		files: []fileSpec{{
-			file:  "aaa/bbb.star",
-			loads: []string{"./ccc/ddd.star"},
-		}, {
-			file:  "aaa/ccc/ddd.star",
-			loads: []string{},
-		}},
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa/bbb.star",
+				content: `
+					load('aaa/ccc/ddd.star', 'ddd')
+					print('aaa/bbb.star:', ddd)
+				`,
+			}, &testScriptSource{
+				name: "aaa/ccc/ddd.star",
+				content: `
+					ddd = 'aaa/ccc/ddd.star'
+					print('aaa/ccc/ddd.star:')
+				`,
+			},
+		},
 		expectedLog: "aaa/ccc/ddd.star:\naaa/bbb.star: aaa/ccc/ddd.star\n",
 	}, {
 		name: "parent-nested",
-		files: []fileSpec{{
-			file:  "aaa/bbb/ccc.star",
-			loads: []string{"../ddd/eee.star"},
-		}, {
-			file:  "aaa/ddd/eee.star",
-			loads: []string{},
-		}},
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa/bbb/ccc.star",
+				content: `
+					load('../ddd/eee.star', 'eee')
+					print('aaa/bbb/ccc.star:', eee)
+				`,
+			}, &testScriptSource{
+				name: "aaa/ddd/eee.star",
+				content: `
+					eee = 'aaa/ddd/eee.star'
+					print('aaa/ddd/eee.star:')
+				`,
+			},
+		},
 		expectedLog: "aaa/ddd/eee.star:\naaa/bbb/ccc.star: aaa/ddd/eee.star\n",
 	}, {
 		name: "parent-toplevel",
-		files: []fileSpec{{
-			file:  "aaa.star",
-			loads: []string{"../nonexistent.star"},
-		}},
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa.star",
+				content: `
+					load('../nonexistent.star', 'nonexistent')
+					fail('unreachable')
+				`,
+			},
+		},
 		expectedError: "cannot load ../nonexistent.star: ../nonexistent.star not found",
 	}}
 	for _, test := range tests {
@@ -757,24 +799,7 @@ func TestRelativeLoads(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			sources := make([]starform.ScriptSource, 0, len(test.files))
-			for _, file := range test.files {
-				content := &strings.Builder{}
-				for i, load := range file.loads {
-					content.WriteString(fmt.Sprintf("\nload('%s', name_%d='name')", load, i))
-				}
-				content.WriteString(fmt.Sprintf("\nprint('%s:'", file.file))
-				for i := range file.loads {
-					content.WriteString(fmt.Sprintf(", name_%d", i))
-				}
-				content.WriteString(")")
-				content.WriteString(fmt.Sprintf("\nname = '%s'", file.file))
-				sources = append(sources, &testScriptSource{
-					name:    file.file,
-					content: content.String(),
-				})
-			}
-			err = scripts.LoadSources(context.Background(), sources)
+			err = scripts.LoadSources(context.Background(), test.sources)
 			if err == nil {
 				if test.expectedError != "" {
 					t.Error("expected error")
