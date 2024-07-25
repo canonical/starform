@@ -134,7 +134,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return script.toplevelEnv, nil
 	}
 	for _, script := range scripts {
-		loadStack = append(loadStack[:], script.path)
+		loadStack = append(loadStack[:0], script.path)
 		if err := ss.runTopLevel(thread, script); err != nil {
 			return err
 		}
