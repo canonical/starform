@@ -1188,7 +1188,8 @@ func TestAppAttrs(t *testing.T) {
 		}
 		return starlark.Value(starlark.String("bar")), nil
 	})
-	observe := starlark.NewBuiltinWithSafety("observe", methodSafety, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	customObserve := starlark.NewBuiltinWithSafety("observe", methodSafety, func(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		// Do nothing.
 		return starlark.None, nil
 	})
 
@@ -1303,7 +1304,7 @@ func TestAppAttrs(t *testing.T) {
 			Methods: []*starlark.Builtin{
 				get_bar,
 				get_foo,
-				observe, // Overload observe.
+				customObserve, // Overload observe.
 			},
 		}
 

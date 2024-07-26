@@ -162,8 +162,11 @@ func TestAppSafeAttr(t *testing.T) {
 func TestAppAttrNames(t *testing.T) {
 	makeGetter := func(name string) *starlark.Builtin {
 		const methodSafey = starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe
-		return starlark.NewBuiltinWithSafety(name, methodSafey, func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
-			return starlark.None, nil
+		return starlark.NewBuiltinWithSafety(name, methodSafey, func(thread *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
+			if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
+				return nil, err
+			}
+			return starlark.String(name), nil
 		})
 	}
 

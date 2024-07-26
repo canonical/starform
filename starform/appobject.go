@@ -20,14 +20,14 @@ type AppObject struct {
 var ErrUnavailable = errors.New("unavailable")
 
 func (app *AppObject) value() *appValue {
-	attrNames := make([]string, len(app.Methods))
+	attrNames := make([]string, 0, len(app.Methods))
 	methods := make(map[string]*starlark.Builtin, len(app.Methods))
-	for i, method := range app.Methods {
+	for _, method := range app.Methods {
 		methodName := method.Name()
-		attrNames[i] = methodName
+		attrNames = append(attrNames, methodName)
 		methods[methodName] = method
 	}
-	sort.Strings(attrNames) // this is necessary for hasAttr to work
+	sort.Strings(attrNames) // This is necessary for hasAttr to work.
 
 	return &appValue{
 		name:      app.Name,
@@ -36,7 +36,7 @@ func (app *AppObject) value() *appValue {
 	}
 }
 
-// appValue represents the global app value available in all scripts in a script set.
+// appValue is the global app value available in all scripts in a script set.
 type appValue struct {
 	name      string
 	attrNames []string
@@ -126,10 +126,10 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 }
 
 var commonAppMethods = map[string]*starlark.Builtin{
-	"observe": starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, observe),
+	"observe": starlark.NewBuiltinWithSafety("observe", observeSafety, observe),
 }
 
-var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
+var observeSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
 
 func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var eventName string
