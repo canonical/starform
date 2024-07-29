@@ -821,7 +821,7 @@ func TestObserverTypes(t *testing.T) {
 }
 
 func TestEventHandling(t *testing.T) {
-	const expectedLog = "foo\n1\n2\nbar\nTrue\n"
+	const expectedLog = "foo\n1\non_foo_3\nbar\nTrue\n"
 
 	app := starform.NewAppObject("app")
 	app.Freeze()
@@ -859,7 +859,7 @@ func TestEventHandling(t *testing.T) {
 				app.observe('foo', on_foo_3)
 
 			def on_foo_3(event):
-				print(2)
+				print("on_foo_3")
 		`,
 	}}
 	if err := scripts.LoadSources(context.Background(), sources); err != nil {

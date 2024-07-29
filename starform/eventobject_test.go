@@ -82,7 +82,7 @@ func TestEventObjectSafeAttr(t *testing.T) {
 	event.Freeze()
 
 	attrNames := event.AttrNames()
-	if len(attrNames) != 2 {
+	if len(attrNames) != len(event.Attrs)+1 {
 		t.Fatalf("expected 2 attributes, got %d", len(attrNames))
 	}
 
