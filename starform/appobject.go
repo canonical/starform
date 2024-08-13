@@ -88,23 +88,23 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		return nil, err
 	}
 
-	methodIsCommon := false
+	methodIsCustom := true
 	method, ok := app.customMethods[name]
 	if !ok {
+		methodIsCustom = false
 		method, ok = commonAppMethods[name]
 		if !ok {
 			return nil, starlark.ErrNoSuchAttr
 		}
-		methodIsCommon = true
 	}
 
 	event := Event(thread)
-	if methodIsCommon && (event.Name != loadEventName || event.State == nil) {
-		// The observe method should only be available during init, so for now
-		// we apply this constraint to all common methods.
+	if methodIsCustom && event.Name == loadEventName {
 		return nil, ErrUnavailable
 	}
-	if !methodIsCommon && event.Name == loadEventName {
+	if !methodIsCustom && (event.Name != loadEventName || event.State == nil) {
+		// The observe method should only be available during init, so for now
+		// we apply this constraint to all common methods.
 		return nil, ErrUnavailable
 	}
 
