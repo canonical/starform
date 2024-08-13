@@ -20,7 +20,7 @@ var ErrUnavailable = errors.New("unavailable")
 
 func (app *AppObject) value() *appValue {
 	attrNames := make([]string, 0, len(app.Methods))
-	customMethods := make(map[string]*starlark.Builtin, len(app.Methods)+len(commonAppMethods))
+	customMethods := make(map[string]*starlark.Builtin, len(app.Methods))
 	for _, method := range app.Methods {
 		methodName := method.Name()
 		attrNames = append(attrNames, methodName)
