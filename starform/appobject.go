@@ -29,7 +29,7 @@ func (app *AppObject) value() *appValue {
 	for _, method := range commonAppMethods {
 		methodName := method.Name()
 		if _, ok := customMethods[methodName]; ok {
-			continue
+			continue // Method overridden, hence its name is already present.
 		}
 		attrNames = append(attrNames, methodName)
 	}
