@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/canonical/starlark/starlark"
 )
@@ -21,26 +20,33 @@ var ErrUnavailable = errors.New("unavailable")
 
 func (app *AppObject) value() *appValue {
 	attrNames := make([]string, 0, len(app.Methods))
-	methods := make(map[string]*starlark.Builtin, len(app.Methods))
+	customMethods := make(map[string]*starlark.Builtin, len(app.Methods)+len(commonAppMethods))
 	for _, method := range app.Methods {
 		methodName := method.Name()
 		attrNames = append(attrNames, methodName)
-		methods[methodName] = method
+		customMethods[methodName] = method
 	}
-	sort.Strings(attrNames) // This is necessary for hasAttr to work.
+	for _, method := range commonAppMethods {
+		methodName := method.Name()
+		if _, ok := customMethods[methodName]; ok {
+			continue
+		}
+		attrNames = append(attrNames, methodName)
+	}
+	sort.Strings(attrNames)
 
 	return &appValue{
-		name:      app.Name,
-		attrNames: attrNames,
-		methods:   methods,
+		name:          app.Name,
+		attrNames:     attrNames,
+		customMethods: customMethods,
 	}
 }
 
 // appValue is the global app value available in all scripts in a script set.
 type appValue struct {
-	name      string
-	attrNames []string
-	methods   map[string]*starlark.Builtin
+	name          string
+	attrNames     []string
+	customMethods map[string]*starlark.Builtin
 }
 
 var _ starlark.Value = &appValue{}
@@ -65,21 +71,7 @@ func (app *appValue) SafeString(thread *starlark.Thread, sb starlark.StringBuild
 }
 
 func (app *appValue) AttrNames() []string {
-	// TODO(marco6): use slice package when we bump Go version
-	attrNames := make([]string, 0, len(app.attrNames)+len(commonAppMethods))
-	for attr := range commonAppMethods {
-		if !app.hasAttr(attr) {
-			attrNames = append(attrNames, attr)
-		}
-	}
-	return append(attrNames, app.attrNames...)
-}
-
-func (app *appValue) hasAttr(needle string) bool {
-	_, found := sort.Find(len(app.attrNames), func(i int) int {
-		return strings.Compare(needle, app.attrNames[i])
-	})
-	return found
+	return app.attrNames
 }
 
 func (app *appValue) Attr(name string) (starlark.Value, error) {
@@ -96,31 +88,27 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		return nil, err
 	}
 
-	event := Event(thread)
-	if event.Name == loadEventName {
-		if app.hasAttr(name) {
-			return nil, ErrUnavailable
-		}
-		method := commonAppMethods[name]
-		if method == nil {
+	methodIsCommon := false
+	method, ok := app.customMethods[name]
+	if !ok {
+		method, ok = commonAppMethods[name]
+		if !ok {
 			return nil, starlark.ErrNoSuchAttr
 		}
-		if event.State == nil {
-			return nil, ErrUnavailable
-		}
-		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
-			return nil, err
-		}
-		return method.BindReceiver(app), nil
+		methodIsCommon = true
 	}
 
-	method, ok := app.methods[name]
-	if !ok {
-		if _, ok := commonAppMethods[name]; ok {
-			// Provided App methods are only available during init.
-			return nil, ErrUnavailable
-		}
-		return nil, starlark.ErrNoSuchAttr
+	event := Event(thread)
+	if !methodIsCommon && event.Name == loadEventName {
+		return nil, ErrUnavailable
+	} else if methodIsCommon && (event.Name != loadEventName || event.State == nil) {
+		// The observe method should only be available during init, so for now
+		// we apply this constraint to all common methods.
+		return nil, ErrUnavailable
+	}
+
+	if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+		return nil, err
 	}
 	return method.BindReceiver(app), nil
 }
