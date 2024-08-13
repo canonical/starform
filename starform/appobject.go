@@ -99,11 +99,12 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 	}
 
 	event := Event(thread)
-	if !methodIsCommon && event.Name == loadEventName {
-		return nil, ErrUnavailable
-	} else if methodIsCommon && (event.Name != loadEventName || event.State == nil) {
+	if methodIsCommon && (event.Name != loadEventName || event.State == nil) {
 		// The observe method should only be available during init, so for now
 		// we apply this constraint to all common methods.
+		return nil, ErrUnavailable
+	}
+	if !methodIsCommon && event.Name == loadEventName {
 		return nil, ErrUnavailable
 	}
 
