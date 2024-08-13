@@ -763,8 +763,6 @@ func TestProgramCache(t *testing.T) {
 }
 
 func TestObserverTypes(t *testing.T) {
-	const expected = "asdf"
-
 	app := &starform.AppObject{
 		Name: "app",
 	}
@@ -776,7 +774,7 @@ func TestObserverTypes(t *testing.T) {
 	}{{
 		name:        "builtin",
 		observer:    "print",
-		expectedLog: "None\n", // TODO(kcza/macro6): replace me once simple event objects are added.
+		expectedLog: "<Event foo>\n",
 	}, {
 		name:        "lambda",
 		observer:    "lambda event: print('handled event')",
@@ -829,7 +827,7 @@ func TestObserverTypes(t *testing.T) {
 }
 
 func TestEventHandling(t *testing.T) {
-	const expectedLog = "1\n2\n3\n4\n"
+	const expectedLog = "foo\n1\non_foo_3\nbar\nTrue\n"
 
 	logger := &testLogger{}
 	opts := &starform.ScriptSetOptions{
@@ -851,13 +849,14 @@ func TestEventHandling(t *testing.T) {
 				app.observe('bar', on_bar)
 
 			def on_foo_1(event):
-				print(1)
+				print(event.name)
 
 			def on_foo_2(event):
-				print(2)
+				print(event.foo)
 
 			def on_bar(event):
-				print(4)
+				print(event.name)
+				print(event.bar)
 		`,
 	}, &testScriptSource{
 		name: "222.star",
@@ -866,19 +865,29 @@ func TestEventHandling(t *testing.T) {
 				app.observe('foo', on_foo_3)
 
 			def on_foo_3(event):
-				print(3)
+				print("on_foo_3")
 		`,
 	}}
 	if err := scripts.LoadSources(context.Background(), sources); err != nil {
 		t.Fatal(err)
 	}
 
-	event := &starform.EventObject{Name: "foo"}
+	event := &starform.EventObject{
+		Name: "foo",
+		Attrs: starlark.StringDict{
+			"foo": starlark.MakeInt(1),
+		},
+	}
 	if err := scripts.Handle(context.Background(), event); err != nil {
 		t.Fatal(err)
 	}
 
-	event = &starform.EventObject{Name: "bar"}
+	event = &starform.EventObject{
+		Name: "bar",
+		Attrs: starlark.StringDict{
+			"bar": starlark.True,
+		},
+	}
 	if err := scripts.Handle(context.Background(), event); err != nil {
 		t.Fatal(err)
 	}
@@ -979,7 +988,7 @@ func TestObserveAvailability(t *testing.T) {
 			def on_foo(event):
 				app.observe('bar', on_bar)
 				fail('unexpectedly called')
-			
+
 			def on_bar(event):
 				pass
 		`,
@@ -995,7 +1004,7 @@ func TestObserveAvailability(t *testing.T) {
 					fail('unexpectedly called')
 
 				observe('foo', on_foo)
-			
+
 			def on_bar(event):
 				pass
 		`,
@@ -1274,7 +1283,7 @@ func TestAppAttrs(t *testing.T) {
 				content: `
 					def init():
 						test.observe("foo", on_foo)
-					
+
 					def on_foo(event):
 						# observe is not available during event handling.
 						test.observe("bar", on_bar)

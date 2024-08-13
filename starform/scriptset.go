@@ -311,7 +311,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	defer stop()
 	defer thread.Cancel("done")
 	for _, observer := range observers {
-		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
+		_, err := starlark.Call(thread, observer, starlark.Tuple{event}, nil)
 		if err != nil {
 			return err
 		}
