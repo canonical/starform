@@ -99,13 +99,19 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 	}
 
 	event := Event(thread)
-	if methodIsCustom && event.Name == loadEventName {
-		return nil, ErrUnavailable
-	}
-	if !methodIsCustom && (event.Name != loadEventName || event.State == nil) {
-		// The observe method should only be available during init, so for now
-		// we apply this constraint to all common methods.
-		return nil, ErrUnavailable
+	if methodIsCustom {
+		if event.Name == loadEventName {
+			return nil, ErrUnavailable
+		}
+	} else {
+		if event.Name != loadEventName || event.State == nil {
+			// The observe method is only available during init so we can tell
+			// which events to be dispatched to the script. For now this is
+			// also enforced for all common methods since it's safer to force
+			// future patch authors to come here and change this logic than
+			// risk methods being used globally by mistake.
+			return nil, ErrUnavailable
+		}
 	}
 
 	if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
