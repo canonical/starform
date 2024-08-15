@@ -3,35 +3,66 @@ package starform
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/canonical/starlark/starlark"
 )
 
-// An AppObject is the common point for exposing the state of the application
+// AppObject is the common point for exposing the state of the application
 // into Starlark and for Starlark to declare intents.
 type AppObject struct {
-	name string
+	Name string
+
+	Methods []*starlark.Builtin
 }
 
 var ErrUnavailable = errors.New("unavailable")
 
-func NewAppObject(name string) *AppObject {
-	return &AppObject{name: name}
+func (app *AppObject) value() *appValue {
+	attrNames := make([]string, 0, len(app.Methods))
+	customMethods := make(map[string]*starlark.Builtin, len(app.Methods))
+	for _, method := range app.Methods {
+		methodName := method.Name()
+		attrNames = append(attrNames, methodName)
+		customMethods[methodName] = method
+	}
+	for _, method := range commonAppMethods {
+		methodName := method.Name()
+		if _, ok := customMethods[methodName]; ok {
+			continue // Method overridden, hence its name is already present.
+		}
+		attrNames = append(attrNames, methodName)
+	}
+	sort.Strings(attrNames)
+
+	return &appValue{
+		name:          app.Name,
+		attrNames:     attrNames,
+		customMethods: customMethods,
+	}
 }
 
-var _ starlark.Value = &AppObject{}
-var _ starlark.SafeStringer = &AppObject{}
-var _ starlark.HasSafeAttrs = &AppObject{}
+// appValue is the global app value available in all scripts in a script set.
+type appValue struct {
+	name          string
+	attrNames     []string
+	customMethods map[string]*starlark.Builtin
+}
 
-func (app *AppObject) String() string       { return app.name }
-func (app *AppObject) Type() string         { return app.name }
-func (app *AppObject) Freeze()              {}
-func (app *AppObject) Truth() starlark.Bool { return true }
-func (app *AppObject) Hash() (uint32, error) {
+var _ starlark.Value = &appValue{}
+var _ starlark.SafeStringer = &appValue{}
+var _ starlark.HasSafeAttrs = &appValue{}
+
+func (app *appValue) String() string       { return fmt.Sprintf("<app %s>", app.name) }
+func (app *appValue) Type() string         { return "App" }
+func (app *appValue) Freeze()              {}
+func (app *appValue) Truth() starlark.Bool { return true }
+func (app *appValue) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable type: %s", app.Type())
 }
-func (app *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
-	if err := starlark.CheckSafety(thread, starlark.CPUSafe|starlark.MemSafe|starlark.TimeSafe|starlark.IOSafe); err != nil {
+func (app *appValue) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
+	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
 	}
 
@@ -39,15 +70,15 @@ func (app *AppObject) SafeString(thread *starlark.Thread, sb starlark.StringBuil
 	return err
 }
 
-func (app *AppObject) AttrNames() []string {
-	return []string{"observe"}
+func (app *appValue) AttrNames() []string {
+	return app.attrNames
 }
 
-func (app *AppObject) Attr(name string) (starlark.Value, error) {
+func (app *appValue) Attr(name string) (starlark.Value, error) {
 	return app.SafeAttr(nil, name)
 }
 
-func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
 		return nil, errors.New("cannot access app fields in unconstrained environment")
 	}
@@ -57,21 +88,43 @@ func (app *AppObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 		return nil, err
 	}
 
-	if name == "observe" {
-		event := Event(thread)
-		if event.State == nil {
+	methodIsCustom := true
+	method, ok := app.customMethods[name]
+	if !ok {
+		methodIsCustom = false
+		method, ok = commonAppMethods[name]
+		if !ok {
+			return nil, starlark.ErrNoSuchAttr
+		}
+	}
+
+	event := Event(thread)
+	if methodIsCustom {
+		if event.Name == loadEventName {
 			return nil, ErrUnavailable
 		}
-		if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
-			return nil, err
+	} else {
+		if event.Name != loadEventName || event.State == nil {
+			// The observe method is only available during init so we can tell
+			// which events to be dispatched to the script. For now this is
+			// also enforced for all common methods since it's safer to force
+			// future patch authors to come here and change this logic than
+			// risk methods being used globally by mistake.
+			return nil, ErrUnavailable
 		}
-		return observeBuiltin.BindReceiver(app), nil
 	}
-	return nil, nil
+
+	if err := thread.AddAllocs(starlark.EstimateSize(&starlark.Builtin{})); err != nil {
+		return nil, err
+	}
+	return method.BindReceiver(app), nil
 }
 
-var observeBuiltinSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
-var observeBuiltin = starlark.NewBuiltinWithSafety("observe", observeBuiltinSafety, observe)
+var commonAppMethods = map[string]*starlark.Builtin{
+	"observe": starlark.NewBuiltinWithSafety("observe", observeSafety, observe),
+}
+
+var observeSafety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
 
 func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	var eventName string
@@ -84,25 +137,25 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 	if event.Name != loadEventName {
 		return nil, ErrUnavailable
 	}
+
 	state, ok := event.State.(*initState)
 	if !ok {
 		return nil, errors.New("starform internal data missing")
 	}
 
-	obs, ok := state.eventObservers[eventName]
+	observers, ok := state.eventObservers[eventName]
 	if !ok {
-		// Precondition: events are never removed from data.observers.
-		delta := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers)) -
-			starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
-		if err := thread.AddAllocs(delta); err != nil {
+		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers))
+		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
+		if err := thread.AddAllocs(newSize, -oldSize); err != nil {
 			return nil, err
 		}
 	}
-	safeAppender := starlark.NewSafeAppender(thread, &obs)
-	if err := safeAppender.Append(observer); err != nil {
+	observersAppender := starlark.NewSafeAppender(thread, &observers)
+	if err := observersAppender.Append(observer); err != nil {
 		return nil, err
 	}
-	state.eventObservers[eventName] = obs
+	state.eventObservers[eventName] = observers
 
 	return starlark.None, nil
 }
