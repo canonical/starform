@@ -1,4 +1,4 @@
-name: Starform Go Tests
+name: CI tests
 on: [push, pull_request]
 jobs:
   build:
