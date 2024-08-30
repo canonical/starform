@@ -44,7 +44,7 @@ func TestAfterFuncNormalOperation(t *testing.T) {
 	cancel()
 	<-done
 	if run.Load() == false {
-		t.Errorf("function did not ran on context cancelation")
+		t.Errorf("function did not run on context cancelation")
 	}
 }
 
@@ -55,7 +55,7 @@ func TestAfterFuncStop(t *testing.T) {
 		panic("should never run")
 	})
 	if stop() == false {
-		t.Errorf("stop should return true when function did not ran")
+		t.Errorf("stop should return true when function did not run")
 	}
 }
 
@@ -68,6 +68,6 @@ func TestAfterFuncStopAlreadyRun(t *testing.T) {
 	cancel()
 	<-done
 	if stop() == true {
-		t.Errorf("stop should return false when function already ran")
+		t.Errorf("stop should return false when function already run")
 	}
 }
