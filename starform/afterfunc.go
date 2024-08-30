@@ -9,7 +9,7 @@ import (
 )
 
 func afterFunc(ctx context.Context, f func()) (stop func() bool) {
-	if ctx.Done() != nil {
+	if ctx.Err() != nil {
 		go f()
 		return func() bool { return false }
 	}
