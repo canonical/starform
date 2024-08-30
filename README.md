@@ -1,24 +1,23 @@
-# Starform [![CI tests](https://github.com/canonical/starform/actions/workflows/tests.yml/badge.svg)](https://github.com/canonical/starform/actions/workflows/tests.yml) [![GoDoc](https://godoc.org/github.com/canonical/starform?status.svg)](https://godoc.org/github.com/canonical/starform)
+# Starform 
 
-<!-- TODO: [![Coverage Status](https://coveralls.io/repos/github/canonical/go-dqlite/badge.svg?branch=master)](https://coveralls.io/github/canonical/go-dqlite?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/canonical/go-dqlite)](https://goreportcard.com/report/github.com/canonical/go-dqlite)  -->
+[![CI tests](https://github.com/canonical/starform/actions/workflows/tests.yml/badge.svg)](https://github.com/canonical/starform/actions/workflows/tests.yml) [![GoDoc](https://godoc.org/github.com/canonical/starform?status.svg)](https://godoc.org/github.com/canonical/starform)
 
-This repository provides the `starform` Go package, a helper library to easily integrate the Starlark language into an application via an event-based scriptlet API.
+<!-- TODO: [![Coverage Status](https://coveralls.io/repos/github/canonical/starform/badge.svg?branch=master)](https://coveralls.io/github/canonical/starform?branch=master) [![Go Report Card](https://goreportcard.com/badge/github.com/canonical/starform)](https://goreportcard.com/report/github.com/canonical/starform)  -->
 
-`starform`'s aim is to make configuration better by making it easy for an application to define and handle user *intentions* (i.e. configuration or behaviors) through a consistent scripting interface.  This way, while each API can be as domain-specific as needed, the structure, the construct and the language are consistent. This way a user can concentrate on building domain-specific knowledge rather than having to learn a new syntax every time.
+This repository provides the `starform` Go package, a library to help easily and uniformly integrate event-based Starlark scriptlet APIs into applications.
+
+`starform` aims to improve configuration by making it easy for an application to define and handle user *intentions* (i.e. configuration or behaviors) through a constrained, yet expressive scripting interface.
+This way, while each API can be as domain-specific as needed, the structure, the construct and the language are consistent.
+This way a user can concentrate on building domain-specific knowledge rather than having to learn a new syntax every time.
 
 ## What is Starform?
 
-Starform is essentially a "glue" package for the [safe Starlark language interpreter](https://github.com/canonical/starlark). It allows you to implement a scriptlet API that can respond to various application events. This means users can define how they want the application to react to certain triggers in a consistent and predictable manner.
+Starform is essentially a wrapper package for the [safe Starlark language interpreter](https://github.com/canonical/starlark). 
+It allows developers to provide a scripting interface which exposes events which users can then use to express how they intend for the application to act.
 
-While it could be easy to mistake this paradigm with classic scripting, `staform`'s aim is to make configuration better. Just like configuration is read, validated (and sometimes amended) and then (if possible) applied, Starform's scriptlets follow a similar priciple - handlers are the way an application asks the user for *intents*. Intents are opinions or hints of what the application should do or the next state should look like. As such, during the execution of the script nothing happens. Once the complete picture of what the user intents are, the application an revie, validate and amend the execution plan and then (if possible) execute it.
-
-## Installation
-
-To get started with Starform, you can install it using the following Go command:
-
-```sh
-go get github.com/unknown/starform
-```
+This paradigm of events and intents shouldn't be mistaken for classic scripting—with starform, the output of a scriptlet is a target for how the user wishes the system to be or to act, no changes are made to the host system until after scriptlet execution is complete.
+This follows the same principle of regular declarative configuration—after reading a config file, its contents are validated, possibly amended and only then, if the system deems it reasonable are changes enacted.
+Whereas declarative configuration allows a single (possibly complex) intent to be specified at startup, starform allows many (possibly complex) intents to be specified in reaction to the system's current state, through the user of different custom event-handlers.
 
 ## Example Usage
 
@@ -44,10 +43,8 @@ func main() {
     // Initialize ScriptSet with app object
     scriptSet := starform.NewScriptSet(starform.ScriptSetOptions{
         App:            app,
-        // Logger:         logger, // Optionally add a logger.
-		RequiredSafety: starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe,
+		RequiredSafety: starlark.MemSafe,
 		MaxAllocs:      10 * 1024 * 1024,
-		MaxSteps:       10_000,
     })
 
     // Load scripts from a source
@@ -61,7 +58,6 @@ func main() {
     // Handle an event
     err = scriptSet.Handle(context.Background(), &starform.EventObject{
         Name:  "my_event",
-        State: ..., // App-specific state
         Attrs: starlark.StringDict {
             // Event information
         },
@@ -72,7 +68,8 @@ func main() {
 }
 ```
 
-For a more exaustive example, see [`vex-go`](https://github.com/canonical/vex-go), a simple tree-sitter-based configurable linter.
+_A more exhaustive example is currently being put together and will be linked here._
+<!-- For a more exaustive example, see [`vex-go`](https://github.com/canonical/vex-go), a simple tree-sitter-based configurable linter. -->
 
 ## Documentation
 
@@ -80,4 +77,4 @@ The documentation for this package can be found on [pkg.go.dev](https://pkg.go.d
 
 ## License
 
-This project is licensed under the LGPLv3 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the LGPLv3 License—see the [LICENSE](LICENSE) file for details.
