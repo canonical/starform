@@ -9,8 +9,9 @@ import (
 )
 
 func afterFunc(ctx context.Context, f func()) (stop func() bool) {
-	if ctx.Done() == nil {
-		return func() bool { return true }
+	if ctx.Err() != nil {
+		go f()
+		return func() bool { return false }
 	}
 
 	var run atomic.Bool

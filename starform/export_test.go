@@ -31,3 +31,5 @@ func NewScriptLogger(logger Logger, path string) starlark.Value {
 		path:   path,
 	}
 }
+
+var AfterFunc = afterFunc

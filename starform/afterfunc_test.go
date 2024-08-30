@@ -1,0 +1,73 @@
+package starform_test
+
+import (
+	"context"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/canonical/starform/starform"
+)
+
+func TestAfterFuncCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	c := make(chan struct{})
+	stop := starform.AfterFunc(ctx, func() {
+		close(c)
+	})
+	if stop() != false {
+		t.Errorf("function should run immediately, stop should have no effect")
+	}
+	<-c
+}
+
+func TestAfterFuncUncancelableContext(t *testing.T) {
+	starform.AfterFunc(context.Background(), func() {
+		panic("should never run")
+	})
+	time.Sleep(time.Millisecond * 200)
+}
+
+func TestAfterFuncNormalOperation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var run atomic.Bool
+	done := make(chan struct{})
+	starform.AfterFunc(ctx, func() {
+		run.Store(true)
+		close(done)
+	})
+	time.Sleep(time.Millisecond * 200)
+	if run.Load() == true {
+		t.Errorf("function ran prior to context cancelation")
+	}
+	cancel()
+	<-done
+	if run.Load() == false {
+		t.Errorf("function did not ran on context cancelation")
+	}
+}
+
+func TestAfterFuncStop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stop := starform.AfterFunc(ctx, func() {
+		panic("should never run")
+	})
+	if stop() == false {
+		t.Errorf("stop should return true when function did not ran")
+	}
+}
+
+func TestAfterFuncStopAlreadyRun(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	stop := starform.AfterFunc(ctx, func() {
+		close(done)
+	})
+	cancel()
+	<-done
+	if stop() == true {
+		t.Errorf("stop should return false when function already ran")
+	}
+}
