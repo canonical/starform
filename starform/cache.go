@@ -49,11 +49,15 @@ type DefaultCache struct {
 
 var _ ScriptCache = &DefaultCache{}
 
-func NewDefaultCache(maxSize int) *DefaultCache {
+type DefaultCacheOptions struct {
+	MaxSize int
+}
+
+func NewDefaultCache(options *DefaultCacheOptions) (*DefaultCache, error) {
 	return &DefaultCache{
-		maxSize: maxSize,
-		store:   make(map[interface{}]*lruEntry, maxSize),
-	}
+		maxSize: options.MaxSize,
+		store:   make(map[interface{}]*lruEntry, options.MaxSize),
+	}, nil
 }
 
 func (lc *DefaultCache) private() {} // TODO: remove once interface is stable
