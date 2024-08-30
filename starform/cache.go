@@ -132,9 +132,12 @@ func (lc *DefaultCache) Visit(f func(key, value interface{}) error) error {
 	defer lc.mu.Unlock()
 
 	for k, v := range lc.store {
-		lc.mu.Unlock()
-		err := f(k, v)
-		lc.mu.Lock()
+		err := func() error {
+			lc.mu.Unlock()
+			defer lc.mu.Lock()
+
+			return f(k, v)
+		}()
 		if err != nil {
 			return err
 		}
