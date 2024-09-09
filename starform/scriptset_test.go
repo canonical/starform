@@ -450,12 +450,17 @@ func TestCheckLoadPath(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			sourceName := test.path // This is a hack, ScriptSource names should never start with path operators.
+			for strings.HasPrefix(sourceName, "./") {
+				// Leading ./ gets removed during load-path cleaning, hence must be removed from the source path.
+				sourceName = sourceName[2:]
+			}
 			sources := []starform.ScriptSource{
 				&testScriptSource{
 					name:    "init.star",
 					content: fmt.Sprintf("load('%s', 'unused')", test.path),
 				}, &testScriptSource{
-					name:    test.path,
+					name:    sourceName,
 					content: "unused = None",
 				},
 			}
@@ -672,6 +677,234 @@ func TestLoadStatement(t *testing.T) {
 			t.Errorf("unexpected log output: %s", log)
 		}
 	})
+}
+
+func TestRelativeLoads(t *testing.T) {
+	app := &starform.AppObject{
+		Name: "test",
+	}
+
+	tests := []struct {
+		name          string
+		sources       []starform.ScriptSource
+		expectedError string
+		expectedLog   string
+	}{{
+		name: "absolute-toplevel",
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa.star",
+				content: `
+					load('bbb.star', 'bbb')
+					print('aaa.star:', bbb)
+				`,
+			}, &testScriptSource{
+				name: "bbb.star",
+				content: `
+					bbb = 'bbb.star'
+					print('bbb.star:')
+				`,
+			},
+		},
+		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
+	}, {
+		name: "absolute-nested",
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa/bbb.star",
+				content: `
+					load('ccc.star', 'ccc')
+					print('aaa/bbb.star:', ccc)
+				`,
+			},
+			&testScriptSource{
+				name: "ccc.star",
+				content: `
+					ccc = 'ccc.star'
+					print('ccc.star:')
+				`,
+			},
+		},
+		expectedLog: "ccc.star:\naaa/bbb.star: ccc.star\n",
+	}, {
+		name: "relative-toplevel",
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa.star",
+				content: `
+					load('./bbb.star', 'bbb')
+					print('aaa.star:', bbb)
+				`,
+			}, &testScriptSource{
+				name: "bbb.star",
+				content: `
+					bbb = 'bbb.star'
+					print('bbb.star:')
+				`,
+			},
+		},
+		expectedLog: "bbb.star:\naaa.star: bbb.star\n",
+	}, {
+		name: "relative-nested",
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa/bbb.star",
+				content: `
+					load('aaa/ccc/ddd.star', 'ddd')
+					print('aaa/bbb.star:', ddd)
+				`,
+			}, &testScriptSource{
+				name: "aaa/ccc/ddd.star",
+				content: `
+					ddd = 'aaa/ccc/ddd.star'
+					print('aaa/ccc/ddd.star:')
+				`,
+			},
+		},
+		expectedLog: "aaa/ccc/ddd.star:\naaa/bbb.star: aaa/ccc/ddd.star\n",
+	}, {
+		name: "parent-nested",
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa/bbb/ccc.star",
+				content: `
+					load('../ddd/eee.star', 'eee')
+					print('aaa/bbb/ccc.star:', eee)
+				`,
+			}, &testScriptSource{
+				name: "aaa/ddd/eee.star",
+				content: `
+					eee = 'aaa/ddd/eee.star'
+					print('aaa/ddd/eee.star:')
+				`,
+			},
+		},
+		expectedLog: "aaa/ddd/eee.star:\naaa/bbb/ccc.star: aaa/ddd/eee.star\n",
+	}, {
+		name: "parent-toplevel",
+		sources: []starform.ScriptSource{
+			&testScriptSource{
+				name: "aaa.star",
+				content: `
+					load('../nonexistent.star', 'nonexistent')
+					fail('unreachable')
+				`,
+			},
+		},
+		expectedError: "cannot load ../nonexistent.star: ../nonexistent.star not found",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cache := &testScriptCache{}
+			logger := &testLogger{}
+			opts := &starform.ScriptSetOptions{
+				App:    app,
+				Cache:  cache,
+				Logger: logger,
+			}
+			scripts, err := starform.NewScriptSet(opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = scripts.LoadSources(context.Background(), test.sources)
+			if err == nil {
+				if test.expectedError != "" {
+					t.Error("expected error")
+				}
+			} else if err.Error() != test.expectedError {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if actualLog := logger.String(); actualLog != test.expectedLog {
+				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)
+			}
+		})
+	}
+}
+
+func TestCachedRelativeLoads(t *testing.T) {
+	commonFile := &testScriptSource{
+		name: "aaa/bbb/bbb.star",
+		content: `
+			load('../../ccc.star', 'ccc')
+			bbb = 'aaa/bbb/bbb.star'
+			print('aaa/bbb/bbb.star:', ccc)
+		`,
+	}
+	setASources := []starform.ScriptSource{
+		commonFile,
+		&testScriptSource{
+			name: "ccc.star",
+			content: `
+				load('ddd.star', 'ddd')
+				ccc = 'ccc.star'
+				print('ccc.star:')
+			`,
+		}, &testScriptSource{
+			name: "ddd.star",
+			content: `
+				ddd = 'ddd.star'
+			`,
+		},
+	}
+	setBSources := []starform.ScriptSource{
+		&testScriptSource{
+			name: "aaa/aaa.star",
+			content: `
+				load('./bbb/bbb.star', 'bbb')
+				load('../ccc.star', 'ccc')
+				print('aaa/aaa.star:', bbb, ccc)
+			`,
+		},
+		commonFile,
+		&testScriptSource{
+			name: "ccc.star",
+			content: `
+				ccc = 'ccc.star'
+				print('ccc.star:')
+			`,
+		},
+	}
+
+	app := &starform.AppObject{
+		Name: "test",
+	}
+	load := func(cache starform.ScriptCache, sources []starform.ScriptSource) (string, error) {
+		logger := &testLogger{
+			format: func(le starform.LogEntry) string {
+				return fmt.Sprintf("[%s]: %s\n", le.Path, le.Message)
+			},
+		}
+		opts := &starform.ScriptSetOptions{
+			App:    app,
+			Cache:  cache,
+			Logger: logger,
+		}
+		scripts, err := starform.NewScriptSet(opts)
+		if err != nil {
+			return "", err
+		}
+		err = scripts.LoadSources(context.Background(), sources)
+		if err != nil {
+			return "", err
+		}
+		return logger.String(), nil
+	}
+
+	cache := &testScriptCache{}
+	if _, err := load(cache, setASources); err != nil {
+		t.Fatal(err)
+	}
+
+	const expectedLogB = "[ccc.star]: ccc.star:\n[aaa/bbb/bbb.star]: aaa/bbb/bbb.star: ccc.star\n[aaa/aaa.star]: aaa/aaa.star: aaa/bbb/bbb.star ccc.star\n"
+	if actualLog, err := load(cache, setBSources); err != nil {
+		t.Error(err)
+	} else if actualLog != expectedLogB {
+		t.Errorf("incorrect log: expected %q but got %q", expectedLogB, actualLog)
+	}
+
+	if expectedMisses := len(setASources) + len(setBSources) - 1; int(cache.Misses) != expectedMisses {
+		t.Errorf("caching failed, expected %d misses, got %d", expectedMisses, cache.Misses)
+	}
 }
 
 func TestProgramCache(t *testing.T) {
