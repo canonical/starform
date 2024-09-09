@@ -16,6 +16,7 @@ import (
 
 type ScriptSet struct {
 	options        *ScriptSetOptions
+	appValue       *appValue
 	eventObservers map[string][]starlark.Callable
 }
 
@@ -56,21 +57,37 @@ type scriptState struct {
 	toplevelEnv starlark.StringDict
 }
 
+var validIdentifier = regexp.MustCompile(`[a-z]\w*`)
+
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.App == nil {
-		return nil, fmt.Errorf("cannot create script set without app object")
+		return nil, fmt.Errorf("cannot create script set: app not supplied")
+	}
+	if options.App.Name == "" {
+		return nil, fmt.Errorf("cannot create script set: app name missing")
+	}
+	if !validIdentifier.Match([]byte(options.App.Name)) {
+		return nil, fmt.Errorf("cannot create script set: app name invalid")
+	}
+	if len(options.App.Name) < 3 {
+		return nil, fmt.Errorf("cannot create script set: app name too short")
+	}
+	if len(options.App.Name) > 15 {
+		return nil, fmt.Errorf("cannot create script set: app name too long")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
-		return nil, fmt.Errorf("cannot run MemSafe Starlark with unbounded MaxAllocs")
+		return nil, fmt.Errorf("cannot create script set: MemSafe requested but no MaxAllocs set")
 	}
 	if options.RequiredSafety.Contains(starlark.CPUSafe) && options.MaxSteps == 0 {
-		return nil, fmt.Errorf("cannot run CPUSafe Starlark with unbounded MaxSteps")
+		return nil, fmt.Errorf("cannot create script set: CPUSafe requested but no MaxSteps set")
 	}
 
-	options.App.Freeze()
+	appValue := options.App.value()
+	appValue.Freeze()
 
 	return &ScriptSet{
-		options: options,
+		options:  options,
+		appValue: appValue,
 	}, nil
 }
 
@@ -176,7 +193,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		cache = &noopScriptCache{}
 	}
 	isPredeclared := func(name string) bool {
-		return name == ss.options.App.name ||
+		return name == ss.options.App.Name ||
 			name == "debug" ||
 			name == "print"
 	}
@@ -242,7 +259,7 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			path:   script.path,
 		}
 		predeclared := starlark.StringDict{
-			ss.options.App.name: ss.options.App,
+			ss.options.App.Name: ss.appValue,
 			"print":             printBuiltin.BindReceiver(logger),
 			"debug":             debugBuiltin.BindReceiver(logger),
 		}
@@ -313,7 +330,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	defer stop()
 	defer thread.Cancel("done")
 	for _, observer := range observers {
-		_, err := starlark.Call(thread, observer, starlark.Tuple{starlark.None}, nil)
+		_, err := starlark.Call(thread, observer, starlark.Tuple{event}, nil)
 		if err != nil {
 			return err
 		}
