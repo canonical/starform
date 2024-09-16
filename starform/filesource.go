@@ -2,6 +2,7 @@ package starform
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"strings"
@@ -26,22 +27,25 @@ func (f *fileSource) Content(ctx context.Context) ([]byte, error) {
 	return io.ReadAll(file)
 }
 
-// NewFileSource creates a ScriptSource for the file pointed by
-// path in the filesystem fsys. The filesystem is not
-// accessed until ScriptSource.Content is called.
-func NewFileSource(fsys fs.FS, path string) ScriptSource {
-	return &fileSource{
-		fsys: fsys,
-		path: path,
-	}
+type LoadDirSourcesOptions struct {
+	Fs          fs.FS
+	Root        string
+	MaxFileSize int64
 }
 
 // LoadDirSources returns the valid script sources found in the
 // given file system under the given root. Individual files are
 // not accessed, directory access errors are ignored.
-func LoadDirSources(ctx context.Context, fsys fs.FS, root string) ([]ScriptSource, error) {
+func LoadDirSources(ctx context.Context, options *LoadDirSourcesOptions) ([]ScriptSource, error) {
 	sources := []ScriptSource{}
-	err := fs.WalkDir(fsys, root, func(path string, d fs.DirEntry, err error) error {
+	root := options.Root
+	if root == "" {
+		root = "."
+	}
+	err := fs.WalkDir(options.Fs, root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -51,15 +55,36 @@ func LoadDirSources(ctx context.Context, fsys fs.FS, root string) ([]ScriptSourc
 		if !strings.HasSuffix(path, ".star") {
 			return nil
 		}
-		if checkLoadPath(path) != nil {
-			return nil
+		if options.MaxFileSize != 0 {
+			if info, err := d.Info(); err != nil {
+				return nil
+			} else if size := info.Size(); size > options.MaxFileSize {
+				return fmt.Errorf("cannot load %s: size limit exceeded (%d > %d)", path, size, options.MaxFileSize)
+			}
 		}
 
-		sources = append(sources, NewFileSource(fsys, path))
+		if source, err := newFileSource(options.Fs, path); err != nil {
+			return nil
+		} else {
+			sources = append(sources, source)
+		}
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return sources, nil
+}
+
+// newFileSource creates a ScriptSource for the file pointed by
+// path in the filesystem fsys. The filesystem is not
+// accessed until ScriptSource.Content is called.
+func newFileSource(fsys fs.FS, path string) (ScriptSource, error) {
+	if err := checkLoadPath(path); err != nil {
+		return nil, err
+	}
+	return &fileSource{
+		fsys: fsys,
+		path: path,
+	}, nil
 }
