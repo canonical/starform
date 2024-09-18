@@ -128,13 +128,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		absLoadPath := loadPath
 		if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
 			currPath := loadStack[len(loadStack)-1]
-			dir := path.Dir(currPath)
-			sb := &strings.Builder{}
-			sb.Grow(len(dir) + 1 + len(loadPath))
-			sb.WriteString(dir)
-			sb.WriteRune('/')
-			sb.WriteString(loadPath)
-			absLoadPath = path.Clean(sb.String())
+			absLoadPath = path.Clean(path.Dir(currPath) + "/" + loadPath)
 		}
 		normalisedLoadPath := path.Clean(absLoadPath)
 
