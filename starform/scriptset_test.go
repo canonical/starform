@@ -450,17 +450,24 @@ func TestCheckLoadPath(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			sourceName := test.path // This is a hack, ScriptSource names should never start with path operators.
-			for strings.HasPrefix(sourceName, "./") {
-				// Leading ./ gets removed during load-path cleaning, hence must be removed from the source path.
-				sourceName = sourceName[2:]
+			sanitisedPath := test.path
+			for strings.HasPrefix(sanitisedPath, "./") {
+				sanitisedPath = sanitisedPath[2:]
+			}
+			numTestPathParents := 0
+			for strings.HasPrefix(sanitisedPath, "../") {
+				sanitisedPath = sanitisedPath[3:]
+				numTestPathParents++
+			}
+			if strings.Count(sanitisedPath, "../") > 1 {
+				t.Fatal("more than one occurrence of '../' after initial path operators is not supported")
 			}
 			sources := []starform.ScriptSource{
 				&testScriptSource{
-					name:    "init.star",
+					name:    strings.Repeat("dir/", numTestPathParents) + "init.star",
 					content: fmt.Sprintf("load('%s', 'unused')", test.path),
 				}, &testScriptSource{
-					name:    sourceName,
+					name:    sanitisedPath,
 					content: "unused = None",
 				},
 			}
