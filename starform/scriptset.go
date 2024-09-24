@@ -128,7 +128,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	}
 	popd := func() {
 		if len(dirStack) == 0 {
-			return // Ignore too many pops.
+			return // Ignore extra pops.
 		}
 		dirStack = dirStack[:len(dirStack)-1]
 		if len(dirStack) > 0 {
