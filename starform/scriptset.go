@@ -119,7 +119,22 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	defer thread.Cancel("done")
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
+
+	var currDir string
 	loadStack := []string{}
+	pushd := func(dir string) {
+		currDir = dir
+		loadStack = append(loadStack, dir)
+	}
+	popd := func() {
+		loadStack = loadStack[:len(loadStack)-1]
+		if len(loadStack) > 0 {
+			currDir = loadStack[len(loadStack)-1]
+		} else {
+			currDir = ""
+		}
+	}
+
 	thread.Load = func(thread *starlark.Thread, loadPath string) (starlark.StringDict, error) {
 		if err := checkLoadPath(loadPath); err != nil {
 			return nil, err
@@ -127,7 +142,6 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 		absLoadPath := loadPath
 		if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
-			currPath := loadStack[len(loadStack)-1]
 			absLoadPath = path.Clean(path.Dir(currPath) + "/" + loadPath)
 		}
 		normalisedLoadPath := path.Clean(absLoadPath)
@@ -137,8 +151,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			return nil, fmt.Errorf("%s not found", loadPath)
 		}
 
-		loadStack = append(loadStack, normalisedLoadPath)
-		defer func() { loadStack = loadStack[:len(loadStack)-1] }()
+		pushd(path.Dir(normalisedLoadPath))
+		defer popd()
 
 		if err := ss.runTopLevel(thread, script); err != nil {
 			return nil, err
@@ -146,10 +160,11 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		return script.toplevelEnv, nil
 	}
 	for _, script := range scripts {
-		loadStack = append(loadStack[:0], script.path)
+		pushd(path.Dir(script.path))
 		if err := ss.runTopLevel(thread, script); err != nil {
 			return err
 		}
+		popd()
 	}
 
 	state := &initState{
