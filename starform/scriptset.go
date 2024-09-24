@@ -121,15 +121,15 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	defer stop()
 
 	currDir := "."
-	loadStack := []string{}
+	dirStack := []string{}
 	pushd := func(dir string) {
 		currDir = dir
-		loadStack = append(loadStack, dir)
+		dirStack = append(dirStack, dir)
 	}
 	popd := func() {
-		loadStack = loadStack[:len(loadStack)-1]
-		if len(loadStack) > 0 {
-			currDir = loadStack[len(loadStack)-1]
+		dirStack = dirStack[:len(dirStack)-1]
+		if len(dirStack) > 0 {
+			currDir = dirStack[len(dirStack)-1]
 		} else {
 			currDir = ""
 		}
