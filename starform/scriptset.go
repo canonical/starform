@@ -134,7 +134,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if len(dirStack) > 0 {
 			currDir = dirStack[len(dirStack)-1]
 		} else {
-			currDir = ""
+			currDir = "."
 		}
 	}
 
