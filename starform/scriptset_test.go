@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -450,7 +451,7 @@ func TestCheckLoadPath(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			sanitisedPath := test.path
+			sanitisedPath := path.Clean(test.path)
 			for strings.HasPrefix(sanitisedPath, "./") {
 				sanitisedPath = sanitisedPath[2:]
 			}
@@ -798,7 +799,7 @@ func TestRelativeLoads(t *testing.T) {
 				`,
 			},
 		},
-		expectedError: "cannot load ../nonexistent.star: safety constraint enforced",
+		expectedError: "cannot load ../nonexistent.star: file not found",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -819,7 +820,7 @@ func TestRelativeLoads(t *testing.T) {
 					t.Error("expected error")
 				}
 			} else if err.Error() != test.expectedError {
-				t.Errorf("unexpected error: %v", err)
+				t.Errorf("unexpected error: expected %s but got %v", test.expectedError, err)
 			}
 			if actualLog := logger.String(); actualLog != test.expectedLog {
 				t.Errorf("output error: expected %v got %v", test.expectedLog, actualLog)

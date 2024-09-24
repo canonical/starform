@@ -120,7 +120,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 
-	var currDir string
+	currDir := "."
 	loadStack := []string{}
 	pushd := func(dir string) {
 		currDir = dir
@@ -136,24 +136,17 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	}
 
 	thread.Load = func(thread *starlark.Thread, loadPath string) (starlark.StringDict, error) {
-		if err := checkLoadPath(loadPath); err != nil {
+		sanitisedLoadPath, err := sanitiseLoadPath(loadPath, currDir)
+		if err != nil {
 			return nil, err
 		}
 
-		pathInSet := loadPath
-		if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
-			pathInSet = path.Clean(path.Join(currDir, loadPath))
-			if strings.HasPrefix(pathInSet, "../") {
-				return nil, starlark.ErrSafety
-			}
-		}
-
-		script, ok := scriptsByPath[pathInSet]
+		script, ok := scriptsByPath[sanitisedLoadPath]
 		if !ok {
-			return nil, fmt.Errorf("%s not found", loadPath)
+			return nil, errors.New("file not found")
 		}
 
-		pushd(path.Dir(pathInSet))
+		pushd(path.Dir(sanitisedLoadPath))
 		defer popd()
 
 		if err := ss.runTopLevel(thread, script); err != nil {
@@ -213,8 +206,10 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
-		if err := checkLoadPath(path); err != nil {
+		if sanitised, err := sanitiseLoadPath(path, "."); err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
+		} else if sanitised != path {
+			return nil, fmt.Errorf("cannot use path %s in script source: not clean", path)
 		}
 
 		content, err := source.Content(ctx)
@@ -298,21 +293,21 @@ func init() {
 
 var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
 
-func checkLoadPath(loadPath string) (err error) {
+func sanitiseLoadPath(currDir string, loadPath string) (string, error) {
 	if len(loadPath) == 0 {
-		return miscInvalidPathError // Special case to simplify valid path regex.
+		return "", miscInvalidPathError // Special case to simplify valid path regex.
 	}
 	if strings.ContainsRune(loadPath, '-') {
-		return errors.New(`path contains "-", use "_" instead`)
+		return "", errors.New(`path contains "-", use "_" instead`)
 	}
 	if strings.ContainsRune(loadPath, '\\') {
-		return errors.New(`path contains "\", use "/" instead`)
+		return "", errors.New(`path contains "\", use "/" instead`)
 	}
 	if strings.Contains(loadPath, "__") {
-		return miscInvalidPathError // Special case to simplify valid path regex.
+		return "", miscInvalidPathError // Special case to simplify valid path regex.
 	}
 	if strings.HasPrefix(loadPath, "./../") {
-		return errors.New("path contains redundant components")
+		return "", errors.New("path contains redundant components")
 	}
 
 	toCheck := loadPath
@@ -320,14 +315,21 @@ func checkLoadPath(loadPath string) (err error) {
 		toCheck = loadPath[2:] // Ignore leading, non-redundant "./".
 	}
 	if cleaned := path.Clean(loadPath); toCheck != cleaned {
-		return errors.New("path contains redundant components")
+		return "", errors.New("path contains redundant components")
 	}
 
 	if !validCleanPath.MatchString(loadPath) {
-		return miscInvalidPathError
+		return "", miscInvalidPathError
 	}
 
-	return nil
+	sanitisedPath := loadPath
+	if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
+		sanitisedPath = path.Clean(path.Join(currDir, loadPath))
+		if strings.HasPrefix(sanitisedPath, "../") {
+			return "", errors.New("file not found")
+		}
+	}
+	return sanitisedPath, nil
 }
 
 func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
