@@ -35,7 +35,7 @@ type LoadDirSourcesOptions struct {
 
 // LoadDirSources returns the valid script sources found in the
 // given file system under the given root. Individual files are
-// not accessed, directory access errors are ignored.
+// not accessed.
 func LoadDirSources(ctx context.Context, options *LoadDirSourcesOptions) ([]ScriptSource, error) {
 	sources := []ScriptSource{}
 	root := options.Root
