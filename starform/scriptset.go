@@ -126,9 +126,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		currDir = dir
 		dirStack = append(dirStack, dir)
 	}
-	popd := func() error {
+	popd := func() {
 		if len(dirStack) == 0 {
-			return errors.New("internal error: cannot popd with empty stack")
+			return // Ignore too many pops.
 		}
 		dirStack = dirStack[:len(dirStack)-1]
 		if len(dirStack) > 0 {
@@ -150,10 +150,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 
 		pushd(path.Dir(sanitisedLoadPath))
+		defer popd()
 		if err := ss.runTopLevel(thread, script); err != nil {
-			return nil, err
-		}
-		if err := popd(); err != nil {
 			return nil, err
 		}
 		return script.toplevelEnv, nil
@@ -163,9 +161,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		if err := ss.runTopLevel(thread, script); err != nil {
 			return err
 		}
-		if err := popd(); err != nil {
-			return err
-		}
+		popd()
 	}
 
 	state := &initState{
