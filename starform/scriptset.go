@@ -140,18 +140,20 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			return nil, err
 		}
 
-		absLoadPath := loadPath
+		pathInSet := loadPath
 		if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
-			absLoadPath = path.Clean(path.Dir(currPath) + "/" + loadPath)
+			pathInSet = path.Clean(path.Join(currDir, loadPath))
+			if strings.HasPrefix(pathInSet, "../") {
+				return nil, starlark.ErrSafety
+			}
 		}
-		normalisedLoadPath := path.Clean(absLoadPath)
 
-		script, ok := scriptsByPath[normalisedLoadPath]
+		script, ok := scriptsByPath[pathInSet]
 		if !ok {
 			return nil, fmt.Errorf("%s not found", loadPath)
 		}
 
-		pushd(path.Dir(normalisedLoadPath))
+		pushd(path.Dir(pathInSet))
 		defer popd()
 
 		if err := ss.runTopLevel(thread, script); err != nil {

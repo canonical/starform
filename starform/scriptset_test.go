@@ -798,7 +798,7 @@ func TestRelativeLoads(t *testing.T) {
 				`,
 			},
 		},
-		expectedError: "cannot load ../nonexistent.star: ../nonexistent.star not found",
+		expectedError: "cannot load ../nonexistent.star: safety constraint enforced",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
