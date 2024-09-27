@@ -2,8 +2,8 @@
 
 [![CI tests](https://github.com/canonical/starform/actions/workflows/tests.yml/badge.svg)](https://github.com/canonical/starform/actions/workflows/tests.yml)
 [![GoDoc](https://godoc.org/github.com/canonical/starform?status.svg)](https://godoc.org/github.com/canonical/starform)
-<!-- [![Coverage Status](https://coveralls.io/repos/github/canonical/starform/badge.svg?branch=master)](https://coveralls.io/github/canonical/starform?branch=master) -->
-<!-- [![Go Report Card](https://goreportcard.com/badge/github.com/canonical/starform)](https://goreportcard.com/report/github.com/canonical/starform) -->
+<!-- TODO: [![Coverage Status](https://coveralls.io/repos/github/canonical/starform/badge.svg?branch=master)](https://coveralls.io/github/canonical/starform?branch=master) -->
+<!-- TODO: [![Go Report Card](https://goreportcard.com/badge/github.com/canonical/starform)](https://goreportcard.com/report/github.com/canonical/starform) -->
 
 This repository provides the `starform` Go package, a library to help easily and uniformly integrate event-based Starlark scriptlet APIs into applications.
 
@@ -13,7 +13,7 @@ The user can hence concentrate on building domain-specific knowledge rather than
 
 ## What is Starform?
 
-Starform is a wrapper package for the [safe Starlark](https://github.com/canonical/starlark) language interpreter. 
+Starform is a wrapper package for the [safe Starlark](https://github.com/canonical/starlark) language interpreter.
 It allows developers to provide a scripting interface which exposes events.
 Users can then provide code to react to these events and express how they intend for the application to act.
 
@@ -56,7 +56,7 @@ Secondly, you handle events (this can be repeated many times)–
 err = scriptSet.Handle(context.TODO(), &starform.EventObject{
     Name:  "my_event",
     Attrs: starlark.StringDict {
-        // Your event information here
+        // Your event information here.
     },
 })
 if err != nil {
