@@ -91,6 +91,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	}, nil
 }
 
+type threadContextKey struct{}
+
 // LoadSources loads the given sources into the script set and runs their init
 // functions. Any previously-loaded scripts are discarded.
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
@@ -115,8 +117,16 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	thread := makeThread(ss.options, event)
-	defer thread.Cancel("done")
+	var thread *starlark.Thread
+	if th := ctx.Value(threadContextKey{}); th != nil {
+		thread = th.(*starlark.Thread)
+	} else {
+		thread = makeThread(ctx, ss.options, event)
+		defer thread.Cancel("done")
+
+		ctx = context.WithValue(ctx, threadContextKey{}, thread)
+		thread.SetParentContext(ctx)
+	}
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
@@ -306,7 +316,17 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		return nil
 	}
 
-	thread := makeThread(ss.options, event)
+	var thread *starlark.Thread
+	if th := ctx.Value(threadContextKey{}); th != nil {
+		thread = th.(*starlark.Thread)
+	} else {
+		thread = makeThread(ctx, ss.options, event)
+		defer thread.Cancel("done")
+
+		ctx = context.WithValue(ctx, threadContextKey{}, thread)
+		thread.SetParentContext(ctx)
+	}
+
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	defer thread.Cancel("done")
@@ -319,7 +339,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
+func makeThread(ctx context.Context, options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {}
 	thread.RequireSafety(options.RequiredSafety)
