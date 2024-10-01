@@ -1464,3 +1464,82 @@ func TestEventState(t *testing.T) {
 		}
 	}
 }
+
+func TestNestedThreadSharing(t *testing.T) {
+	const inheritedKey = "inherited-key"
+	const expectedValue
+	ctx := context.WithValue(context.Background(), inheritedKey, expectedValue)
+
+	var ss *starform.ScriptSet
+
+	var outerEventThread *starlark.Thread
+	fireInnerEvent := starlark.NewBuiltin("fire_inner_event", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		event := starform.Event(thread)
+		if event.Name != "outer_event" {
+			return nil, starform.ErrUnavailable
+		}
+
+		if actualValue := thread.Context().Value(inheritedKey); actualValue != expectedValue {
+			t.Fatal("incorrect context value: expected %s but got %s", expectedValue, actualValue)
+		}
+
+		outerEventThread = thread
+		err := ss.Handle(thread.Context(), &starform.EventObject{Name: "inner_event"})
+		if err != nil {
+			return nil, err
+		}
+		return starlark.None, nil
+	})
+	checkInnerEvent := starlark.NewBuiltin("check_inner_event", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		event := starform.Event(thread)
+		if event.Name != "inner_event" {
+			return nil, starform.ErrUnavailable
+		}
+
+		if thread != outerEventThread {
+			t.Error("inner and outer events passed different threads")
+		}
+		if actualValue := thread.Context().Value(inheritedKey); actualValue != expectedValue {
+			t.Fatal("incorrect context value: expected %s but got %s", expectedValue, actualValue)
+		}
+
+		return starlark.None, nil
+	})
+
+	app := &starform.AppObject{
+		Name: "test",
+		Methods: []*starlark.Builtin{
+			fireInnerEvent,
+			checkInnerEvent,
+		},
+	}
+
+	var err error
+	ss, err = starform.NewScriptSet(&starform.ScriptSetOptions{
+		App: app,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ss.LoadSources(ctx, []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				test.observe('outer_event', on_outer_event)
+				test.observe('inner_event', on_inner_event)
+
+			def on_outer_event(event):
+				test.fire_inner_event()
+
+			def on_inner_event(event):
+				test.check_inner_event()
+		`,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ss.Handle(ctx, &starform.EventObject{Name: "outer_event"})
+	if err != nil {
+		t.Error(err)
+	}
+}
