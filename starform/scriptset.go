@@ -345,6 +345,6 @@ func makeThread(ctx context.Context, options *ScriptSetOptions, data *EventObjec
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(eventObjectLocalKey, &data)
 	return thread
 }
