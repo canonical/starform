@@ -339,7 +339,7 @@ func getThread(ctx context.Context, options *ScriptSetOptions, event *EventObjec
 	thread.SetLocal(eventObjectLocalKey, &event)
 
 	ctx = context.WithValue(ctx, threadContextKey{}, thread)
-	// thread.SetParentContext(ctx) // TODO(kcza): add this once PR starlark#442 is merged.
+	// thread.SetParentContext(ctx) // TODO(kcza): add this once PR starlark#422 is merged.
 
 	cleanup = func() { thread.Cancel("done") }
 
