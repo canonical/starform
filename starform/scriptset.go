@@ -117,18 +117,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	var thread *starlark.Thread
-	if th := ctx.Value(threadContextKey{}); th != nil {
-		thread = th.(*starlark.Thread)
-	} else {
-		thread = makeThread(ctx, ss.options, event)
-		defer thread.Cancel("done")
-
-		ctx = context.WithValue(ctx, threadContextKey{}, thread)
-		thread.SetParentContext(ctx)
-	}
-	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer stop()
+	thread, cleanup := getThread(ctx, ss.options, event)
+	defer cleanup()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
@@ -316,20 +306,8 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		return nil
 	}
 
-	var thread *starlark.Thread
-	if th := ctx.Value(threadContextKey{}); th != nil {
-		thread = th.(*starlark.Thread)
-	} else {
-		thread = makeThread(ctx, ss.options, event)
-		defer thread.Cancel("done")
-
-		ctx = context.WithValue(ctx, threadContextKey{}, thread)
-		thread.SetParentContext(ctx)
-	}
-
-	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer stop()
-	defer thread.Cancel("done")
+	thread, cleanup := getThread(ctx, ss.options, event)
+	defer cleanup()
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{event}, nil)
 		if err != nil {
@@ -339,12 +317,31 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
-func makeThread(ctx context.Context, options *ScriptSetOptions, data *EventObject) *starlark.Thread {
-	thread := &starlark.Thread{}
+func getThread(ctx context.Context, options *ScriptSetOptions, event *EventObject) (thread *starlark.Thread, cleanup func()) {
+	if th := ctx.Value(threadContextKey{}); th != nil {
+		thread = th.(*starlark.Thread)
+
+		eventPtr := thread.Local(eventObjectLocalKey).(**EventObject)
+		parentEvent := *eventPtr
+		*eventPtr = event
+		cleanup = func() { *eventPtr = parentEvent }
+		local := thread.Local(eventObjectLocalKey)
+		fmt.Printf("(inner event set) %v (%T)\n", local, local)
+
+		return thread, cleanup
+	}
+
+	thread = &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(eventObjectLocalKey, &data)
-	return thread
+	thread.SetLocal(eventObjectLocalKey, &event)
+
+	ctx = context.WithValue(ctx, threadContextKey{}, thread)
+	// thread.SetParentContext(ctx) // TODO(kcza): add this once PR starlark#442 is merged.
+
+	cleanup = func() { thread.Cancel("done") }
+
+	return thread, cleanup
 }
