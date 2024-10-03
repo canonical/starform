@@ -325,8 +325,6 @@ func getThread(ctx context.Context, options *ScriptSetOptions, event *EventObjec
 		parentEvent := *eventPtr
 		*eventPtr = event
 		cleanup = func() { *eventPtr = parentEvent }
-		local := thread.Local(eventObjectLocalKey)
-		fmt.Printf("(inner event set) %v (%T)\n", local, local)
 
 		return thread, cleanup
 	}
