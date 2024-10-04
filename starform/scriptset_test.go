@@ -1543,3 +1543,38 @@ func TestNestedThreadSharing(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestThread(t *testing.T) {
+	checkThread := starlark.NewBuiltin("check_thread", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		contextThread := starform.Thread(thread.Context())
+		if contextThread != thread {
+			t.Errorf("context thread different from passed thread: got %v", contextThread)
+		}
+		return starlark.None, nil
+	})
+
+	ss, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+		App: &starform.AppObject{
+			Name: "test",
+			Methods: []*starlark.Builtin{
+				checkThread,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ss.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				test.observe('test', on_test)
+
+			def on_test(event):
+				test.check_thread()
+		`,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

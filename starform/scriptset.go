@@ -317,6 +317,13 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
+func Thread(ctx context.Context) *starlark.Thread {
+	if thread := ctx.Value(threadContextKey{}); thread != nil {
+		return thread.(*starlark.Thread)
+	}
+	return &starlark.Thread{}
+}
+
 func getThread(ctx context.Context, options *ScriptSetOptions, event *EventObject) (thread *starlark.Thread, cleanup func()) {
 	if th := ctx.Value(threadContextKey{}); th != nil {
 		thread = th.(*starlark.Thread)
