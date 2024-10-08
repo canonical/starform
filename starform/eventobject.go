@@ -64,7 +64,7 @@ func (e *EventObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 		return attr, nil
 	}
 	if name != "name" {
-		return nil, starlark.ErrNoSuchAttr
+		return nil, starlark.ErrNoAttr
 	}
 	if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
 		return nil, err

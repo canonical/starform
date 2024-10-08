@@ -30,7 +30,7 @@ type ScriptSetOptions struct {
 	Cache               ScriptCache
 	Logger              Logger
 	RequiredSafety      starlark.SafetyFlags
-	MaxAllocs, MaxSteps uint64
+	MaxAllocs, MaxSteps int64
 }
 
 var starlarkDialect = syntax.FileOptions{

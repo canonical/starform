@@ -16,7 +16,7 @@ func isStarlarkCancellation(err error) bool {
 }
 
 var noAttrs = func(thread *starlark.Thread, name string) (starlark.Value, error) {
-	return nil, starlark.ErrNoSuchAttr
+	return nil, starlark.ErrNoAttr
 }
 
 func TestAppAsStarlarkValue(t *testing.T) {
@@ -67,7 +67,7 @@ func TestAppSafeString(t *testing.T) {
 	t.Run("regular-operation", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		st.SetMaxSteps(uint64(len(fmt.Sprintf("<app %s>", appName))))
+		st.SetMaxSteps(int64(len(fmt.Sprintf("<app %s>", appName))))
 		st.RunThread(func(thread *starlark.Thread) {
 			app := &starform.AppObject{
 				Name: appName,

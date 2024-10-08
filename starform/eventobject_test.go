@@ -30,7 +30,7 @@ func TestEventSafeString(t *testing.T) {
 	t.Run("regular-operation", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		st.SetMaxSteps(uint64(len(fmt.Sprintf("<Event %s>", eventName))))
+		st.SetMaxSteps(int64(len(fmt.Sprintf("<Event %s>", eventName))))
 		st.RunThread(func(thread *starlark.Thread) {
 			event := &starform.EventObject{
 				Name: eventName,
