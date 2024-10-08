@@ -77,9 +77,9 @@ type initState struct {
 }
 
 func Event(thread *starlark.Thread) *EventObject {
-	ret, ok := thread.Local(eventObjectLocalKey).(**EventObject)
+	exec, ok := thread.Context().Value(executionKey{}).(*execution)
 	if !ok {
 		return &EventObject{} // Avoid panics.
 	}
-	return *ret
+	return exec.event
 }

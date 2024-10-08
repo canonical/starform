@@ -91,8 +91,6 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	}, nil
 }
 
-type threadContextKey struct{}
-
 // LoadSources loads the given sources into the script set and runs their init
 // functions. Any previously-loaded scripts are discarded.
 func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) error {
@@ -317,16 +315,19 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
+type executionKey struct{}
+type execution struct {
+	thread *starlark.Thread
+	event  *EventObject
+}
+
 func getThread(ctx context.Context, options *ScriptSetOptions, event *EventObject) (thread *starlark.Thread, cleanup func()) {
-	if th := ctx.Value(threadContextKey{}); th != nil {
-		thread = th.(*starlark.Thread)
+	if exec, ok := ctx.Value(executionKey{}).(*execution); ok {
+		parentEvent := exec.event
+		exec.event = event
+		cleanup = func() { exec.event = parentEvent }
 
-		eventPtr := thread.Local(eventObjectLocalKey).(**EventObject)
-		parentEvent := *eventPtr
-		*eventPtr = event
-		cleanup = func() { *eventPtr = parentEvent }
-
-		return thread, cleanup
+		return exec.thread, cleanup
 	}
 
 	thread = &starlark.Thread{}
@@ -336,7 +337,10 @@ func getThread(ctx context.Context, options *ScriptSetOptions, event *EventObjec
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(eventObjectLocalKey, &event)
 
-	ctx = context.WithValue(ctx, threadContextKey{}, thread)
+	ctx = context.WithValue(ctx, executionKey{}, &execution{
+		thread: thread,
+		event:  event,
+	})
 	thread.SetParentContext(ctx)
 
 	cleanup = func() { thread.Cancel("done") }

@@ -124,6 +124,7 @@ func TestAppSafeAttr(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(0)
+		st.SetParentContext(starform.ContextWithEvent())
 		st.RunThread(func(thread *starlark.Thread) {
 			starform.SetEventObject(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
@@ -143,6 +144,7 @@ func TestAppSafeAttr(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.TimeSafe)
 		st.SetMaxSteps(0)
+		st.SetParentContext(starform.ContextWithEvent())
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
 			starform.SetEventObject(thread, &starform.EventObject{
@@ -224,6 +226,7 @@ func TestAppObserveSafety(t *testing.T) {
 
 	t.Run("return-value", func(t *testing.T) {
 		thread := &starlark.Thread{}
+		thread.SetParentContext(starform.ContextWithEvent())
 		starform.SetEventObject(thread, &starform.EventObject{
 			Name:  starform.LoadEventName,
 			State: starform.InitState(),
@@ -252,6 +255,7 @@ func TestAppObserveSafety(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(1)
+		st.SetParentContext(starform.ContextWithEvent())
 		st.RunThread(func(thread *starlark.Thread) {
 			starform.SetEventObject(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
@@ -292,6 +296,7 @@ func TestAppObserveSafety(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.TimeSafe)
 		st.SetMaxSteps(0)
+		st.SetParentContext(starform.ContextWithEvent())
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
 			starform.SetEventObject(thread, &starform.EventObject{

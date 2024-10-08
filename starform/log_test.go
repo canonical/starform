@@ -69,6 +69,7 @@ func testLogSafety(t *testing.T, logBuiltin *starlark.Builtin) {
 		t.Run(safety.String(), func(t *testing.T) {
 			t.Run("argument", func(t *testing.T) {
 				thread := &starlark.Thread{}
+				thread.SetParentContext(starform.ContextWithEvent())
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					t.Error("unexpected print call")
 				}
@@ -87,6 +88,7 @@ func testLogSafety(t *testing.T, logBuiltin *starlark.Builtin) {
 			t.Run("no-print", func(t *testing.T) {
 				thread := &starlark.Thread{}
 				thread.RequireSafety(safety)
+				thread.SetParentContext(starform.ContextWithEvent())
 				starform.SetEventObject(thread, &starform.EventObject{})
 
 				_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{starlark.None}, nil)
@@ -264,6 +266,7 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			st.RequireSafety(starlark.CPUSafe)
 			st.SetMinSteps(test.steps)
 			st.SetMaxSteps(test.steps)
+			st.SetParentContext(starform.ContextWithEvent())
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					t.Error("unexpected print call")
@@ -307,6 +310,7 @@ func testLogAllocs(t *testing.T, builtin *starlark.Builtin) {
 	t.Run("no-separator", func(t *testing.T) {
 		st := startest.From(t)
 		st.RequireSafety(starlark.MemSafe)
+		st.SetParentContext(starform.ContextWithEvent())
 		st.RunThread(func(thread *starlark.Thread) {
 			logger := starform.NewScriptLogger(&testLogger{}, "")
 			builtin = builtin.BindReceiver(logger)
@@ -463,6 +467,7 @@ func testLogCancellation(t *testing.T, builtin *starlark.Builtin) {
 			st := startest.From(t)
 			st.RequireSafety(starlark.TimeSafe)
 			st.SetMaxSteps(0)
+			st.SetParentContext(starform.ContextWithEvent())
 			st.RunThread(func(thread *starlark.Thread) {
 				thread.Cancel("done")
 				thread.Print = func(thread *starlark.Thread, msg string) {
@@ -492,6 +497,7 @@ func testLogSeparator(t *testing.T, logBuiltin *starlark.Builtin) {
 	const expectedLog = "foo-bar\n"
 
 	thread := &starlark.Thread{}
+	thread.SetParentContext(starform.ContextWithEvent())
 	thread.Print = func(thread *starlark.Thread, msg string) {
 		t.Error("unexpected print call")
 	}
