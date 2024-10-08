@@ -94,7 +94,7 @@ func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 		methodIsCustom = false
 		method, ok = commonAppMethods[name]
 		if !ok {
-			return nil, starlark.ErrNoSuchAttr
+			return nil, starlark.ErrNoAttr
 		}
 	}
 

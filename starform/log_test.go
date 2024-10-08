@@ -130,17 +130,17 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 	tests := []struct {
 		name  string
 		input starlark.Value
-		steps uint64
+		steps int64
 	}{{
 		name:  "Bool",
 		input: starlark.True,
-		steps: uint64(len("True")),
+		steps: int64(len("True")),
 	}, {
 		name: "Builtin",
 		input: starlark.NewBuiltin("foo", func(_ *starlark.Thread, _ *starlark.Builtin, _ starlark.Tuple, _ []starlark.Tuple) (starlark.Value, error) {
 			return starlark.None, nil
 		}),
-		steps: uint64(len("<built-in function foo>")),
+		steps: int64(len("<built-in function foo>")),
 	}, {
 		name: "Dict",
 		input: func() *starlark.Dict {
@@ -154,11 +154,11 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			})
 			return dict
 		}(),
-		steps: uint64(len("{1: None, 2: }")) + arbitraryAddedSteps + 2, // +2 for values traversed.
+		steps: int64(len("{1: None, 2: }")) + arbitraryAddedSteps + 2, // +2 for values traversed.
 	}, {
 		name:  "Float",
 		input: starlark.Float(3.14),
-		steps: uint64(len("3.14")),
+		steps: int64(len("3.14")),
 	}, {
 		name: "Function",
 		input: func() *starlark.Function {
@@ -170,15 +170,15 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			}
 			return fn
 		}(),
-		steps: uint64(len("<function <expr>>")),
+		steps: int64(len("<function <expr>>")),
 	}, {
 		name:  "Int(small)",
 		input: starlark.MakeInt(10),
-		steps: uint64(len("10")),
+		steps: int64(len("10")),
 	}, {
 		name:  "Int(big)",
 		input: starlark.MakeInt64(1 << 32),
-		steps: uint64(len(fmt.Sprintf("%d", int64(1<<32)))),
+		steps: int64(len(fmt.Sprintf("%d", int64(1<<32)))),
 	}, {
 		name: "List",
 		input: starlark.NewList([]starlark.Value{
@@ -190,11 +190,11 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 				},
 			},
 		}),
-		steps: uint64(len("[None, ]")) + arbitraryAddedSteps + 2,
+		steps: int64(len("[None, ]")) + arbitraryAddedSteps + 2,
 	}, {
 		name:  "None",
 		input: starlark.None,
-		steps: uint64(len("None")),
+		steps: int64(len("None")),
 	}, {
 		name: "Set",
 		input: func() *starlark.Set {
@@ -208,7 +208,7 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			})
 			return set
 		}(),
-		steps: uint64(len("set([None, ])")) + arbitraryAddedSteps + 2,
+		steps: int64(len("set([None, ])")) + arbitraryAddedSteps + 2,
 	}, {
 		name: "Tuple",
 		input: starlark.Tuple{
@@ -220,43 +220,43 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 				},
 			},
 		},
-		steps: uint64(len("(None, )")) + 2 + 100,
+		steps: int64(len("(None, )")) + 2 + 100,
 	}, {
 		name:  "Bytes elems",
 		input: callMethod(starlark.Bytes("test"), "elems", nil, nil),
-		steps: uint64(len(`b"test".elems()`)),
+		steps: int64(len(`b"test".elems()`)),
 	}, {
 		name:  "Range",
 		input: callFunction(starlark.Universe["range"], starlark.Tuple{starlark.MakeInt(0), starlark.MakeInt(10), starlark.MakeInt(2)}, nil),
-		steps: uint64(len("range(0, 10, 2)")),
+		steps: int64(len("range(0, 10, 2)")),
 	}, {
 		name:  "String elems (chars)",
 		input: callMethod(starlark.String("test"), "elems", nil, nil),
-		steps: uint64(len(`"test".elems()`)),
+		steps: int64(len(`"test".elems()`)),
 	}, {
 		name:  "String elems (ords)",
 		input: callMethod(starlark.String("test"), "elem_ords", nil, nil),
-		steps: uint64(len(`"test".elem_ords()`)),
+		steps: int64(len(`"test".elem_ords()`)),
 	}, {
 		name:  "String codepoints (chars)",
 		input: callMethod(starlark.String("test"), "codepoints", nil, nil),
-		steps: uint64(len(`"test".codepoints()`)),
+		steps: int64(len(`"test".codepoints()`)),
 	}, {
 		name:  "String codepoints (ords)",
 		input: callMethod(starlark.String("test"), "codepoint_ords", nil, nil),
-		steps: uint64(len(`"test".codepoint_ords()`)),
+		steps: int64(len(`"test".codepoint_ords()`)),
 	}, {
 		name:  "String",
 		input: starlark.String("test"),
-		steps: uint64(len("test")),
+		steps: int64(len("test")),
 	}, {
 		name:  "Bytes",
 		input: starlark.Bytes("test"),
-		steps: uint64(len(`test`)),
+		steps: int64(len(`test`)),
 	}, {
 		name:  "Bytes (invalid utf8)",
 		input: starlark.Bytes(string([]byte{0x80, 0x80, 0x80, 0x80})),
-		steps: uint64(len([]byte{0x80, 0x80, 0x80, 0x80})),
+		steps: int64(len([]byte{0x80, 0x80, 0x80, 0x80})),
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
