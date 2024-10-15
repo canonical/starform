@@ -73,7 +73,6 @@ func testLogSafety(t *testing.T, logBuiltin *starlark.Builtin) {
 					t.Error("unexpected print call")
 				}
 				thread.RequireSafety(safety)
-				starform.SetEventObject(thread, &starform.EventObject{})
 
 				stringer := &unsafeTestStringer{t: t}
 				_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{stringer}, nil)
@@ -87,7 +86,6 @@ func testLogSafety(t *testing.T, logBuiltin *starlark.Builtin) {
 			t.Run("no-print", func(t *testing.T) {
 				thread := &starlark.Thread{}
 				thread.RequireSafety(safety)
-				starform.SetEventObject(thread, &starform.EventObject{})
 
 				_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{starlark.None}, nil)
 				if err != nil {
@@ -268,7 +266,6 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					t.Error("unexpected print call")
 				}
-				starform.SetEventObject(thread, &starform.EventObject{})
 				for i := 0; i < st.N; i++ {
 					_, err := starlark.Call(thread, builtin, starlark.Tuple{test.input}, nil)
 					if err != nil {
@@ -313,7 +310,6 @@ func testLogAllocs(t *testing.T, builtin *starlark.Builtin) {
 			thread.Print = func(thread *starlark.Thread, msg string) {
 				t.Error("unexpected print call")
 			}
-			starform.SetEventObject(thread, &starform.EventObject{})
 
 			for i := 0; i < st.N; i++ {
 				res, err := starlark.Call(thread, builtin, args, nil)
@@ -468,7 +464,6 @@ func testLogCancellation(t *testing.T, builtin *starlark.Builtin) {
 				thread.Print = func(thread *starlark.Thread, msg string) {
 					t.Error("unexpected print call")
 				}
-				starform.SetEventObject(thread, &starform.EventObject{})
 				_, err := starlark.Call(thread, builtin, starlark.Tuple{test.input(st.N)}, nil)
 				if err == nil {
 					st.Error("expected cancellation")
@@ -491,16 +486,15 @@ func TestDebugSeparator(t *testing.T) {
 func testLogSeparator(t *testing.T, logBuiltin *starlark.Builtin) {
 	const expectedLog = "foo-bar\n"
 
+	logger := &testLogger{}
+	scriptLogger := starform.NewScriptLogger(logger, "")
+	logBuiltin = logBuiltin.BindReceiver(scriptLogger)
+
 	thread := &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {
 		t.Error("unexpected print call")
 	}
 	thread.RequireSafety(starlark.CPUSafe | starlark.MemSafe | starlark.TimeSafe | starlark.IOSafe)
-	starform.SetEventObject(thread, &starform.EventObject{})
-
-	logger := &testLogger{}
-	scriptLogger := starform.NewScriptLogger(logger, "")
-	logBuiltin = logBuiltin.BindReceiver(scriptLogger)
 
 	args := starlark.Tuple{starlark.String("foo"), starlark.String("bar")}
 	kwargs := []starlark.Tuple{{starlark.String("sep"), starlark.String("-")}}

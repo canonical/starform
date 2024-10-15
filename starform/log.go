@@ -40,8 +40,6 @@ type scriptLogger struct {
 	path   string
 }
 
-var _ starlark.Builtin
-
 var _ starlark.Value = &scriptLogger{}
 
 func (sl *scriptLogger) String() string       { return "<scriptLogger>" }

@@ -10,14 +10,15 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/canonical/starform/internal"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
 
 type ScriptSet struct {
-	options        *ScriptSetOptions
-	appValue       *appValue
-	eventObservers map[string][]starlark.Callable
+	internal.ScriptSetBase
+
+	options *ScriptSetOptions
 }
 
 type ScriptSource interface {
@@ -86,8 +87,10 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	appValue.Freeze()
 
 	return &ScriptSet{
-		options:  options,
-		appValue: appValue,
+		ScriptSetBase: internal.ScriptSetBase{
+			AppValue: appValue,
+		},
+		options: options,
 	}, nil
 }
 
@@ -162,7 +165,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 			observer.Freeze()
 		}
 	}
-	ss.eventObservers = state.eventObservers
+	ss.EventObservers = state.eventObservers
 
 	return nil
 }
@@ -240,7 +243,7 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			path:   script.path,
 		}
 		predeclared := starlark.StringDict{
-			ss.options.App.Name: ss.appValue,
+			ss.options.App.Name: ss.AppValue,
 			"print":             printBuiltin.BindReceiver(logger),
 			"debug":             debugBuiltin.BindReceiver(logger),
 		}
@@ -300,16 +303,39 @@ func checkLoadPath(loadPath string) (err error) {
 	return nil
 }
 
-func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
-	observers, ok := ss.eventObservers[event.Name]
+func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) (err error) {
+	observers, ok := ss.EventObservers[event.Name]
 	if !ok {
 		return nil
 	}
 
 	thread := makeThread(ss.options, event)
-	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer stop()
 	defer thread.Cancel("done")
+
+	if parentThread, ok := ctx.Value(threadLocalKey).(*starlark.Thread); ok {
+		thread.SetParentContext(parentThread.Context())
+		initialAllocs := parentThread.Allocs()
+		initialSteps := parentThread.Steps()
+
+		if err := thread.AddAllocs(initialAllocs); err != nil {
+			return err
+		}
+		if err := thread.AddSteps(initialSteps); err != nil {
+			return err
+		}
+
+		defer func() {
+			if err = parentThread.AddAllocs(thread.Allocs() - initialAllocs); err != nil {
+				return
+			}
+			if err = parentThread.AddSteps(thread.Steps() - initialSteps); err != nil {
+				return
+			}
+		}()
+	} else {
+		thread.SetParentContext(ctx)
+	}
+
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{event}, nil)
 		if err != nil {
@@ -319,6 +345,8 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
+var threadLocalKey = "starform-thread"
+
 func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {}
@@ -326,5 +354,6 @@ func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(threadLocalKey, thread)
 	return thread
 }
