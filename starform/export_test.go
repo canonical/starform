@@ -1,8 +1,6 @@
 package starform
 
 import (
-	"context"
-
 	"github.com/canonical/starlark/starlark"
 )
 
@@ -11,10 +9,6 @@ type TestCacheBase struct{}
 func (*TestCacheBase) private() {}
 
 const LoadEventName = loadEventName
-
-func WithParentThread(ctx context.Context, thread *starlark.Thread) context.Context {
-	return context.WithValue(ctx, threadLocalKey, thread)
-}
 
 func (app *AppObject) Value() starlark.HasSafeAttrs {
 	return app.value()

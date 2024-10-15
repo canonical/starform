@@ -6,3 +6,5 @@ type ScriptSetBase struct {
 	EventObservers map[string][]starlark.Callable
 	AppValue       starlark.Value
 }
+
+const ThreadLocalKey = "starform-thread"

@@ -312,7 +312,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) (err error)
 	thread := makeThread(ss.options, event)
 	defer thread.Cancel("done")
 
-	if parentThread, ok := ctx.Value(threadLocalKey).(*starlark.Thread); ok {
+	if parentThread, ok := ctx.Value(internal.ThreadLocalKey).(*starlark.Thread); ok {
 		thread.SetParentContext(parentThread.Context())
 		initialAllocs := parentThread.Allocs()
 		initialSteps := parentThread.Steps()
@@ -345,8 +345,6 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) (err error)
 	return nil
 }
 
-var threadLocalKey = "starform-thread"
-
 func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {}
@@ -354,6 +352,6 @@ func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(eventObjectLocalKey, data)
-	thread.SetLocal(threadLocalKey, thread)
+	thread.SetLocal(internal.ThreadLocalKey, thread)
 	return thread
 }

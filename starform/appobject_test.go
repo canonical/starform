@@ -136,7 +136,7 @@ func TestAppSafeAttr(t *testing.T) {
 					st.KeepAlive(result)
 				}
 			})
-			set.Handle(starform.WithParentThread(context.Background(), thread), &starform.EventObject{
+			set.Handle(context.Background(), thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
@@ -166,7 +166,7 @@ func TestAppSafeAttr(t *testing.T) {
 					}
 				}
 			})
-			set.Handle(starform.WithParentThread(context.Background(), thread), &starform.EventObject{
+			set.Handle(context.Background(), thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
@@ -260,7 +260,7 @@ func TestAppObserveSafety(t *testing.T) {
 				t.Errorf("expected None return: got %v", result)
 			}
 		})
-		set.Handle(context.Background(), &starform.EventObject{
+		set.Handle(context.Background(), nil, &starform.EventObject{
 			Name:  starform.LoadEventName,
 			State: starform.InitState(),
 		})
@@ -293,7 +293,7 @@ func TestAppObserveSafety(t *testing.T) {
 				}
 				st.KeepAlive(event)
 			})
-			set.Handle(starform.WithParentThread(context.Background(), thread), &starform.EventObject{
+			set.Handle(context.Background(), thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
@@ -328,7 +328,7 @@ func TestAppObserveSafety(t *testing.T) {
 				}
 
 			})
-			set.Handle(starform.WithParentThread(context.Background(), thread), &starform.EventObject{
+			set.Handle(context.Background(), thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
 				State: starform.InitState(),
 			})
