@@ -17,15 +17,19 @@ func TestExampleString(t *testing.T) {
 		State: "anything_is_ok",
 	})
 	ft.RunString(`
+		assert.eq(1, 2)
+
 		def init():
+			assert.eq(2, 3)
 			app.observe('event', on_event)
 
 		def on_event(event):
+			assert.eq(4, 6)
 			debug('hello, world')
 	`)
 }
 
-func TestExample(t *testing.T) {
+func TestExampleThread(t *testing.T) {
 	ft := formtest.From(t)
 	ft.SetApp(&starform.AppObject{
 		Name: "app",

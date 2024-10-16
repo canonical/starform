@@ -149,8 +149,13 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	thread := makeThread(ss.options, event)
-	defer thread.Cancel("done")
+	thread := getContextThread(ctx)
+	if thread == nil {
+		thread = makeThread(ctx, ss.options)
+		defer thread.Cancel("done")
+	}
+	setEvent(thread, event)
+
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 
@@ -383,10 +388,15 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		return nil
 	}
 
-	thread := makeThread(ss.options, event)
-	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer stop()
-	defer thread.Cancel("done")
+	thread := getContextThread(ctx)
+	if thread == nil {
+		thread = makeThread(ctx, ss.options)
+		stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
+		defer stop()
+		defer thread.Cancel("done")
+	}
+	setEvent(thread, event)
+
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{event}, nil)
 		if err != nil {
@@ -396,15 +406,30 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
-	thread := &starlark.Thread{}
-	thread.Print = func(thread *starlark.Thread, msg string) {}
+// getContextThread gets the thread from the context or returns nil.
+func getContextThread(ctx context.Context) *starlark.Thread {
+	rundata, ok := ctx.Value(internal.RunDataLocalKey).(*internal.Rundata)
+	if !ok {
+		return nil
+	}
+	return rundata.Thread
+}
+
+func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
+	thread := &starlark.Thread{
+		Print: func(thread *starlark.Thread, msg string) {},
+	}
+	thread.SetParentContext(ctx)
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(internal.RunDataLocalKey, &internal.Rundata{
 		Thread: thread,
-		Event:  data,
 	})
 	return thread
+}
+
+func setEvent(thread *starlark.Thread, event *EventObject) {
+	rundata := thread.Context().Value(internal.RunDataLocalKey).(*internal.Rundata)
+	rundata.Event = event
 }

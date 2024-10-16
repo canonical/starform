@@ -12,7 +12,7 @@ type Rundata struct {
 const RunDataLocalKey = "starform-event-object"
 
 func Event(thread *starlark.Thread) *EventObject {
-	ret, ok := thread.Local(RunDataLocalKey).(*Rundata)
+	ret, ok := thread.Context().Value(RunDataLocalKey).(*Rundata)
 	if !ok {
 		return &EventObject{} // Avoid panics.
 	}
