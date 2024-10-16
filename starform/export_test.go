@@ -1,6 +1,9 @@
 package starform
 
-import "github.com/canonical/starlark/starlark"
+import (
+	"github.com/canonical/starform/internal"
+	"github.com/canonical/starlark/starlark"
+)
 
 type TestCacheBase struct{}
 
@@ -9,17 +12,14 @@ func (*TestCacheBase) private() {}
 const LoadEventName = loadEventName
 
 func SetEventObject(thread *starlark.Thread, data *EventObject) {
-	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(internal.RunDataLocalKey, &internal.Rundata{
+		Thread: thread,
+		Event:  data,
+	})
 }
 
 func (app *AppObject) Value() starlark.HasSafeAttrs {
 	return app.value()
-}
-
-func InitState() interface{} {
-	return &initState{
-		eventObservers: make(map[string][]starlark.Callable),
-	}
 }
 
 var PrintBuiltin = printBuiltin

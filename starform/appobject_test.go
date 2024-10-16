@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/starform/internal"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -127,7 +128,7 @@ func TestAppSafeAttr(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			starform.SetEventObject(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
-				State: starform.InitState(),
+				State: &internal.InitState{},
 			})
 			for i := 0; i < st.N; i++ {
 				result, err := appValue.SafeAttr(thread, "observe")
@@ -147,7 +148,7 @@ func TestAppSafeAttr(t *testing.T) {
 			thread.Cancel("done")
 			starform.SetEventObject(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
-				State: starform.InitState(),
+				State: &internal.InitState{},
 			})
 			for i := 0; i < st.N; i++ {
 				_, err := appValue.SafeAttr(thread, "observe")
@@ -226,7 +227,7 @@ func TestAppObserveSafety(t *testing.T) {
 		thread := &starlark.Thread{}
 		starform.SetEventObject(thread, &starform.EventObject{
 			Name:  starform.LoadEventName,
-			State: starform.InitState(),
+			State: &internal.InitState{},
 		})
 
 		app := &starform.AppObject{
@@ -255,7 +256,7 @@ func TestAppObserveSafety(t *testing.T) {
 		st.RunThread(func(thread *starlark.Thread) {
 			starform.SetEventObject(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
-				State: starform.InitState(),
+				State: &internal.InitState{},
 			})
 
 			app := &starform.AppObject{
@@ -270,7 +271,7 @@ func TestAppObserveSafety(t *testing.T) {
 
 			event := &starform.EventObject{
 				Name:  starform.LoadEventName,
-				State: starform.InitState(),
+				State: &internal.InitState{},
 			}
 			if err := thread.AddAllocs(starlark.EstimateSize(event)); err != nil {
 				t.Error(err)
@@ -296,7 +297,7 @@ func TestAppObserveSafety(t *testing.T) {
 			thread.Cancel("done")
 			starform.SetEventObject(thread, &starform.EventObject{
 				Name:  starform.LoadEventName,
-				State: starform.InitState(),
+				State: &internal.InitState{},
 			})
 
 			app := &starform.AppObject{

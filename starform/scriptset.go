@@ -203,8 +203,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		popd()
 	}
 
-	state := &initState{
-		eventObservers: make(map[string][]starlark.Callable),
+	state := &internal.InitState{
+		EventObservers: make(map[string][]starlark.Callable),
 	}
 	event.State = state
 	for _, script := range scripts {
@@ -221,12 +221,12 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	for _, observers := range state.eventObservers {
+	for _, observers := range state.EventObservers {
 		for _, observer := range observers {
 			observer.Freeze()
 		}
 	}
-	ss.eventObservers = state.eventObservers
+	ss.eventObservers = state.EventObservers
 
 	return nil
 }
@@ -402,6 +402,9 @@ func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(internal.RunDataLocalKey, &internal.Rundata{
+		Thread: thread,
+		Event:  data,
+	})
 	return thread
 }
