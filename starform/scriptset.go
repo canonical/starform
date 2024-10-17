@@ -17,7 +17,7 @@ import (
 
 type ScriptSet struct {
 	options        *ScriptSetOptions
-	appValue       *appValue
+	appValue       *internal.AppValue
 	modules        map[string]Module
 	predeclared    starlark.StringDict
 	eventObservers map[string][]starlark.Callable
@@ -114,7 +114,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		modules[module.Name()] = module
 	}
 
-	appValue := options.App.value()
+	appValue := internal.NewAppValue(options.App)
 	appValue.Freeze()
 
 	return &ScriptSet{
@@ -145,7 +145,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	})
 
 	event := &EventObject{
-		Name:  loadEventName,
+		Name:  internal.LoadEventName,
 		State: nil,
 	}
 
@@ -200,6 +200,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 		return script.toplevelEnv, nil
 	}
+	defer func() { thread.Load = nil }()
 	for _, script := range scripts {
 		pushd(path.Dir(script.path))
 		if err := ss.runTopLevel(thread, script); err != nil {
@@ -283,7 +284,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 					ss.options.Logger.Log(ctx, LogEntry{
 						Message:   fmt.Sprintf("cannot put %s into cache: %v", path, err),
 						Level:     DebugLevel,
-						EventName: loadEventName,
+						EventName: internal.LoadEventName,
 					})
 				}
 			}

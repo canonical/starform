@@ -5,6 +5,7 @@ import (
 
 	"github.com/canonical/starform/formtest"
 	"github.com/canonical/starform/starform"
+	"github.com/canonical/starlark/starlark"
 )
 
 func TestExampleString(t *testing.T) {
@@ -20,12 +21,11 @@ func TestExampleString(t *testing.T) {
 		assert.eq(1, 2)
 
 		def init():
-			assert.eq(2, 3)
 			app.observe('event', on_event)
 
 		def on_event(event):
-			assert.eq(4, 6)
-			debug('hello, world')
+			for _ in st.ntimes():
+				debug('hello, world')
 	`)
 }
 
@@ -38,11 +38,7 @@ func TestExampleThread(t *testing.T) {
 		Name:  "event",
 		State: "anything_is_ok",
 	})
-	ft.RunString(`
-		def init():
-			app.observe('event', on_event)
-
-		def on_event(event):
-			debug('hello, world')
-	`)
+	ft.RunThread(func(thread *starlark.Thread) {
+		// ...
+	})
 }
