@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/canonical/starform/internal"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
@@ -17,6 +18,7 @@ import (
 type ScriptSet struct {
 	options        *ScriptSetOptions
 	appValue       *appValue
+	modules        map[string]Module
 	eventObservers map[string][]starlark.Callable
 }
 
@@ -31,6 +33,7 @@ type ScriptSetOptions struct {
 	Logger              Logger
 	RequiredSafety      starlark.SafetyFlags
 	MaxAllocs, MaxSteps int64
+	Modules             []Module
 }
 
 var starlarkDialect = syntax.FileOptions{
@@ -58,6 +61,7 @@ type scriptState struct {
 }
 
 var validIdentifier = regexp.MustCompile(`[a-z]\w*`)
+var validModuleName = regexp.MustCompile(`[a-z]\w*(\/[a-z]\w*)*`)
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.App == nil {
@@ -82,12 +86,33 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		return nil, fmt.Errorf("cannot create script set: CPUSafe requested but no MaxSteps set")
 	}
 
+	appNs := options.App.Name + "/"
+	modules := make(map[string]Module)
+	for _, module := range options.Modules {
+		_, isPredeclared := module.(*internal.Predeclared)
+		if !isPredeclared {
+			name := module.Name()
+			if !strings.HasPrefix(name, appNs) {
+				return nil, fmt.Errorf("module '%s' must have the '%s' prefix", name, appNs)
+			}
+			if strings.HasSuffix(name, ".star") {
+				return nil, fmt.Errorf("module '%s' cannot have '.star' extension", name)
+			}
+			if !validModuleName.Match([]byte(name)) {
+				return nil, fmt.Errorf("module '%s' is invalid", name)
+			}
+		}
+
+		modules[module.Name()] = module
+	}
+
 	appValue := options.App.value()
 	appValue.Freeze()
 
 	return &ScriptSet{
 		options:  options,
 		appValue: appValue,
+		modules:  modules,
 	}, nil
 }
 
@@ -120,6 +145,13 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
+		if module, ok := ss.modules[path]; ok {
+			_, isPredeclared := module.(*internal.Predeclared)
+			if !isPredeclared {
+				return module.Members(), nil
+			}
+		}
+
 		if err := checkLoadPath(path); err != nil {
 			return nil, err
 		}
@@ -174,7 +206,10 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		cache = &noopScriptCache{}
 	}
 	isPredeclared := func(name string) bool {
-		return name == ss.options.App.Name ||
+		module, hasModule := ss.modules[name]
+		_, isPredeclared := module.(*internal.Predeclared)
+		return (hasModule && isPredeclared) ||
+			name == ss.options.App.Name ||
 			name == "debug" ||
 			name == "print"
 	}
@@ -243,6 +278,11 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			ss.options.App.Name: ss.appValue,
 			"print":             printBuiltin.BindReceiver(logger),
 			"debug":             debugBuiltin.BindReceiver(logger),
+		}
+		for _, module := range ss.modules {
+			if p, ok := module.(*internal.Predeclared); ok {
+				predeclared[p.Module.Name] = p.Module
+			}
 		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
