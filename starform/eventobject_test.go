@@ -10,6 +10,10 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+func isStarlarkCancellation(err error) bool {
+	return strings.Contains(err.Error(), "Starlark computation cancelled:")
+}
+
 func TestEventSafeString(t *testing.T) {
 	const eventName = "test-event"
 

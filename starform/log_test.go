@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/starform/formtest"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -61,6 +62,9 @@ func TestDebugSafety(t *testing.T) {
 }
 
 func testLogSafety(t *testing.T, logBuiltin *starlark.Builtin) {
+	app := &starform.AppObject{
+		Name: "test",
+	}
 	logger := starform.NewScriptLogger(&testLogger{}, "")
 	logBuiltin = logBuiltin.BindReceiver(logger)
 
@@ -68,31 +72,36 @@ func testLogSafety(t *testing.T, logBuiltin *starlark.Builtin) {
 	for _, safety := range safeties {
 		t.Run(safety.String(), func(t *testing.T) {
 			t.Run("argument", func(t *testing.T) {
-				thread := &starlark.Thread{}
-				thread.Print = func(thread *starlark.Thread, msg string) {
-					t.Error("unexpected print call")
-				}
-				thread.RequireSafety(safety)
-				starform.SetEventObject(thread, &starform.EventObject{})
-
-				stringer := &unsafeTestStringer{t: t}
-				_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{stringer}, nil)
-				if err == nil {
-					t.Error("expected error")
-				} else if !errors.Is(err, starlark.ErrSafety) {
-					t.Errorf("unexpected error: %v", err)
-				}
+				ft := formtest.From(t)
+				ft.SetApp(app)
+				ft.SetEvent(&starform.EventObject{})
+				ft.RequireSafety(safety)
+				ft.RunThread(func(thread *starlark.Thread) {
+					thread.Print = func(thread *starlark.Thread, msg string) {
+						t.Error("unexpected print call")
+					}
+					stringer := &unsafeTestStringer{t: t}
+					_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{stringer}, nil)
+					if err == nil {
+						t.Error("expected error")
+					} else if !errors.Is(err, starlark.ErrSafety) {
+						t.Errorf("unexpected error: %v", err)
+					}
+				})
 			})
 
 			t.Run("no-print", func(t *testing.T) {
-				thread := &starlark.Thread{}
-				thread.RequireSafety(safety)
-				starform.SetEventObject(thread, &starform.EventObject{})
+				ft := formtest.From(t)
+				ft.SetApp(app)
+				ft.SetEvent(&starform.EventObject{})
+				ft.RequireSafety(safety)
+				ft.RunThread(func(thread *starlark.Thread) {
 
-				_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{starlark.None}, nil)
-				if err != nil {
-					t.Error("unexpected error")
-				}
+					_, err := starlark.Call(thread, logBuiltin, starlark.Tuple{starlark.None}, nil)
+					if err != nil {
+						t.Error("unexpected error")
+					}
+				})
 			})
 		})
 	}

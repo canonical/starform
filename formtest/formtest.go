@@ -79,8 +79,12 @@ func (ft *FT) RequireSafety(requiredSafety starlark.SafetyFlags) { ft.st.Require
 func (ft *FT) SetMaxAllocs(maxAllocs int64)                      { ft.st.SetMaxAllocs(maxAllocs) }
 func (ft *FT) SetMaxSteps(maxSteps int64)                        { ft.st.SetMaxSteps(maxSteps) }
 
-func (ft *FT) MakeAppValue() starlark.Value { return internal.NewAppValue(ft.app) }
-func (ft *FT) ST() *startest.ST             { return ft.st }
+func (ft *FT) MakeAppValue() starlark.Value {
+	value := internal.NewAppValue(ft.app)
+	value.Freeze()
+	return value
+}
+func (ft *FT) ST() *startest.ST { return ft.st }
 
 var ftSafe = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
