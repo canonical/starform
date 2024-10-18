@@ -12,5 +12,5 @@ type Module interface {
 	Members() starlark.StringDict
 }
 
-var JsonModule Module = internal.NewPredeclared(json.Module)
-var TimeModule Module = internal.NewPredeclared(time.Module)
+var JsonModule Module = &internal.SystemModule{Module: json.Module}
+var TimeModule Module = &internal.SystemModule{Module: time.Module}

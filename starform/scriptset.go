@@ -89,8 +89,8 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	appNs := options.App.Name + "/"
 	modules := make(map[string]Module)
 	for _, module := range options.Modules {
-		_, isPredeclared := module.(*internal.Predeclared)
-		if !isPredeclared {
+		_, isSystem := module.(*internal.SystemModule)
+		if !isSystem {
 			name := module.Name()
 			if !strings.HasPrefix(name, appNs) {
 				return nil, fmt.Errorf("module '%s' must have the '%s' prefix", name, appNs)
@@ -146,8 +146,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	defer stop()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if module, ok := ss.modules[path]; ok {
-			_, isPredeclared := module.(*internal.Predeclared)
-			if !isPredeclared {
+			systemModule, ok := module.(*internal.SystemModule)
+			if !ok || !systemModule.Predeclared {
 				return module.Members(), nil
 			}
 		}
@@ -206,12 +206,16 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		cache = &noopScriptCache{}
 	}
 	isPredeclared := func(name string) bool {
-		module, hasModule := ss.modules[name]
-		_, isPredeclared := module.(*internal.Predeclared)
-		return (hasModule && isPredeclared) ||
-			name == ss.options.App.Name ||
+		if name == ss.options.App.Name ||
 			name == "debug" ||
-			name == "print"
+			name == "print" {
+			return true
+		}
+		module, ok := ss.modules[name].(*internal.SystemModule)
+		if !ok {
+			return false
+		}
+		return module.Predeclared
 	}
 	for _, source := range sources {
 		path := source.Path()
@@ -280,7 +284,7 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			"debug":             debugBuiltin.BindReceiver(logger),
 		}
 		for _, module := range ss.modules {
-			if p, ok := module.(*internal.Predeclared); ok {
+			if p, ok := module.(*internal.SystemModule); ok && p.Predeclared {
 				predeclared[p.Module.Name] = p.Module
 			}
 		}
