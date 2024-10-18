@@ -60,8 +60,8 @@ type scriptState struct {
 	toplevelEnv starlark.StringDict
 }
 
-var validIdentifier = regexp.MustCompile(`[a-z]\w*`)
-var validModuleName = regexp.MustCompile(`[a-z]\w*(\/[a-z]\w*)*`)
+var validIdentifier = regexp.MustCompile(`^[a-z]\w*$`)
+var validModuleName = regexp.MustCompile(`^[a-z]\w*(\/[a-z]\w*)*$`)
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.App == nil {
@@ -89,17 +89,17 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	appNs := options.App.Name + "/"
 	modules := make(map[string]Module)
 	for _, module := range options.Modules {
-		_, isSystem := module.(*internal.SystemModule)
-		if !isSystem {
+		_, isSystemModule := module.(*internal.SystemModule)
+		if !isSystemModule {
 			name := module.Name()
 			if !strings.HasPrefix(name, appNs) {
-				return nil, fmt.Errorf("module '%s' must have the '%s' prefix", name, appNs)
+				return nil, fmt.Errorf("cannot use %q as module name: missing '%s' prefix", name, appNs)
 			}
-			if strings.HasSuffix(name, ".star") {
-				return nil, fmt.Errorf("module '%s' cannot have '.star' extension", name)
+			if path.Ext(name) != "" {
+				return nil, fmt.Errorf("cannot use %q as module name: file extension present", name)
 			}
 			if !validModuleName.Match([]byte(name)) {
-				return nil, fmt.Errorf("module '%s' is invalid", name)
+				return nil, fmt.Errorf("cannot use %q as module name: invalid", name)
 			}
 		}
 
@@ -146,8 +146,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	defer stop()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if module, ok := ss.modules[path]; ok {
-			systemModule, ok := module.(*internal.SystemModule)
-			if !ok || !systemModule.Predeclared {
+			systemModule, isSystemModule := module.(*internal.SystemModule)
+			if !isSystemModule || !systemModule.Predeclared {
 				return module.Members(), nil
 			}
 		}
@@ -284,8 +284,9 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			"debug":             debugBuiltin.BindReceiver(logger),
 		}
 		for _, module := range ss.modules {
-			if p, ok := module.(*internal.SystemModule); ok && p.Predeclared {
-				predeclared[p.Module.Name] = p.Module
+			systemModule, ok := module.(*internal.SystemModule)
+			if ok && systemModule.Predeclared {
+				predeclared[systemModule.Name()] = systemModule.Module
 			}
 		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)

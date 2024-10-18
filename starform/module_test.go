@@ -45,6 +45,7 @@ func TestModules(t *testing.T) {
 				name: "test.star",
 				content: `
 					load('foo', 'bar')
+
 					def init():
 						if bar != 'baz':
 							fail('foo has incorrect bar field: expected %r, got %r', 'baz', bar)
@@ -95,22 +96,7 @@ func TestModules(t *testing.T) {
 		}
 	})
 
-	t.Run("no-toplevel-custom", func(t *testing.T) {
-		_, err := starform.NewScriptSet(&starform.ScriptSetOptions{
-			App: &starform.AppObject{
-				Name: "test",
-			},
-			Modules: []starform.Module{&testModule{
-				name:    "foo",
-				members: starlark.StringDict{},
-			}},
-		})
-		if err == nil {
-			t.Error("expected err got success")
-		}
-	})
-
-	t.Run("custom", func(t *testing.T) {
+	t.Run("valid-custom", func(t *testing.T) {
 		set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 			App: app,
 			Modules: []starform.Module{&testModule{
@@ -136,6 +122,38 @@ func TestModules(t *testing.T) {
 		})
 		if err != nil {
 			t.Error(err)
+		}
+	})
+
+	t.Run("invalid-custom", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			moduleName string
+		}{{
+			name:       "missing-app-name-prefix",
+			moduleName: "nonstandard",
+		}, {
+			name:       "with-file-extension",
+			moduleName: "test/foo.star",
+		}, {
+			name:       "nonstandard-characters",
+			moduleName: "ඞ",
+		}}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				_, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+					App: &starform.AppObject{
+						Name: "test",
+					},
+					Modules: []starform.Module{&testModule{
+						name:    test.moduleName,
+						members: starlark.StringDict{},
+					}},
+				})
+				if err == nil {
+					t.Error("expected error, got success")
+				}
+			})
 		}
 	})
 }
