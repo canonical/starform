@@ -74,8 +74,8 @@ func TestModules(t *testing.T) {
 				name: "test.star",
 				content: `
 					def init():
-						if foo.bar != 'baz':
-							fail('foo has incorrect bar field: expected %r, got %r', 'baz', foo.bar)
+						if bar != 'baz':
+							fail('foo has incorrect bar field: expected %r, got %r', 'baz', bar)
 				`,
 			},
 		})

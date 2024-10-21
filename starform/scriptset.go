@@ -19,6 +19,7 @@ type ScriptSet struct {
 	options        *ScriptSetOptions
 	appValue       *appValue
 	modules        map[string]Module
+	predeclared    starlark.StringDict
 	eventObservers map[string][]starlark.Callable
 }
 
@@ -88,8 +89,16 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 
 	appNs := options.App.Name + "/"
 	modules := make(map[string]Module)
+	predeclared := make(starlark.StringDict)
 	for _, module := range options.Modules {
-		_, isSystemModule := module.(*internal.SystemModule)
+		systemModule, isSystemModule := module.(*internal.SystemModule)
+		if isSystemModule && systemModule.Predeclared {
+			for name, value := range module.Members() {
+				predeclared[name] = value
+			}
+			continue
+		}
+
 		if !isSystemModule {
 			name := module.Name()
 			if !strings.HasPrefix(name, appNs) {
@@ -102,7 +111,6 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 				return nil, fmt.Errorf("cannot use %q as module name: invalid", name)
 			}
 		}
-
 		modules[module.Name()] = module
 	}
 
@@ -110,9 +118,10 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	appValue.Freeze()
 
 	return &ScriptSet{
-		options:  options,
-		appValue: appValue,
-		modules:  modules,
+		options:     options,
+		appValue:    appValue,
+		modules:     modules,
+		predeclared: predeclared,
 	}, nil
 }
 
@@ -211,11 +220,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 			name == "print" {
 			return true
 		}
-		module, ok := ss.modules[name].(*internal.SystemModule)
-		if !ok {
-			return false
-		}
-		return module.Predeclared
+		return ss.predeclared.Has(name)
 	}
 	for _, source := range sources {
 		path := source.Path()
@@ -283,11 +288,8 @@ func (ss *ScriptSet) runTopLevel(thread *starlark.Thread, script *scriptState) e
 			"print":             printBuiltin.BindReceiver(logger),
 			"debug":             debugBuiltin.BindReceiver(logger),
 		}
-		for _, module := range ss.modules {
-			systemModule, ok := module.(*internal.SystemModule)
-			if ok && systemModule.Predeclared {
-				predeclared[systemModule.Name()] = systemModule.Module
-			}
+		for name, value := range ss.predeclared {
+			predeclared[name] = value
 		}
 		toplevelEnv, err := script.program.Init(thread, predeclared)
 		if err != nil {
