@@ -120,26 +120,24 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
 	defer stop()
 
-	currDir := "."
-	dirStack := []string{}
+	loadDir := "." // Directory where the load is being made from.
+	loadDirStack := []string{}
 	pushd := func(dir string) {
-		currDir = dir
-		dirStack = append(dirStack, dir)
+		loadDir = dir
+		loadDirStack = append(loadDirStack, dir)
 	}
 	popd := func() {
-		if len(dirStack) == 0 {
-			return // Ignore extra pops.
+		if len(loadDirStack) < 2 {
+			loadDirStack = loadDirStack[:0]
+			loadDir = "."
+			return
 		}
-		dirStack = dirStack[:len(dirStack)-1]
-		if len(dirStack) > 0 {
-			currDir = dirStack[len(dirStack)-1]
-		} else {
-			currDir = "."
-		}
+		loadDir = loadDirStack[len(loadDirStack)-2]
+		loadDirStack = loadDirStack[:len(loadDirStack)-1]
 	}
 
 	thread.Load = func(thread *starlark.Thread, loadPath string) (starlark.StringDict, error) {
-		sanitisedLoadPath, err := sanitiseLoadPath(loadPath, currDir)
+		sanitisedLoadPath, err := sanitiseLoadPath(loadDir, loadPath)
 		if err != nil {
 			return nil, err
 		}
@@ -208,10 +206,8 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 		if !strings.HasSuffix(path, ".star") {
 			continue
 		}
-		if sanitised, err := sanitiseLoadPath(path, "."); err != nil {
+		if _, err := sanitiseLoadPath(".", path); err != nil {
 			return nil, fmt.Errorf("cannot load %s: %w", path, err)
-		} else if sanitised != path {
-			return nil, fmt.Errorf("cannot use path %s in script source: not clean", path)
 		}
 
 		content, err := source.Content(ctx)
@@ -295,7 +291,7 @@ func init() {
 
 var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
 
-func sanitiseLoadPath(currDir string, loadPath string) (string, error) {
+func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	if len(loadPath) == 0 {
 		return "", miscInvalidPathError // Special case to simplify valid path regex.
 	}
@@ -326,7 +322,7 @@ func sanitiseLoadPath(currDir string, loadPath string) (string, error) {
 
 	sanitisedPath := loadPath
 	if strings.HasPrefix(loadPath, "./") || strings.HasPrefix(loadPath, "../") {
-		sanitisedPath = path.Clean(path.Join(currDir, loadPath))
+		sanitisedPath = path.Clean(path.Join(loadDir, loadPath))
 		if strings.HasPrefix(sanitisedPath, "../") {
 			return "", errors.New("file not found")
 		}
