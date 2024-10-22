@@ -95,7 +95,7 @@ func TestExampleRunStringForAllocs(t *testing.T) {
 			bar.observe('foo', on_foo)
 
 		def on_foo(event):
-			for _ in st.ntimes():
+			for _ in ft.ntimes():
 				bar.add_intent('sudo make me a sandwich')
 	`)
 }
@@ -110,7 +110,6 @@ func TestExampleRunThreadForFunctionality(t *testing.T) {
 		State: fooState,
 	})
 	ft.RunThread(func(thread *starlark.Thread) {
-		st := ft.ST()
 		app := ft.MakeAppValue().(starlark.HasSafeAttrs)
 		fn, _ := app.SafeAttr(thread, "add_intent")
 		if fn == nil {
@@ -120,13 +119,13 @@ func TestExampleRunThreadForFunctionality(t *testing.T) {
 		previousNumIntents := len(fooState.Intents)
 		ret, err := starlark.Call(thread, fn, starlark.Tuple{starlark.None}, nil)
 		if err != nil {
-			st.Error(err)
+			ft.Error(err)
 		}
 		if ret != starlark.None {
-			st.Errorf("expected None got: %v", ret)
+			ft.Errorf("expected None got: %v", ret)
 		}
 		if expectedIntents := previousNumIntents + 1; len(fooState.Intents) != expectedIntents {
-			st.Errorf("expected %d total intents: got %d", expectedIntents, len(fooState.Intents))
+			ft.Errorf("expected %d total intents: got %d", expectedIntents, len(fooState.Intents))
 		}
 	})
 }
@@ -140,19 +139,18 @@ func TestExampleRunThreadForAllocs(t *testing.T) {
 	})
 	ft.RequireSafety(starlark.MemSafe)
 	ft.RunThread(func(thread *starlark.Thread) {
-		st := ft.ST()
 		app := ft.MakeAppValue().(starlark.HasSafeAttrs)
 		fn, _ := app.SafeAttr(thread, "add_intent")
 		if fn == nil {
 			ft.Fatal("no such method: add_intent")
 		}
 		args := starlark.Tuple{starlark.None}
-		for i := 0; i < st.N; i++ {
+		for i := 0; i < ft.N; i++ {
 			ret, err := starlark.Call(thread, fn, args, nil)
 			if err != nil {
-				st.Error(err)
+				ft.Error(err)
 			}
-			st.KeepAlive(ret)
+			ft.KeepAlive(ret)
 		}
 	})
 }

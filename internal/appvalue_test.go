@@ -126,14 +126,13 @@ func TestAppValueSafeAttr(t *testing.T) {
 			State: &internal.InitState{},
 		})
 		ft.RunThread(func(thread *starlark.Thread) {
-			st := ft.ST()
 			appValue := ft.MakeAppValue()
-			for i := 0; i < st.N; i++ {
+			for i := 0; i < ft.N; i++ {
 				result, err := appValue.(starlark.HasSafeAttrs).SafeAttr(thread, "observe")
 				if err != nil {
-					st.Error(err)
+					ft.Error(err)
 				}
-				st.KeepAlive(result)
+				ft.KeepAlive(result)
 			}
 		})
 	})
@@ -149,12 +148,11 @@ func TestAppValueSafeAttr(t *testing.T) {
 		})
 		ft.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			st := ft.ST()
 			appValue := ft.MakeAppValue()
-			for i := 0; i < st.N; i++ {
+			for i := 0; i < ft.N; i++ {
 				_, err := appValue.(starlark.HasSafeAttrs).SafeAttr(thread, "observe")
 				if err != nil && !isStarlarkCancellation(err) {
-					st.Error(err)
+					ft.Error(err)
 				}
 			}
 		})
@@ -261,12 +259,11 @@ func TestAppValueObserveSafety(t *testing.T) {
 				t.Fatal("no such method: test.observe")
 			}
 
-			st := ft.ST()
 			args := starlark.Tuple{starlark.String("event_name"), observer}
-			for i := 0; i < st.N; i++ {
+			for i := 0; i < ft.N; i++ {
 				_, err := starlark.Call(thread, observe, args, nil)
 				if err != nil {
-					st.Error(err)
+					ft.Error(err)
 				}
 			}
 		})

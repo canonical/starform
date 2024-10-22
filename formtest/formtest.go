@@ -29,24 +29,17 @@ func init() {
 	}
 }
 
-type TestBase interface {
-	Error(args ...interface{})
-	Errorf(format string, args ...interface{})
-	Fatal(args ...interface{})
-	Fatalf(format string, args ...interface{})
-	Failed() bool
-	Log(args ...interface{})
-	Logf(fmt string, args ...interface{})
-}
+type TestBase startest.TestBase
 
 type FT struct {
-	st *startest.ST
+	*startest.ST
 
 	parentCtx context.Context
 	event     *starform.EventObject
 	app       *starform.AppObject
 	cache     starform.ScriptCache
 	logger    starform.Logger
+	predecl   internal.SystemModule
 }
 
 func From(base TestBase) *FT {
@@ -55,19 +48,21 @@ func From(base TestBase) *FT {
 		st = startest.From(base)
 	}
 
-	return &FT{
-		st:        st,
+	ft := &FT{
+		ST:        st,
 		parentCtx: context.Background(),
 	}
+	ft.predecl = internal.SystemModule{
+		Module: &starlarkstruct.Module{
+			Name: "ft",
+			Members: starlark.StringDict{
+				"ft": ft,
+			},
+		},
+		Predeclared: true,
+	}
+	return ft
 }
-
-func (ft *FT) Error(args ...interface{})                 { ft.st.Error(args...) }
-func (ft *FT) Errorf(format string, args ...interface{}) { ft.st.Errorf(format, args...) }
-func (ft *FT) Failed() bool                              { return ft.st.Failed() }
-func (ft *FT) Fatal(args ...interface{})                 { ft.st.Fatal(args...) }
-func (ft *FT) Fatalf(format string, args ...interface{}) { ft.st.Fatalf(format, args...) }
-func (ft *FT) Log(args ...interface{})                   { ft.st.Log(args...) }
-func (ft *FT) Logf(fmt string, args ...interface{})      { ft.st.Logf(fmt, args...) }
 
 func (ft *FT) SetParentContext(ctx context.Context) { ft.parentCtx = ctx }
 func (ft *FT) SetEvent(event *starform.EventObject) { ft.event = event }
@@ -75,31 +70,18 @@ func (ft *FT) SetApp(app *starform.AppObject)       { ft.app = app }
 func (ft *FT) SetCache(cache starform.ScriptCache)  { ft.cache = cache }
 func (ft *FT) SetLogger(logger starform.Logger)     { ft.logger = logger }
 
-func (ft *FT) RequireSafety(requiredSafety starlark.SafetyFlags) { ft.st.RequireSafety(requiredSafety) }
-func (ft *FT) SetMaxAllocs(maxAllocs int64)                      { ft.st.SetMaxAllocs(maxAllocs) }
-func (ft *FT) SetMaxSteps(maxSteps int64)                        { ft.st.SetMaxSteps(maxSteps) }
-
 func (ft *FT) MakeAppValue() starlark.Value {
 	value := internal.NewAppValue(ft.app)
 	value.Freeze()
 	return value
 }
-func (ft *FT) ST() *startest.ST { return ft.st }
 
 var ftSafe = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 func (ft *FT) RunString(code string) (ok bool) {
 	modules := []starform.Module{
 		assertModule,
-		&internal.SystemModule{
-			Module: &starlarkstruct.Module{
-				Name: "st",
-				Members: starlark.StringDict{
-					"st": ft.st,
-				},
-			},
-			Predeclared: true,
-		},
+		&ft.predecl,
 	}
 
 	if code = strings.TrimRight(code, " \t\r\n"); code == "" {
@@ -122,7 +104,7 @@ func (ft *FT) RunString(code string) (ok bool) {
 		return
 	}
 
-	ft.st.AddLocal("Reporter", ft.st) // Set starlarktest reporter outside of RunThread.
+	ft.AddLocal("Reporter", ft) // Set starlarktest reporter outside of RunThread.
 	ft.RunThread(func(thread *starlark.Thread) {
 		sources, err := starform.LoadDirSources(thread.Context(), &starform.LoadDirSourcesOptions{
 			Fs: fstest.MapFS{
@@ -137,17 +119,17 @@ func (ft *FT) RunString(code string) (ok bool) {
 		}
 
 		if err := set.LoadSources(thread.Context(), sources); err != nil {
-			ft.st.Error(err)
+			ft.Error(err)
 			return
 		}
 
 		if err := set.Handle(thread.Context(), ft.event); err != nil {
-			ft.st.Error(err)
+			ft.Error(err)
 			return
 		}
 	})
 
-	return ft.st.Failed()
+	return ft.Failed()
 }
 
 func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
@@ -161,11 +143,31 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 	}
 
 	rundata := &internal.Rundata{}
-	ft.st.SetParentContext(context.WithValue(ft.parentCtx, internal.RunDataLocalKey, rundata))
-	ft.st.RunThread(func(thread *starlark.Thread) {
+	ft.ST.SetParentContext(context.WithValue(ft.parentCtx, internal.RunDataLocalKey, rundata))
+	ft.ST.RunThread(func(thread *starlark.Thread) {
 		rundata.Thread = thread
 		rundata.Event = ft.event
 
 		fn(thread)
 	})
+}
+
+func (ft *FT) AddValue(name string, value starlark.Value) {
+	if value == nil {
+		ft.Errorf("AddValue expected a value: got %T", value)
+		return
+	}
+	if _, ok := ft.predecl.Module.Members[name]; ok {
+		ft.Errorf("AddValue: %s already defined", name)
+	}
+	ft.predecl.Module.Members[name] = value
+}
+
+func (ft *FT) AddBuiltin(name string, fn starlark.Value) {
+	builtin, ok := fn.(*starlark.Builtin)
+	if !ok {
+		ft.Errorf("AddBuiltin expected a builtin: got %v", fn)
+		return
+	}
+	ft.AddValue(builtin.Name(), builtin)
 }
