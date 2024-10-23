@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/starform/formtest"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
-	"github.com/canonical/starlark/startest"
 )
 
 func isStarlarkCancellation(err error) bool {
@@ -32,44 +32,52 @@ func TestEventSafeString(t *testing.T) {
 	})
 
 	t.Run("regular-operation", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		st.SetMaxSteps(int64(len(fmt.Sprintf("<Event %s>", eventName))))
-		st.RunThread(func(thread *starlark.Thread) {
-			event := &starform.EventObject{
-				Name: eventName,
-			}
-			for i := 0; i < st.N; i++ {
+		ft := formtest.From(t)
+		ft.SetApp(&starform.AppObject{
+			Name: "test",
+		})
+		ft.SetEvent(&starform.EventObject{
+			Name: eventName,
+		})
+		ft.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+		ft.SetMaxSteps(int64(len(fmt.Sprintf("<Event %s>", eventName))))
+		ft.RunThread(func(thread *starlark.Thread) {
+			event := starform.Event(thread)
+			for i := 0; i < ft.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
 				if err := event.SafeString(thread, sb); err != nil {
-					st.Error(err)
+					ft.Error(err)
 				}
 				if err := sb.Err(); err != nil {
-					st.Error(err)
+					ft.Error(err)
 				}
 				if err := thread.AddAllocs(starlark.StringTypeOverhead); err != nil {
-					st.Error(err)
+					ft.Error(err)
 				}
-				st.KeepAlive(sb.String())
+				ft.KeepAlive(sb.String())
 			}
 		})
 	})
 
 	t.Run("cancellation", func(t *testing.T) {
-		st := startest.From(t)
-		st.RequireSafety(starlark.TimeSafe)
-		st.SetMaxSteps(0)
-		st.RunThread(func(thread *starlark.Thread) {
+		ft := formtest.From(t)
+		ft.SetApp(&starform.AppObject{
+			Name: "test",
+		})
+		ft.SetEvent(&starform.EventObject{
+			Name: eventName,
+		})
+		ft.RequireSafety(starlark.TimeSafe)
+		ft.SetMaxSteps(0)
+		ft.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			event := &starform.EventObject{
-				Name: eventName,
-			}
-			for i := 0; i < st.N; i++ {
+			event := starform.Event(thread)
+			for i := 0; i < ft.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
 				if err := event.SafeString(thread, sb); err == nil {
-					st.Error("expected cancellation")
+					ft.Error("expected cancellation")
 				} else if !isStarlarkCancellation(err) {
-					st.Errorf("expected cancellation, got %v", err)
+					ft.Errorf("expected cancellation, got %v", err)
 				}
 			}
 		})
@@ -83,7 +91,6 @@ func TestEventObjectSafeAttr(t *testing.T) {
 			"foo": starlark.String("bar"),
 		},
 	}
-	event.Freeze()
 
 	attrNames := event.AttrNames()
 	if len(attrNames) != len(event.Attrs)+1 {
@@ -93,31 +100,39 @@ func TestEventObjectSafeAttr(t *testing.T) {
 	for _, attrName := range attrNames {
 		t.Run(attrName, func(t *testing.T) {
 			t.Run("allocs-steps-io-safety", func(t *testing.T) {
-				st := startest.From(t)
-				st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-				st.SetMaxSteps(0)
-				st.RunThread(func(thread *starlark.Thread) {
-					for i := 0; i < st.N; i++ {
+				ft := formtest.From(t)
+				ft.SetApp(&starform.AppObject{
+					Name: "test",
+				})
+				ft.SetEvent(event)
+				ft.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+				ft.SetMaxSteps(0)
+				ft.RunThread(func(thread *starlark.Thread) {
+					for i := 0; i < ft.N; i++ {
 						result, err := event.SafeAttr(thread, attrName)
 						if err != nil {
-							st.Error(err)
+							ft.Error(err)
 						}
-						st.KeepAlive(result)
+						ft.KeepAlive(result)
 					}
 				})
 			})
 		})
 
 		t.Run("cancellaton", func(t *testing.T) {
-			st := startest.From(t)
-			st.RequireSafety(starlark.TimeSafe)
-			st.SetMaxSteps(0)
-			st.RunThread(func(thread *starlark.Thread) {
+			ft := formtest.From(t)
+			ft.RequireSafety(starlark.TimeSafe)
+			ft.SetMaxSteps(0)
+			ft.SetApp(&starform.AppObject{
+				Name: "test",
+			})
+			ft.SetEvent(&starform.EventObject{})
+			ft.RunThread(func(thread *starlark.Thread) {
 				thread.Cancel("done")
-				for i := 0; i < st.N; i++ {
+				for i := 0; i < ft.N; i++ {
 					_, err := event.SafeAttr(thread, attrName)
 					if err != nil && !isStarlarkCancellation(err) {
-						st.Error(err)
+						ft.Error(err)
 					}
 				}
 			})

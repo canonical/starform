@@ -1,21 +1,12 @@
 package starform
 
 import (
-	"github.com/canonical/starform/internal"
 	"github.com/canonical/starlark/starlark"
 )
 
 type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
-
-// FIXME: remove this
-func SetEventObject(thread *starlark.Thread, data *EventObject) {
-	thread.SetLocal(internal.RunDataLocalKey, &internal.Rundata{
-		Thread: thread,
-		Event:  data,
-	})
-}
 
 var PrintBuiltin = printBuiltin
 var DebugBuiltin = debugBuiltin

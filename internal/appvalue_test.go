@@ -118,13 +118,13 @@ func TestAppValueSafeAttr(t *testing.T) {
 
 	t.Run("allocs-steps-io", func(t *testing.T) {
 		ft := formtest.From(t)
-		ft.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
-		ft.SetMaxSteps(0)
 		ft.SetApp(app)
 		ft.SetEvent(&starform.EventObject{
 			Name:  internal.LoadEventName,
 			State: &internal.InitState{},
 		})
+		ft.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
+		ft.SetMaxSteps(0)
 		ft.RunThread(func(thread *starlark.Thread) {
 			appValue := ft.MakeAppValue()
 			for i := 0; i < ft.N; i++ {
@@ -139,13 +139,13 @@ func TestAppValueSafeAttr(t *testing.T) {
 
 	t.Run("cancellaton", func(t *testing.T) {
 		ft := formtest.From(t)
-		ft.RequireSafety(starlark.TimeSafe)
-		ft.SetMaxSteps(0)
 		ft.SetApp(app)
 		ft.SetEvent(&starform.EventObject{
 			Name:  internal.LoadEventName,
 			State: &internal.InitState{},
 		})
+		ft.RequireSafety(starlark.TimeSafe)
+		ft.SetMaxSteps(0)
 		ft.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
 			appValue := ft.MakeAppValue()
