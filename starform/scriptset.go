@@ -392,8 +392,6 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	thread := getContextThread(ctx)
 	if thread == nil {
 		thread = makeThread(ctx, ss.options)
-		stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-		defer stop()
 		defer thread.Cancel("done")
 	}
 	setEvent(thread, event)
