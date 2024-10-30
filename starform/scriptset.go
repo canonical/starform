@@ -42,7 +42,7 @@ var starlarkDialect = syntax.FileOptions{
 	While:           false,
 	TopLevelControl: false,
 	GlobalReassign:  false,
-	Recursion:       false,
+	Recursion:       true,
 }
 
 type scriptStatus int
@@ -149,10 +149,15 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	thread := makeThread(ss.options, event)
-	defer thread.Cancel("done")
-	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer stop()
+	thread := getContextThread(ctx)
+	if thread == nil {
+		thread = makeThread(ctx, ss.options)
+		defer thread.Cancel("done")
+	} else {
+		event := Event(thread)
+		defer setEventObject(thread, event)
+	}
+	setEventObject(thread, event)
 
 	loadDir := "." // Directory where the load is being made from.
 	loadDirStack := []string{}
@@ -383,10 +388,16 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		return nil
 	}
 
-	thread := makeThread(ss.options, event)
-	stop := afterFunc(ctx, func() { thread.Cancel("operation cancelled") })
-	defer stop()
-	defer thread.Cancel("done")
+	thread := getContextThread(ctx)
+	if thread == nil {
+		thread = makeThread(ctx, ss.options)
+		defer thread.Cancel("done")
+	} else {
+		event := Event(thread)
+		defer setEventObject(thread, event)
+	}
+	setEventObject(thread, event)
+
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{event}, nil)
 		if err != nil {
@@ -396,12 +407,29 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions, event *EventObject) *starlark.Thread {
-	thread := &starlark.Thread{}
-	thread.Print = func(thread *starlark.Thread, msg string) {}
+func getContextThread(ctx context.Context) *starlark.Thread {
+	storage, ok := ctx.Value(eventObjectLocalKey).(*eventObjectStorage)
+	if !ok {
+		return nil
+	}
+	return storage.Thread
+}
+
+func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
+	thread := &starlark.Thread{
+		Print: func(thread *starlark.Thread, msg string) {},
+	}
+	thread.SetParentContext(ctx)
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(eventObjectLocalKey, event)
+	thread.SetLocal(eventObjectLocalKey, &eventObjectStorage{
+		Thread: thread,
+	})
 	return thread
+}
+
+func setEventObject(thread *starlark.Thread, event *EventObject) {
+	storage := thread.Local(eventObjectLocalKey).(*eventObjectStorage)
+	storage.Event = event
 }

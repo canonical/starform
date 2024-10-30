@@ -11,6 +11,15 @@ const loadEventName = "<load>"
 // eventObjectLocalKey must have the same value as formtest.eventObjectLocalKey
 const eventObjectLocalKey = "starform-event-object"
 
+// eventObjectStorage is used as an indirection to store the event
+// object in the thread locals, so that the event can be modified.
+// This type must remain an unnamed type and must be kept in
+// sync with formtest.eventObjectStorage.
+type eventObjectStorage = struct {
+	Event  *EventObject
+	Thread *starlark.Thread
+}
+
 type EventObject struct {
 	Name string
 
@@ -79,9 +88,9 @@ type initState struct {
 }
 
 func Event(thread *starlark.Thread) *EventObject {
-	ret, ok := thread.Local(eventObjectLocalKey).(*EventObject)
+	storage, ok := thread.Local(eventObjectLocalKey).(*eventObjectStorage)
 	if !ok {
 		return &EventObject{} // Avoid panics.
 	}
-	return ret
+	return storage.Event
 }

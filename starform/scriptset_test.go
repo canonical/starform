@@ -1711,3 +1711,74 @@ func TestEventState(t *testing.T) {
 		}
 	}
 }
+
+func TestRecursiveEvent(t *testing.T) {
+	handle := starlark.NewBuiltin("handle", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+		var eventName string
+		var n starlark.Int
+		if err := starlark.UnpackPositionalArgs("handle", args, kwargs, 2, &eventName, &n); err != nil {
+			return nil, err
+		}
+
+		event := starform.Event(thread)
+		set := event.State.(*starform.ScriptSet)
+		err := set.Handle(thread.Context(), &starform.EventObject{
+			Name:  eventName,
+			State: event.State,
+			Attrs: starlark.StringDict{
+				"n": n,
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if event != starform.Event(thread) {
+			return nil, fmt.Errorf("parent event not restored after recursion")
+		}
+
+		return starlark.None, nil
+	})
+
+	set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+		App: &starform.AppObject{
+			Name:    "test",
+			Methods: []*starlark.Builtin{handle},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				test.observe('even', on_even)
+				test.observe('odd', on_odd)
+
+			def on_even(event):
+				if (event.n % 2) != 0:
+					fail("expected even number, got", event.n)
+				if event.n > 0:
+					test.handle('odd', event.n-1)
+
+			def on_odd(event):
+				if (event.n % 2) == 0:
+					fail("expected odd number, got", event.n)
+				if event.n > 0:
+					test.handle('even', event.n-1)
+		`,
+	}})
+
+	err = set.Handle(context.Background(), &starform.EventObject{
+		Name:  "even",
+		State: set,
+		Attrs: starlark.StringDict{
+			"n": starlark.MakeInt(100),
+		},
+	})
+	if err != nil {
+		t.Error(err)
+	}
+}
