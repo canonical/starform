@@ -873,17 +873,16 @@ func TestCachedRelativeLoads(t *testing.T) {
 		},
 	}
 
-	app := &starform.AppObject{
-		Name: "test",
-	}
-	load := func(cache starform.ScriptCache, sources []starform.ScriptSource) (string, error) {
+	getLoadLog := func(cache starform.ScriptCache, sources []starform.ScriptSource) (string, error) {
 		logger := &testLogger{
 			format: func(le starform.LogEntry) string {
 				return fmt.Sprintf("[%s]: %s\n", le.Path, le.Message)
 			},
 		}
 		opts := &starform.ScriptSetOptions{
-			App:    app,
+			App: &starform.AppObject{
+				Name: "test",
+			},
 			Cache:  cache,
 			Logger: logger,
 		}
@@ -899,15 +898,22 @@ func TestCachedRelativeLoads(t *testing.T) {
 	}
 
 	cache := &testScriptCache{}
-	if _, err := load(cache, setASources); err != nil {
+	if _, err := getLoadLog(cache, setASources); err != nil {
 		t.Fatal(err)
 	}
 
-	const expectedLogB = "[ccc.star]: ccc.star:\n[aaa/bbb/bbb.star]: aaa/bbb/bbb.star: ccc.star\n[aaa/aaa.star]: aaa/aaa.star: aaa/bbb/bbb.star ccc.star\n"
-	if actualLog, err := load(cache, setBSources); err != nil {
+	expectedLogB, err := startest.Reindent(`
+		[ccc.star]: ccc.star:
+		[aaa/bbb/bbb.star]: aaa/bbb/bbb.star: ccc.star
+		[aaa/aaa.star]: aaa/aaa.star: aaa/bbb/bbb.star ccc.star`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actualLogB, err := getLoadLog(cache, setBSources); err != nil {
 		t.Error(err)
-	} else if actualLog != expectedLogB {
-		t.Errorf("incorrect log: expected %q but got %q", expectedLogB, actualLog)
+	} else if actualLogB != expectedLogB {
+		t.Errorf("incorrect log: expected %q but got %q", expectedLogB, actualLogB)
 	}
 
 	if expectedMisses := len(setASources) + len(setBSources) - 1; int(cache.Misses) != expectedMisses {
