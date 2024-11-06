@@ -10,22 +10,22 @@ import (
 	"github.com/canonical/starlark/starlarkstruct"
 )
 
-type testModule struct {
+type customTestModule struct {
 	name    string
 	members starlark.StringDict
 }
 
-func (tm *testModule) Name() string                 { return tm.name }
-func (tm *testModule) Members() starlark.StringDict { return tm.members }
+func (ctm *customTestModule) Name() string                 { return ctm.name }
+func (ctm *customTestModule) Members() starlark.StringDict { return ctm.members }
 
 func TestModules(t *testing.T) {
 	app := &starform.AppObject{
 		Name: "test",
 	}
-	fooModule := &starlarkstruct.Module{
-		Name: "foo",
+	testModule := &starlarkstruct.Module{
+		Name: "test_module",
 		Members: starlark.StringDict{
-			"bar": starlark.String("baz"),
+			"module_value": starlark.String("foo"),
 		},
 	}
 
@@ -33,7 +33,7 @@ func TestModules(t *testing.T) {
 		set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 			App: app,
 			Modules: []starform.Module{&internal.SystemModule{
-				Module: fooModule,
+				Module: testModule,
 			}},
 		})
 		if err != nil {
@@ -44,11 +44,11 @@ func TestModules(t *testing.T) {
 			&testScriptSource{
 				name: "test.star",
 				content: `
-					load('foo', 'bar')
+					load('test_module', 'module_value')
 
 					def init():
-						if bar != 'baz':
-							fail('foo has incorrect bar field: expected %r, got %r', 'baz', bar)
+						if module_value != 'foo':
+							fail('test_module has incorrect module_value field: expected %r, got %r' % ('foo', module_value))
 				`,
 			},
 		})
@@ -61,7 +61,7 @@ func TestModules(t *testing.T) {
 		set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 			App: app,
 			Modules: []starform.Module{&internal.SystemModule{
-				Module:      fooModule,
+				Module:      testModule,
 				Predeclared: true,
 			}},
 		})
@@ -74,8 +74,8 @@ func TestModules(t *testing.T) {
 				name: "test.star",
 				content: `
 					def init():
-						if bar != 'baz':
-							fail('foo has incorrect bar field: expected %r, got %r', 'baz', bar)
+						if module_value != 'foo':
+							fail('test_module has incorrect module_value field: expected %r, got %r' % ('foo', module_value))
 				`,
 			},
 		})
@@ -87,7 +87,7 @@ func TestModules(t *testing.T) {
 			&testScriptSource{
 				name: "test.star",
 				content: `
-					load('foo', 'bar')
+					load('test_module', 'module_value')
 				`,
 			},
 		})
@@ -99,9 +99,9 @@ func TestModules(t *testing.T) {
 	t.Run("valid-custom", func(t *testing.T) {
 		set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 			App: app,
-			Modules: []starform.Module{&testModule{
-				name:    "test/foo",
-				members: fooModule.Members,
+			Modules: []starform.Module{&customTestModule{
+				name:    "test/test_module",
+				members: testModule.Members,
 			}},
 		})
 		if err != nil {
@@ -112,11 +112,11 @@ func TestModules(t *testing.T) {
 			&testScriptSource{
 				name: "test.star",
 				content: `
-					load('test/foo', 'bar')
+					load('test/test_module', 'module_value')
 
 					def init():
-						if bar != 'baz':
-							fail("expected 'baz', got: ", bar)
+						if module_value != 'foo':
+							fail("expected %r, got %r" % ('foo', module_value))
 				`,
 			},
 		})
@@ -145,7 +145,7 @@ func TestModules(t *testing.T) {
 					App: &starform.AppObject{
 						Name: "test",
 					},
-					Modules: []starform.Module{&testModule{
+					Modules: []starform.Module{&customTestModule{
 						name:    test.moduleName,
 						members: starlark.StringDict{},
 					}},
