@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/canonical/starform/internal"
+	systemmodule "github.com/canonical/starform/internal/module"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
@@ -91,7 +91,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	modules := make(map[string]Module)
 	predeclared := make(starlark.StringDict)
 	for _, module := range options.Modules {
-		systemModule, isSystemModule := module.(*internal.SystemModule)
+		systemModule, isSystemModule := module.(*systemmodule.SystemModule)
 		if isSystemModule && systemModule.Predeclared {
 			for name, value := range module.Members() {
 				predeclared[name] = value
@@ -155,7 +155,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	defer stop()
 	thread.Load = func(thread *starlark.Thread, path string) (starlark.StringDict, error) {
 		if module, ok := ss.modules[path]; ok {
-			systemModule, isSystemModule := module.(*internal.SystemModule)
+			systemModule, isSystemModule := module.(*systemmodule.SystemModule)
 			if !isSystemModule || !systemModule.Predeclared {
 				return module.Members(), nil
 			}
