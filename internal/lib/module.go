@@ -1,4 +1,4 @@
-package module
+package lib
 
 import (
 	"github.com/canonical/starlark/starlark"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/canonical/starform/internal/module"
+	"github.com/canonical/starform/internal/lib"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -32,7 +32,7 @@ func TestModules(t *testing.T) {
 	t.Run("loadable", func(t *testing.T) {
 		set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 			App: app,
-			Modules: []starform.Module{&module.SystemModule{
+			Modules: []starform.Module{&lib.SystemModule{
 				Module: testModule,
 			}},
 		})
@@ -60,7 +60,7 @@ func TestModules(t *testing.T) {
 	t.Run("predeclared", func(t *testing.T) {
 		set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 			App: app,
-			Modules: []starform.Module{&module.SystemModule{
+			Modules: []starform.Module{&lib.SystemModule{
 				Module:      testModule,
 				Predeclared: true,
 			}},
