@@ -1,12 +1,12 @@
 package starform
 
 import (
-	"github.com/canonical/starform/internal"
+	"github.com/canonical/starform/internal/lib"
 	"github.com/canonical/starlark/starlark"
 )
 
-type EventObject = internal.EventObject
+type EventObject = lib.EventObject
 
 func Event(thread *starlark.Thread) *EventObject {
-	return internal.Event(thread)
+	return lib.Event(thread)
 }

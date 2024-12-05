@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/canonical/starform/internal"
+	"github.com/canonical/starform/internal/lib"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -1346,22 +1346,22 @@ func TestLog(t *testing.T) {
 	`
 	expectedEntries := []starform.LogEntry{{
 		Level:     starform.PrintLevel,
-		EventName: internal.LoadEventName,
+		EventName: lib.LoadEventName,
 		Message:   "print at toplevel",
 		Line:      10,
 	}, {
 		Level:     starform.DebugLevel,
-		EventName: internal.LoadEventName,
+		EventName: lib.LoadEventName,
 		Message:   "debug at toplevel",
 		Line:      11,
 	}, {
 		Level:     starform.PrintLevel,
-		EventName: internal.LoadEventName,
+		EventName: lib.LoadEventName,
 		Message:   "print in init",
 		Line:      3,
 	}, {
 		Level:     starform.DebugLevel,
-		EventName: internal.LoadEventName,
+		EventName: lib.LoadEventName,
 		Message:   "debug in init",
 		Line:      4,
 	}, {

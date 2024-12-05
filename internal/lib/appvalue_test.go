@@ -1,4 +1,4 @@
-package internal_test
+package lib_test
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/canonical/starform/formtest"
-	"github.com/canonical/starform/internal"
+	"github.com/canonical/starform/internal/lib"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -27,7 +27,7 @@ func TestAppAsStarlarkValue(t *testing.T) {
 	app := &starform.AppObject{
 		Name: appName,
 	}
-	appValue := internal.NewAppValue(app)
+	appValue := lib.NewAppValue(app)
 	appValue.Freeze()
 
 	if !bool(appValue.Truth()) {
@@ -57,7 +57,7 @@ func TestAppValueSafeString(t *testing.T) {
 		app := &starform.AppObject{
 			Name: appName,
 		}
-		appValue := internal.NewAppValue(app)
+		appValue := lib.NewAppValue(app)
 		appValue.Freeze()
 		sb := &strings.Builder{}
 		appValue.SafeString(nil, sb)
@@ -71,7 +71,7 @@ func TestAppValueSafeString(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(int64(len(fmt.Sprintf("<app %s>", appName))))
 		st.RunThread(func(thread *starlark.Thread) {
-			appValue := internal.NewAppValue(&starform.AppObject{
+			appValue := lib.NewAppValue(&starform.AppObject{
 				Name: appName,
 			})
 			for i := 0; i < st.N; i++ {
@@ -96,7 +96,7 @@ func TestAppValueSafeString(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			appValue := internal.NewAppValue(&starform.AppObject{
+			appValue := lib.NewAppValue(&starform.AppObject{
 				Name: appName,
 			})
 			for i := 0; i < st.N; i++ {
@@ -120,8 +120,8 @@ func TestAppValueSafeAttr(t *testing.T) {
 		ft := formtest.From(t)
 		ft.SetApp(app)
 		ft.SetEvent(&starform.EventObject{
-			Name:  internal.LoadEventName,
-			State: &internal.InitState{},
+			Name:  lib.LoadEventName,
+			State: &lib.InitState{},
 		})
 		ft.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		ft.SetMaxSteps(0)
@@ -141,8 +141,8 @@ func TestAppValueSafeAttr(t *testing.T) {
 		ft := formtest.From(t)
 		ft.SetApp(app)
 		ft.SetEvent(&starform.EventObject{
-			Name:  internal.LoadEventName,
-			State: &internal.InitState{},
+			Name:  lib.LoadEventName,
+			State: &lib.InitState{},
 		})
 		ft.RequireSafety(starlark.TimeSafe)
 		ft.SetMaxSteps(0)
@@ -200,7 +200,7 @@ func TestAppValueAttrNames(t *testing.T) {
 				Name:    "test",
 				Methods: test.inputMethods,
 			}
-			appValue := internal.NewAppValue(app)
+			appValue := lib.NewAppValue(app)
 			appValue.Freeze()
 
 			attrNames := appValue.AttrNames()
@@ -230,8 +230,8 @@ func TestAppValueObserveSafety(t *testing.T) {
 		ft := formtest.From(t)
 		ft.SetApp(app)
 		ft.SetEvent(&starform.EventObject{
-			Name:  internal.LoadEventName,
-			State: &internal.InitState{},
+			Name:  lib.LoadEventName,
+			State: &lib.InitState{},
 		})
 		ft.RunString(fmt.Sprintf(`
 			def init():
@@ -239,15 +239,15 @@ func TestAppValueObserveSafety(t *testing.T) {
 
 			def on_load(event):
 				assert.eq(test.observe('foo', lambda x: x), None)
-		`, internal.LoadEventName))
+		`, lib.LoadEventName))
 	})
 
 	t.Run("allocs-steps-io-safety", func(t *testing.T) {
 		ft := formtest.From(t)
 		ft.SetApp(app)
 		ft.SetEvent(&starform.EventObject{
-			Name:  internal.LoadEventName,
-			State: &internal.InitState{},
+			Name:  lib.LoadEventName,
+			State: &lib.InitState{},
 		})
 		ft.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		ft.SetMaxSteps(1)
@@ -273,8 +273,8 @@ func TestAppValueObserveSafety(t *testing.T) {
 		ft := formtest.From(t)
 		ft.SetApp(app)
 		ft.SetEvent(&starform.EventObject{
-			Name:  internal.LoadEventName,
-			State: &internal.InitState{},
+			Name:  lib.LoadEventName,
+			State: &lib.InitState{},
 		})
 		ft.RequireSafety(starlark.TimeSafe)
 		ft.SetMaxSteps(0)

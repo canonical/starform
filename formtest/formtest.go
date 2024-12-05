@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing/fstest"
 
-	"github.com/canonical/starform/internal"
+	"github.com/canonical/starform/internal/lib"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -20,7 +20,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	assertModule = &internal.SystemModule{
+	assertModule = &lib.SystemModule{
 		Module: &starlarkstruct.Module{
 			Name:    "assert",
 			Members: assertMembers,
@@ -39,7 +39,7 @@ type FT struct {
 	app       *starform.AppObject
 	cache     starform.ScriptCache
 	logger    starform.Logger
-	predecl   internal.SystemModule
+	predecl   lib.SystemModule
 }
 
 func From(base TestBase) *FT {
@@ -52,7 +52,7 @@ func From(base TestBase) *FT {
 		ST:        st,
 		parentCtx: context.Background(),
 	}
-	ft.predecl = internal.SystemModule{
+	ft.predecl = lib.SystemModule{
 		Module: &starlarkstruct.Module{
 			Name: "ft",
 			Members: starlark.StringDict{
@@ -71,7 +71,7 @@ func (ft *FT) SetCache(cache starform.ScriptCache)  { ft.cache = cache }
 func (ft *FT) SetLogger(logger starform.Logger)     { ft.logger = logger }
 
 func (ft *FT) MakeAppValue() starlark.Value {
-	value := internal.NewAppValue(ft.app)
+	value := lib.NewAppValue(ft.app)
 	value.Freeze()
 	return value
 }
@@ -142,8 +142,8 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 		return
 	}
 
-	rundata := &internal.Rundata{}
-	ft.ST.SetParentContext(context.WithValue(ft.parentCtx, internal.RunDataLocalKey, rundata))
+	rundata := &lib.Rundata{}
+	ft.ST.SetParentContext(context.WithValue(ft.parentCtx, lib.RunDataLocalKey, rundata))
 	ft.ST.RunThread(func(thread *starlark.Thread) {
 		rundata.Thread = thread
 		rundata.Event = ft.event
