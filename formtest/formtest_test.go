@@ -65,7 +65,7 @@ func foo_add_intent(thread *starlark.Thread, fn *starlark.Builtin, args starlark
 	return starlark.None, nil
 }
 
-func TestExampleRunStringForFunctionality(t *testing.T) {
+func TestExampleRunStringFunctionality(t *testing.T) {
 	ft := formtest.From(t)
 	ft.SetApp(app)
 	ft.SetEvent(&starform.EventObject{
@@ -82,7 +82,7 @@ func TestExampleRunStringForFunctionality(t *testing.T) {
 	`)
 }
 
-func TestExampleRunStringForAllocs(t *testing.T) {
+func TestExampleRunStringAllocs(t *testing.T) {
 	ft := formtest.From(t)
 	ft.SetApp(app)
 	ft.SetEvent(&starform.EventObject{
@@ -100,7 +100,7 @@ func TestExampleRunStringForAllocs(t *testing.T) {
 	`)
 }
 
-func TestExampleRunThreadForFunctionality(t *testing.T) {
+func TestExampleRunThreadFunctionality(t *testing.T) {
 	fooState := &FooState{}
 
 	ft := formtest.From(t)
@@ -130,7 +130,7 @@ func TestExampleRunThreadForFunctionality(t *testing.T) {
 	})
 }
 
-func TestExampleRunThreadForAllocs(t *testing.T) {
+func TestExampleRunThreadAllocs(t *testing.T) {
 	ft := formtest.From(t)
 	ft.SetApp(app)
 	ft.SetEvent(&starform.EventObject{
