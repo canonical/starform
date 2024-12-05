@@ -16,9 +16,6 @@ func Event(thread *starlark.Thread) *EventObject {
 	if !ok {
 		return &EventObject{} // Avoid panics.
 	}
-	// if ret.Thread == nil {
-	// 	ret.Thread = thread
-	// }
 	return ret.Event
 }
 

@@ -33,7 +33,7 @@ var app = &starform.AppObject{
 	Name: "bar",
 
 	Methods: []*starlark.Builtin{
-		starlark.NewBuiltinWithSafety("add_intent", addIntentSafety, foo_add_intent),
+		starlark.NewBuiltinWithSafety("add_intent", addIntentSafety, bar_add_intent),
 	},
 }
 
@@ -44,7 +44,7 @@ type Intent struct {
 	padding [1024]byte // Simulate other fields.
 }
 
-func foo_add_intent(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func bar_add_intent(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 	event := starform.Event(thread)
 	if event.Name != "foo" {
 		return nil, starform.ErrUnavailable
