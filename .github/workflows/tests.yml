@@ -16,4 +16,8 @@ jobs:
         uses: actions/checkout@v3
       - name: Run Tests
         shell: bash
-        run: 'internal/test.sh'
+        run: |
+          set -eu
+
+          git config --global url."ssh://git@github.com/".insteadOf https://github.com/
+          GOPRIVATE=github.com/canonical/starlark go test ./...

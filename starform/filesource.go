@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"strings"
 )
 
 type fileSource struct {
@@ -49,10 +48,7 @@ func LoadDirSources(ctx context.Context, options *LoadDirSourcesOptions) ([]Scri
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if !strings.HasSuffix(path, ".star") {
-			return nil
-		}
-		if err := checkLoadPath(path); err != nil {
+		if _, err := sanitiseLoadPath(".", path); err != nil {
 			return nil
 		}
 		if !d.Type().IsRegular() {
