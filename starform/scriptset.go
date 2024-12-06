@@ -11,13 +11,14 @@ import (
 	"strings"
 
 	"github.com/canonical/starform/internal/lib"
+	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
 
 type ScriptSet struct {
 	options        *ScriptSetOptions
-	appValue       *lib.AppValue
+	appValue       *userdata.AppValue
 	modules        map[string]Module
 	predeclared    starlark.StringDict
 	eventObservers map[string][]starlark.Callable
@@ -114,7 +115,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		modules[module.Name()] = module
 	}
 
-	appValue := lib.NewAppValue(options.App)
+	appValue := userdata.NewAppValue(options.App)
 	appValue.Freeze()
 
 	return &ScriptSet{
@@ -145,7 +146,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	})
 
 	event := &EventObject{
-		Name:  lib.LoadEventName,
+		Name:  userdata.LoadEventName,
 		State: nil,
 	}
 
@@ -209,7 +210,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		popd()
 	}
 
-	state := &lib.InitState{
+	state := &userdata.InitState{
 		EventObservers: make(map[string][]starlark.Callable),
 	}
 	event.State = state
@@ -284,7 +285,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 					ss.options.Logger.Log(ctx, LogEntry{
 						Message:   fmt.Sprintf("cannot put %s into cache: %v", path, err),
 						Level:     DebugLevel,
-						EventName: lib.LoadEventName,
+						EventName: userdata.LoadEventName,
 					})
 				}
 			}
@@ -407,7 +408,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 
 // getContextThread gets the thread from the context or returns nil.
 func getContextThread(ctx context.Context) *starlark.Thread {
-	rundata, ok := ctx.Value(lib.RunDataLocalKey).(*lib.Rundata)
+	rundata, ok := ctx.Value(userdata.RunDataLocalKey).(*userdata.Rundata)
 	if !ok {
 		return nil
 	}
@@ -422,13 +423,13 @@ func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(lib.RunDataLocalKey, &lib.Rundata{
+	thread.SetLocal(userdata.RunDataLocalKey, &userdata.Rundata{
 		Thread: thread,
 	})
 	return thread
 }
 
 func setEvent(thread *starlark.Thread, event *EventObject) {
-	rundata := thread.Context().Value(lib.RunDataLocalKey).(*lib.Rundata)
+	rundata := thread.Context().Value(userdata.RunDataLocalKey).(*userdata.Rundata)
 	rundata.Event = event
 }

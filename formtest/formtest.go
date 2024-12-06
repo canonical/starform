@@ -6,6 +6,7 @@ import (
 	"testing/fstest"
 
 	"github.com/canonical/starform/internal/lib"
+	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -71,7 +72,7 @@ func (ft *FT) SetCache(cache starform.ScriptCache)  { ft.cache = cache }
 func (ft *FT) SetLogger(logger starform.Logger)     { ft.logger = logger }
 
 func (ft *FT) MakeAppValue() starlark.Value {
-	value := lib.NewAppValue(ft.app)
+	value := userdata.NewAppValue(ft.app)
 	value.Freeze()
 	return value
 }
@@ -142,8 +143,8 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 		return
 	}
 
-	rundata := &lib.Rundata{}
-	ft.ST.SetParentContext(context.WithValue(ft.parentCtx, lib.RunDataLocalKey, rundata))
+	rundata := &userdata.Rundata{}
+	ft.ST.SetParentContext(context.WithValue(ft.parentCtx, userdata.RunDataLocalKey, rundata))
 	ft.ST.RunThread(func(thread *starlark.Thread) {
 		rundata.Thread = thread
 		rundata.Event = ft.event

@@ -1,4 +1,4 @@
-package lib
+package userdata
 
 import (
 	"github.com/canonical/starlark/starlark"
