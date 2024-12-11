@@ -11,13 +11,14 @@ import (
 	"strings"
 
 	"github.com/canonical/starform/internal/lib"
+	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
 
 type ScriptSet struct {
 	options        *ScriptSetOptions
-	appValue       *appValue
+	appValue       *userdata.AppValue
 	modules        map[string]Module
 	predeclared    starlark.StringDict
 	eventObservers map[string][]starlark.Callable
@@ -29,7 +30,7 @@ type ScriptSource interface {
 }
 
 type ScriptSetOptions struct {
-	App                 *AppObject
+	App                 *userdata.AppObject
 	Cache               ScriptCache
 	Logger              Logger
 	RequiredSafety      starlark.SafetyFlags

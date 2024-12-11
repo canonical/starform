@@ -1,4 +1,4 @@
-package starform_test
+package userdata_test
 
 import (
 	"fmt"

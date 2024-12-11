@@ -1,4 +1,4 @@
-package starform
+package userdata
 
 import (
 	"errors"
@@ -18,7 +18,7 @@ type AppObject struct {
 
 var ErrUnavailable = errors.New("unavailable")
 
-func (app *AppObject) value() *appValue {
+func (app *AppObject) value() *AppValue {
 	attrNames := make([]string, 0, len(app.Methods))
 	customMethods := make(map[string]*starlark.Builtin, len(app.Methods))
 	for _, method := range app.Methods {
@@ -35,32 +35,32 @@ func (app *AppObject) value() *appValue {
 	}
 	sort.Strings(attrNames)
 
-	return &appValue{
+	return &AppValue{
 		name:          app.Name,
 		attrNames:     attrNames,
 		customMethods: customMethods,
 	}
 }
 
-// appValue is the global app value available in all scripts in a script set.
-type appValue struct {
+// AppValue is the global app value available in all scripts in a script set.
+type AppValue struct {
 	name          string
 	attrNames     []string
 	customMethods map[string]*starlark.Builtin
 }
 
-var _ starlark.Value = &appValue{}
-var _ starlark.SafeStringer = &appValue{}
-var _ starlark.HasSafeAttrs = &appValue{}
+var _ starlark.Value = &AppValue{}
+var _ starlark.SafeStringer = &AppValue{}
+var _ starlark.HasSafeAttrs = &AppValue{}
 
-func (app *appValue) String() string       { return fmt.Sprintf("<app %s>", app.name) }
-func (app *appValue) Type() string         { return "App" }
-func (app *appValue) Freeze()              {}
-func (app *appValue) Truth() starlark.Bool { return true }
-func (app *appValue) Hash() (uint32, error) {
+func (app *AppValue) String() string       { return fmt.Sprintf("<app %s>", app.name) }
+func (app *AppValue) Type() string         { return "App" }
+func (app *AppValue) Freeze()              {}
+func (app *AppValue) Truth() starlark.Bool { return true }
+func (app *AppValue) Hash() (uint32, error) {
 	return 0, fmt.Errorf("unhashable type: %s", app.Type())
 }
-func (app *appValue) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
+func (app *AppValue) SafeString(thread *starlark.Thread, sb starlark.StringBuilder) error {
 	const safety = starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe | starlark.TimeSafe
 	if err := starlark.CheckSafety(thread, safety); err != nil {
 		return err
@@ -70,15 +70,15 @@ func (app *appValue) SafeString(thread *starlark.Thread, sb starlark.StringBuild
 	return err
 }
 
-func (app *appValue) AttrNames() []string {
+func (app *AppValue) AttrNames() []string {
 	return app.attrNames
 }
 
-func (app *appValue) Attr(name string) (starlark.Value, error) {
+func (app *AppValue) Attr(name string) (starlark.Value, error) {
 	return app.SafeAttr(nil, name)
 }
 
-func (app *appValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
+func (app *AppValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Value, error) {
 	if thread == nil {
 		return nil, errors.New("cannot access app fields in unconstrained environment")
 	}
