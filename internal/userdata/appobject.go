@@ -98,11 +98,11 @@ func (app *AppValue) SafeAttr(thread *starlark.Thread, name string) (starlark.Va
 
 	event := Event(thread)
 	if methodIsCustom {
-		if event.Name == loadEventName {
+		if event.Name == LoadEventName {
 			return nil, ErrUnavailable
 		}
 	} else {
-		if event.Name != loadEventName || event.State == nil {
+		if event.Name != LoadEventName || event.State == nil {
 			// The observe method is only available during init so we can tell
 			// which events to be dispatched to the script. For now this is
 			// also enforced for all common methods since it's safer to force
@@ -132,7 +132,7 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 	}
 
 	event := Event(thread)
-	if event.Name != loadEventName {
+	if event.Name != LoadEventName {
 		return nil, ErrUnavailable
 	}
 

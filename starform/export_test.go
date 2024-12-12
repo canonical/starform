@@ -1,15 +1,18 @@
 package starform
 
-import "github.com/canonical/starlark/starlark"
+import (
+	"github.com/canonical/starform/internal/userdata"
+	"github.com/canonical/starlark/starlark"
+)
 
 type TestCacheBase struct{}
 
 func (*TestCacheBase) private() {}
 
-const LoadEventName = loadEventName
+const LoadEventName = userdata.LoadEventName
 
 func SetEventObject(thread *starlark.Thread, data *EventObject) {
-	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(userdata.EventObjectLocalKey, data)
 }
 
 func (app *AppObject) Value() starlark.HasSafeAttrs {

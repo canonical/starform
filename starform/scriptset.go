@@ -146,7 +146,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 	})
 
 	event := &EventObject{
-		Name:  loadEventName,
+		Name:  userdata.LoadEventName,
 		State: nil,
 	}
 
@@ -204,8 +204,8 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		popd()
 	}
 
-	state := &initState{
-		eventObservers: make(map[string][]starlark.Callable),
+	state := &userdata.InitState{
+		EventObservers: make(map[string][]starlark.Callable),
 	}
 	event.State = state
 	for _, script := range scripts {
@@ -279,7 +279,7 @@ func (ss *ScriptSet) compilePrograms(ctx context.Context, sources []ScriptSource
 					ss.options.Logger.Log(ctx, LogEntry{
 						Message:   fmt.Sprintf("cannot put %s into cache: %v", path, err),
 						Level:     DebugLevel,
-						EventName: loadEventName,
+						EventName: userdata.LoadEventName,
 					})
 				}
 			}
@@ -403,6 +403,6 @@ func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(eventObjectLocalKey, data)
+	thread.SetLocal(userdata.EventObjectLocalKey, data)
 	return thread
 }

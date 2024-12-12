@@ -6,7 +6,7 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-const loadEventName = "<load>"
+const LoadEventName = "<load>"
 const eventObjectLocalKey = "starform-event-object"
 
 type EventObject struct {
@@ -77,7 +77,7 @@ type initState struct {
 }
 
 func Event(thread *starlark.Thread) *EventObject {
-	ret, ok := thread.Local(eventObjectLocalKey).(*EventObject)
+	ret, ok := thread.Local(EventObjectLocalKey).(*EventObject)
 	if !ok {
 		return &EventObject{} // Avoid panics.
 	}
