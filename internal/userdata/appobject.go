@@ -136,15 +136,15 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 		return nil, ErrUnavailable
 	}
 
-	state, ok := event.State.(*initState)
+	state, ok := event.State.(*InitState)
 	if !ok {
 		return nil, errors.New("starform internal data missing")
 	}
 
-	observers, ok := state.eventObservers[eventName]
+	observers, ok := state.EventObservers[eventName]
 	if !ok {
-		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.eventObservers))
-		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.eventObservers))
+		newSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, 1+len(state.EventObservers))
+		oldSize := starlark.EstimateMakeSize(map[string][]starlark.Callable{}, len(state.EventObservers))
 		if err := thread.AddAllocs(newSize, -oldSize); err != nil {
 			return nil, err
 		}
@@ -153,7 +153,7 @@ func observe(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, 
 	if err := observersAppender.Append(observer); err != nil {
 		return nil, err
 	}
-	state.eventObservers[eventName] = observers
+	state.EventObservers[eventName] = observers
 
 	return starlark.None, nil
 }

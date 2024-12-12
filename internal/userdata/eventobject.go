@@ -7,7 +7,7 @@ import (
 )
 
 const LoadEventName = "<load>"
-const eventObjectLocalKey = "starform-event-object"
+const EventObjectLocalKey = "starform-event-object"
 
 type EventObject struct {
 	Name string
@@ -72,8 +72,8 @@ func (e *EventObject) SafeAttr(thread *starlark.Thread, name string) (starlark.V
 	return starlark.String(e.Name), nil
 }
 
-type initState struct {
-	eventObservers map[string][]starlark.Callable
+type InitState struct {
+	EventObservers map[string][]starlark.Callable
 }
 
 func Event(thread *starlark.Thread) *EventObject {

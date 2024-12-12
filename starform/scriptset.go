@@ -222,12 +222,12 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	for _, observers := range state.eventObservers {
+	for _, observers := range state.EventObservers {
 		for _, observer := range observers {
 			observer.Freeze()
 		}
 	}
-	ss.eventObservers = state.eventObservers
+	ss.eventObservers = state.EventObservers
 
 	return nil
 }
