@@ -15,13 +15,12 @@ func SetEventObject(thread *starlark.Thread, data *EventObject) {
 	thread.SetLocal(userdata.EventObjectLocalKey, data)
 }
 
-func (app *AppObject) Value() starlark.HasSafeAttrs {
-	return app.value()
-}
-
-func InitState() interface{} {
-	return &initState{
-		eventObservers: make(map[string][]starlark.Callable),
+func NewInitEvent() *EventObject {
+	return &EventObject{
+		Name: userdata.LoadEventName,
+		State: &userdata.InitState{
+			EventObservers: map[string][]starlark.Callable{},
+		},
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -25,7 +26,7 @@ func TestAppAsStarlarkValue(t *testing.T) {
 	app := &starform.AppObject{
 		Name: appName,
 	}
-	appValue := app.Value()
+	appValue := userdata.NewAppValue(app)
 	appValue.Freeze()
 
 	if !bool(appValue.Truth()) {
@@ -55,10 +56,10 @@ func TestAppSafeString(t *testing.T) {
 		app := &starform.AppObject{
 			Name: appName,
 		}
-		appValue := app.Value()
+		appValue := userdata.NewAppValue(app)
 		appValue.Freeze()
 		sb := &strings.Builder{}
-		appValue.(starlark.SafeStringer).SafeString(nil, sb)
+		appValue.SafeString(nil, sb)
 		if str := sb.String(); str != fmt.Sprintf("<app %s>", appName) {
 			t.Error("invalid SafeString value")
 		}
@@ -72,11 +73,11 @@ func TestAppSafeString(t *testing.T) {
 			app := &starform.AppObject{
 				Name: appName,
 			}
-			appValue := app.Value()
+			appValue := userdata.NewAppValue(app)
 			appValue.Freeze()
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
-				if err := appValue.(starlark.SafeStringer).SafeString(thread, sb); err != nil {
+				if err := appValue.SafeString(thread, sb); err != nil {
 					st.Error(err)
 				}
 				if err := sb.Err(); err != nil {
@@ -99,11 +100,11 @@ func TestAppSafeString(t *testing.T) {
 			app := &starform.AppObject{
 				Name: appName,
 			}
-			appValue := app.Value()
+			appValue := userdata.NewAppValue(app)
 			appValue.Freeze()
 			for i := 0; i < st.N; i++ {
 				sb := starlark.NewSafeStringBuilder(thread)
-				if err := appValue.(starlark.SafeStringer).SafeString(thread, sb); err == nil {
+				if err := appValue.SafeString(thread, sb); err == nil {
 					st.Error("expected cancellation")
 				} else if !isStarlarkCancellation(err) {
 					st.Errorf("expected cancellation, got %v", err)
@@ -117,7 +118,7 @@ func TestAppSafeAttr(t *testing.T) {
 	app := &starform.AppObject{
 		Name: "test",
 	}
-	appValue := app.Value()
+	appValue := userdata.NewAppValue(app)
 	appValue.Freeze()
 
 	t.Run("allocs-steps-io", func(t *testing.T) {
@@ -125,10 +126,7 @@ func TestAppSafeAttr(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.SetEventObject(thread, &starform.EventObject{
-				Name:  starform.LoadEventName,
-				State: starform.InitState(),
-			})
+			starform.SetEventObject(thread, starform.NewInitEvent())
 			for i := 0; i < st.N; i++ {
 				result, err := appValue.SafeAttr(thread, "observe")
 				if err != nil {
@@ -145,10 +143,7 @@ func TestAppSafeAttr(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.SetEventObject(thread, &starform.EventObject{
-				Name:  starform.LoadEventName,
-				State: starform.InitState(),
-			})
+			starform.SetEventObject(thread, starform.NewInitEvent())
 			for i := 0; i < st.N; i++ {
 				_, err := appValue.SafeAttr(thread, "observe")
 				if err != nil && !isStarlarkCancellation(err) {
@@ -200,7 +195,7 @@ func TestAppAttrNames(t *testing.T) {
 				Name:    "test",
 				Methods: test.inputMethods,
 			}
-			appValue := app.Value()
+			appValue := userdata.NewAppValue(app)
 			appValue.Freeze()
 
 			attrNames := appValue.AttrNames()
@@ -224,15 +219,12 @@ func TestAppObserveSafety(t *testing.T) {
 
 	t.Run("return-value", func(t *testing.T) {
 		thread := &starlark.Thread{}
-		starform.SetEventObject(thread, &starform.EventObject{
-			Name:  starform.LoadEventName,
-			State: starform.InitState(),
-		})
+		starform.SetEventObject(thread, starform.NewInitEvent())
 
 		app := &starform.AppObject{
 			Name: "test",
 		}
-		appValue := app.Value()
+		appValue := userdata.NewAppValue(app)
 		appValue.Freeze()
 		observe, _ := appValue.SafeAttr(thread, "observe")
 		if observe == nil {
@@ -253,25 +245,19 @@ func TestAppObserveSafety(t *testing.T) {
 		st.RequireSafety(starlark.MemSafe | starlark.CPUSafe | starlark.IOSafe)
 		st.SetMaxSteps(1)
 		st.RunThread(func(thread *starlark.Thread) {
-			starform.SetEventObject(thread, &starform.EventObject{
-				Name:  starform.LoadEventName,
-				State: starform.InitState(),
-			})
+			starform.SetEventObject(thread, starform.NewInitEvent())
 
 			app := &starform.AppObject{
 				Name: "test",
 			}
-			appValue := app.Value()
+			appValue := userdata.NewAppValue(app)
 			appValue.Freeze()
 			observe, _ := appValue.SafeAttr(thread, "observe")
 			if observe == nil {
 				t.Fatal("no such method: test.observe")
 			}
 
-			event := &starform.EventObject{
-				Name:  starform.LoadEventName,
-				State: starform.InitState(),
-			}
+			event := starform.NewInitEvent()
 			if err := thread.AddAllocs(starlark.EstimateSize(event)); err != nil {
 				t.Error(err)
 			}
@@ -294,15 +280,12 @@ func TestAppObserveSafety(t *testing.T) {
 		st.SetMaxSteps(0)
 		st.RunThread(func(thread *starlark.Thread) {
 			thread.Cancel("done")
-			starform.SetEventObject(thread, &starform.EventObject{
-				Name:  starform.LoadEventName,
-				State: starform.InitState(),
-			})
+			starform.SetEventObject(thread, starform.NewInitEvent())
 
 			app := &starform.AppObject{
 				Name: "test",
 			}
-			appValue := app.Value()
+			appValue := userdata.NewAppValue(app)
 			appValue.Freeze()
 			observe, _ := appValue.SafeAttr(thread, "observe")
 			if observe == nil {
