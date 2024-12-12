@@ -8,8 +8,6 @@ import (
 	"github.com/canonical/starlark/starlark"
 )
 
-// AppObject is the common point for exposing the state of the application
-// into Starlark and for Starlark to declare intents.
 type AppObject struct {
 	Name string
 
