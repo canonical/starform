@@ -16,7 +16,7 @@ type AppObject struct {
 
 var ErrUnavailable = errors.New("unavailable")
 
-func (app *AppObject) value() *AppValue {
+func NewAppValue(app *AppObject) *AppValue {
 	attrNames := make([]string, 0, len(app.Methods))
 	customMethods := make(map[string]*starlark.Builtin, len(app.Methods))
 	for _, method := range app.Methods {

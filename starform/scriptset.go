@@ -115,7 +115,7 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 		modules[module.Name()] = module
 	}
 
-	appValue := options.App.value()
+	appValue := userdata.NewAppValue(options.App)
 	appValue.Freeze()
 
 	return &ScriptSet{
