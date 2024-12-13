@@ -24,7 +24,7 @@ func TestLoadDir(t *testing.T) {
 
 	t.Run("well-formed", func(t *testing.T) {
 		sources, err := starform.LoadDirSources(context.Background(), &starform.LoadDirSourcesOptions{
-			Fs:   fs,
+			FS:   fs,
 			Root: "aaa",
 		})
 		if err != nil {
@@ -37,7 +37,7 @@ func TestLoadDir(t *testing.T) {
 
 	t.Run("misnamed", func(t *testing.T) {
 		sources, err := starform.LoadDirSources(context.Background(), &starform.LoadDirSourcesOptions{
-			Fs:   fs,
+			FS:   fs,
 			Root: "bbb",
 		})
 		if err != nil {
@@ -50,7 +50,7 @@ func TestLoadDir(t *testing.T) {
 
 	t.Run("mixed", func(t *testing.T) {
 		sources, err := starform.LoadDirSources(context.Background(), &starform.LoadDirSourcesOptions{
-			Fs: fs,
+			FS: fs,
 		})
 		if err != nil {
 			t.Fatal(err)
