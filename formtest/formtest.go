@@ -131,7 +131,7 @@ func (ft *FT) AddValue(name string, value starlark.Value) {
 		return
 	}
 	if _, ok := ft.predecl.Module.Members[name]; ok {
-		ft.Errorf("AddValue: %s already defined", name)
+		ft.Errorf("AddValue: %q already defined", name)
 	}
 	ft.predecl.Module.Members[name] = value
 }
@@ -139,7 +139,7 @@ func (ft *FT) AddValue(name string, value starlark.Value) {
 func (ft *FT) AddBuiltin(name string, fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		ft.Errorf("AddBuiltin expected a builtin: got %v", fn)
+		ft.Errorf("AddBuiltin expected a builtin: got %T", fn)
 		return
 	}
 	ft.AddValue(builtin.Name(), builtin)
