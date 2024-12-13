@@ -139,7 +139,7 @@ func (ft *FT) RunString(code string) (ok bool) {
 
 func (ft *FT) AddValue(name string, value starlark.Value) {
 	if value == nil {
-		ft.Errorf("AddValue expected a value: got %T", value)
+		ft.Errorf("AddValue expected a value, got %T", value)
 		return
 	}
 	if _, ok := ft.predecl.Module.Members[name]; ok {
@@ -151,7 +151,7 @@ func (ft *FT) AddValue(name string, value starlark.Value) {
 func (ft *FT) AddBuiltin(name string, fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		ft.Errorf("AddBuiltin expected a builtin: got %T", fn)
+		ft.Errorf("AddBuiltin expected a builtin, got %T", fn)
 		return
 	}
 	ft.AddValue(builtin.Name(), builtin)

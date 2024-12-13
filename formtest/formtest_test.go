@@ -118,7 +118,7 @@ func TestExampleRunThreadFunctionality(t *testing.T) {
 			ft.Errorf("expected None got: %v", ret)
 		}
 		if expectedIntents := previousNumIntents + 1; len(fooState.Intents) != expectedIntents {
-			ft.Errorf("expected %d total intents: got %d", expectedIntents, len(fooState.Intents))
+			ft.Errorf("expected %d total intents, got %d", expectedIntents, len(fooState.Intents))
 		}
 	})
 }
