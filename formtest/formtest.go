@@ -69,7 +69,7 @@ func (ft *FT) SetApp(app *starform.AppObject)       { ft.app = app }
 func (ft *FT) SetCache(cache starform.ScriptCache)  { ft.cache = cache }
 func (ft *FT) SetLogger(logger starform.Logger)     { ft.logger = logger }
 
-var ftSafe = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+const ftSafe = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 func (ft *FT) RunString(code string) (ok bool) {
 	modules := []starform.Module{
