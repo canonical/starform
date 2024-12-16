@@ -96,3 +96,29 @@ func TestExampleRunStringAllocs(t *testing.T) {
 				bar.add_intent('sudo make me a sandwich')
 	`)
 }
+
+func TestExampleRunThreadFunctionality(t *testing.T) {
+	fooState := &FooState{}
+
+	ft := formtest.From(t)
+	ft.SetApp(app)
+	ft.SetEvent(&starform.EventObject{
+		Name:  "foo",
+		State: fooState,
+	})
+	ft.RunThread(func(thread *starlark.Thread) {
+		previousNumIntents := len(fooState.Intents)
+
+		bar_add_intent_builtin := starlark.NewBuiltinWithSafety("add_intent", addIntentSafety, bar_add_intent)
+		ret, err := starlark.Call(thread, bar_add_intent_builtin, starlark.Tuple{starlark.None}, nil)
+		if err != nil {
+			ft.Error(err)
+		}
+		if ret != starlark.None {
+			ft.Errorf("expected None got: %v", ret)
+		}
+		if expectedIntents := previousNumIntents + 1; len(fooState.Intents) != expectedIntents {
+			ft.Errorf("expected %d total intents: got %d", expectedIntents, len(fooState.Intents))
+		}
+	})
+}

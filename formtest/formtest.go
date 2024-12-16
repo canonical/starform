@@ -6,6 +6,7 @@ import (
 	"testing/fstest"
 
 	"github.com/canonical/starform/internal/lib"
+	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
@@ -143,4 +144,28 @@ func (ft *FT) AddBuiltin(name string, fn starlark.Value) {
 		return
 	}
 	ft.AddValue(builtin.Name(), builtin)
+}
+
+func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
+	if ft.app == nil {
+		ft.Error("cannot run formtest without app")
+		return
+	}
+	if ft.event == nil {
+		ft.Error("cannot run formtest without event")
+		return
+	}
+
+	firstRun := true
+	ft.ST.RunThread(func(thread *starlark.Thread) {
+		if firstRun {
+			runData := &userdata.RunData{
+				Event: ft.event,
+			}
+			thread.SetLocal(userdata.RunDataLocalKey, runData)
+			firstRun = false
+		}
+
+		fn(thread)
+	})
 }

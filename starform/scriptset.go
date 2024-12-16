@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/canonical/starform/internal/lib"
+	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
@@ -396,12 +397,17 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
-func makeThread(options *ScriptSetOptions, data *EventObject) *starlark.Thread {
+func makeThread(options *ScriptSetOptions, event *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{}
 	thread.Print = func(thread *starlark.Thread, msg string) {}
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(eventObjectLocalKey, data)
+
+	runData := &userdata.RunData{
+		Event: event,
+	}
+	thread.SetLocal(userdata.RunDataLocalKey, runData)
+
 	return thread
 }
