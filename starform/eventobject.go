@@ -3,11 +3,13 @@ package starform
 import (
 	"fmt"
 
-	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starlark/starlark"
 )
 
 const loadEventName = "<load>"
+
+// eventObjectLocalKey must have the same value as formtest.eventObjectLocalKey
+const eventObjectLocalKey = "starform-event-object"
 
 type EventObject struct {
 	Name string
@@ -77,9 +79,9 @@ type initState struct {
 }
 
 func Event(thread *starlark.Thread) *EventObject {
-	ret, ok := thread.Local(userdata.RunDataLocalKey).(*userdata.RunData)
+	ret, ok := thread.Local(eventObjectLocalKey).(*EventObject)
 	if !ok {
 		return &EventObject{} // Avoid panics.
 	}
-	return ret.Event.(*EventObject)
+	return ret
 }

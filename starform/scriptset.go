@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/canonical/starform/internal/lib"
-	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/syntax"
 )
@@ -403,11 +402,6 @@ func makeThread(options *ScriptSetOptions, event *EventObject) *starlark.Thread 
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-
-	runData := &userdata.RunData{
-		Event: event,
-	}
-	thread.SetLocal(userdata.RunDataLocalKey, runData)
-
+	thread.SetLocal(eventObjectLocalKey, event)
 	return thread
 }

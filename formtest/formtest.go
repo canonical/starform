@@ -6,13 +6,15 @@ import (
 	"testing/fstest"
 
 	"github.com/canonical/starform/internal/lib"
-	"github.com/canonical/starform/internal/userdata"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/starlarkstruct"
 	"github.com/canonical/starlark/starlarktest"
 	"github.com/canonical/starlark/startest"
 )
+
+// eventObjectLocalKey must have the same value as starform.eventObjectLocalKey
+const eventObjectLocalKey = "starform-event-object"
 
 var assertModule starform.Module
 
@@ -159,10 +161,7 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 	firstRun := true
 	ft.ST.RunThread(func(thread *starlark.Thread) {
 		if firstRun {
-			runData := &userdata.RunData{
-				Event: ft.event,
-			}
-			thread.SetLocal(userdata.RunDataLocalKey, runData)
+			thread.SetLocal(eventObjectLocalKey, ft.event)
 			firstRun = false
 		}
 
