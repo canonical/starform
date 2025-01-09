@@ -27,7 +27,7 @@ func (f *fileSource) Content(ctx context.Context) ([]byte, error) {
 }
 
 type LoadDirSourcesOptions struct {
-	Fs          fs.FS
+	FS          fs.FS
 	Root        string
 	MaxFileSize int64
 }
@@ -41,7 +41,7 @@ func LoadDirSources(ctx context.Context, options *LoadDirSourcesOptions) ([]Scri
 	if root == "" {
 		root = "."
 	}
-	err := fs.WalkDir(options.Fs, root, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(options.FS, root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -63,7 +63,7 @@ func LoadDirSources(ctx context.Context, options *LoadDirSourcesOptions) ([]Scri
 		}
 
 		sources = append(sources, &fileSource{
-			fsys: options.Fs,
+			fsys: options.FS,
 			path: path,
 		})
 
