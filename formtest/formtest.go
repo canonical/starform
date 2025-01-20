@@ -75,6 +75,15 @@ func (ft *FT) SetLogger(logger starform.Logger)     { ft.logger = logger }
 const ftSafe = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 func (ft *FT) RunString(code string) (ok bool) {
+	if ft.app == nil {
+		ft.Error("cannot run formtest without app")
+		return
+	}
+	if ft.event == nil {
+		ft.Error("cannot run formtest without event")
+		return
+	}
+
 	modules := []starform.Module{
 		assertModule,
 		&ft.predecl,
@@ -149,10 +158,6 @@ func (ft *FT) AddBuiltin(name string, fn starlark.Value) {
 }
 
 func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
-	if ft.app == nil {
-		ft.Error("cannot run formtest without app")
-		return
-	}
 	if ft.event == nil {
 		ft.Error("cannot run formtest without event")
 		return
