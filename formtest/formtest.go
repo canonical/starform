@@ -159,7 +159,5 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 	}
 
 	ft.ST.AddLocal(eventObjectLocalKey, ft.event)
-	ft.ST.RunThread(func(thread *starlark.Thread) {
-		fn(thread)
-	})
+	ft.ST.RunThread(fn)
 }
