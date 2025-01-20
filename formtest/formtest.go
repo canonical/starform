@@ -158,13 +158,8 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 		return
 	}
 
-	firstRun := true
+	ft.ST.AddLocal(eventObjectLocalKey, ft.event)
 	ft.ST.RunThread(func(thread *starlark.Thread) {
-		if firstRun {
-			thread.SetLocal(eventObjectLocalKey, ft.event)
-			firstRun = false
-		}
-
 		fn(thread)
 	})
 }
