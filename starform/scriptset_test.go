@@ -1736,7 +1736,6 @@ func TestRecursiveEvent(t *testing.T) {
 		if event != starform.Event(thread) {
 			return nil, fmt.Errorf("parent event not restored after recursion")
 		}
-
 		return starlark.None, nil
 	})
 
@@ -1758,16 +1757,16 @@ func TestRecursiveEvent(t *testing.T) {
 				test.observe('odd', on_odd)
 
 			def on_even(event):
-				if (event.n % 2) != 0:
-					fail("expected even number, got", event.n)
+				if event.n % 2 != 0:
+					fail('unexpected odd number, got %d' % event.n)
 				if event.n > 0:
-					test.handle('odd', event.n-1)
+					test.handle('odd', event.n - 1)
 
 			def on_odd(event):
-				if (event.n % 2) == 0:
-					fail("expected odd number, got", event.n)
+				if event.n % 2 == 0:
+					fail("'unexpected even number, got %d' % event.n)
 				if event.n > 0:
-					test.handle('even', event.n-1)
+					test.handle('even', event.n - 1)
 		`,
 	}})
 

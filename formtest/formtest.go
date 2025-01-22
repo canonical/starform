@@ -13,16 +13,18 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+// threadLocalKey must have the same value as starform.threadLocalKey
+const threadLocalKey = "starform-thread"
+
 // eventObjectLocalKey must have the same value as starform.eventObjectLocalKey
 const eventObjectLocalKey = "starform-event-object"
 
 // eventObjectStorage is used as an indirection to store the event
-// object in the thread locals, so that the event can be modified.
-// This type must remain an unnamed type and must be kept in
-// sync with formtest.eventObjectStorage.
+// object in the thread locals, so that the event can be modified without breaking
+// thread.SetLocal's contract.
+// This type alias must have the same layout starform.eventObjectStorage.
 type eventObjectStorage = struct {
-	Event  *starform.EventObject
-	Thread *starlark.Thread
+	Event *starform.EventObject
 }
 
 var assertModule starform.Module
@@ -172,12 +174,15 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 		return
 	}
 
-	storage := &eventObjectStorage{
+	ft.ST.AddLocal(eventObjectLocalKey, &eventObjectStorage{
 		Event: ft.event,
-	}
-	ft.ST.AddLocal(eventObjectLocalKey, storage)
+	})
+	firstRun := true
 	ft.ST.RunThread(func(thread *starlark.Thread) {
-		storage.Thread = thread
+		if firstRun {
+			thread.SetLocal(threadLocalKey, thread)
+			firstRun = false
+		}
 		fn(thread)
 	})
 }
