@@ -13,6 +13,9 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
+// eventObjectLocalKey must have the same value as starform.eventObjectLocalKey
+const eventObjectLocalKey = "starform-event-object"
+
 var assertModule starform.Module
 
 func init() {
@@ -72,6 +75,15 @@ func (ft *FT) SetLogger(logger starform.Logger)     { ft.logger = logger }
 const ftSafe = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 func (ft *FT) RunString(code string) (ok bool) {
+	if ft.app == nil {
+		ft.Error("cannot run formtest without app")
+		return
+	}
+	if ft.event == nil {
+		ft.Error("cannot run formtest without event")
+		return
+	}
+
 	modules := []starform.Module{
 		assertModule,
 		&ft.predecl,
@@ -143,4 +155,14 @@ func (ft *FT) AddBuiltin(name string, fn starlark.Value) {
 		return
 	}
 	ft.AddValue(builtin.Name(), builtin)
+}
+
+func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
+	if ft.event == nil {
+		ft.Error("cannot run formtest without event")
+		return
+	}
+
+	ft.ST.AddLocal(eventObjectLocalKey, ft.event)
+	ft.ST.RunThread(fn)
 }

@@ -8,8 +8,8 @@ func (*TestCacheBase) private() {}
 
 const LoadEventName = loadEventName
 
-func SetEventObject(thread *starlark.Thread, data *EventObject) {
-	thread.SetLocal(eventObjectLocalKey, data)
+func SetEventObject(thread *starlark.Thread, event *EventObject) {
+	thread.SetLocal(eventObjectLocalKey, event)
 }
 
 func (app *AppObject) Value() starlark.HasSafeAttrs {

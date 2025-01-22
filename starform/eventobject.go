@@ -7,6 +7,8 @@ import (
 )
 
 const loadEventName = "<load>"
+
+// eventObjectLocalKey must have the same value as formtest.eventObjectLocalKey
 const eventObjectLocalKey = "starform-event-object"
 
 type EventObject struct {
