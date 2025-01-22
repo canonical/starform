@@ -244,7 +244,7 @@ func TestAppObserveSafety(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		} else if result != starlark.None {
-			t.Errorf("expected None return: got %v", result)
+			t.Errorf("expected None, got %v", result)
 		}
 	})
 

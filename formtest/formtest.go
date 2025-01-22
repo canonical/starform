@@ -121,7 +121,7 @@ func (ft *FT) RunString(code string) (ok bool) {
 	ft.AddLocal("Reporter", ft) // Set starlarktest reporter outside of RunThread.
 	ft.RunThread(func(thread *starlark.Thread) {
 		sources, err := starform.LoadDirSources(thread.Context(), &starform.LoadDirSourcesOptions{
-			Fs: fstest.MapFS{
+			FS: fstest.MapFS{
 				"test.star": &fstest.MapFile{
 					Data: []byte(code),
 				},
@@ -148,7 +148,7 @@ func (ft *FT) RunString(code string) (ok bool) {
 
 func (ft *FT) AddValue(name string, value starlark.Value) {
 	if value == nil {
-		ft.Errorf("AddValue expected a value: got %T", value)
+		ft.Errorf("AddValue expected a value, got %T", value)
 		return
 	}
 	if _, ok := ft.predecl.Module.Members[name]; ok {
@@ -160,7 +160,7 @@ func (ft *FT) AddValue(name string, value starlark.Value) {
 func (ft *FT) AddBuiltin(name string, fn starlark.Value) {
 	builtin, ok := fn.(*starlark.Builtin)
 	if !ok {
-		ft.Errorf("AddBuiltin expected a builtin: got %T", fn)
+		ft.Errorf("AddBuiltin expected a builtin, got %T", fn)
 		return
 	}
 	ft.AddValue(builtin.Name(), builtin)
