@@ -112,7 +112,7 @@ func (ft *FT) RunString(code string) (ok bool) {
 	ft.AddLocal("Reporter", ft) // Set starlarktest reporter outside of RunThread.
 	ft.RunThread(func(thread *starlark.Thread) {
 		sources, err := starform.LoadDirSources(thread.Context(), &starform.LoadDirSourcesOptions{
-			Fs: fstest.MapFS{
+			FS: fstest.MapFS{
 				"test.star": &fstest.MapFile{
 					Data: []byte(code),
 				},
