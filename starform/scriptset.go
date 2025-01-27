@@ -151,16 +151,15 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 
 	thread := starlark.ContextThread(ctx)
 	if thread == nil {
-		thread = makeThread(ctx, ss.options)
+		thread = makeThread(ctx, ss.options, event)
 		defer thread.Cancel("done")
 	} else {
 		if err := checkThread(ss.options, thread); err != nil {
 			return err
 		}
-		event := Event(thread)
-		defer setEventObject(thread, event)
+		prevEvent := setEventObject(thread, event)
+		defer setEventObject(thread, prevEvent)
 	}
-	setEventObject(thread, event)
 
 	loadDir := "." // Directory where the load is being made from.
 	loadDirStack := []string{}
@@ -393,16 +392,15 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 
 	thread := starlark.ContextThread(ctx)
 	if thread == nil {
-		thread = makeThread(ctx, ss.options)
+		thread = makeThread(ctx, ss.options, event)
 		defer thread.Cancel("done")
 	} else {
 		if err := checkThread(ss.options, thread); err != nil {
 			return err
 		}
-		event := Event(thread)
-		defer setEventObject(thread, event)
+		prevEvent := setEventObject(thread, event)
+		defer setEventObject(thread, prevEvent)
 	}
-	setEventObject(thread, event)
 
 	for _, observer := range observers {
 		_, err := starlark.Call(thread, observer, starlark.Tuple{event}, nil)
@@ -413,7 +411,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	return nil
 }
 
-func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
+func makeThread(ctx context.Context, options *ScriptSetOptions, event *EventObject) *starlark.Thread {
 	thread := &starlark.Thread{
 		Print: func(thread *starlark.Thread, msg string) {},
 	}
@@ -421,6 +419,9 @@ func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
+	thread.SetLocal(eventObjectLocalKey, &eventObjectStorage{
+		Event: event,
+	})
 	return thread
 }
 
@@ -432,7 +433,9 @@ func checkThread(options *ScriptSetOptions, thread *starlark.Thread) error {
 	return thread.CheckPermits(options.RequiredSafety)
 }
 
-func setEventObject(thread *starlark.Thread, event *EventObject) {
+func setEventObject(thread *starlark.Thread, event *EventObject) (previous *EventObject) {
 	storage := thread.Local(eventObjectLocalKey).(*eventObjectStorage)
+	oldEvent := storage.Event
 	storage.Event = event
+	return oldEvent
 }
