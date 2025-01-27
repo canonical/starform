@@ -13,9 +13,6 @@ import (
 	"github.com/canonical/starlark/startest"
 )
 
-// threadLocalKey must have the same value as starform.threadLocalKey
-const threadLocalKey = "starform-thread"
-
 // eventObjectLocalKey must have the same value as starform.eventObjectLocalKey
 const eventObjectLocalKey = "starform-event-object"
 
@@ -177,12 +174,5 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 	ft.ST.AddLocal(eventObjectLocalKey, &eventObjectStorage{
 		Event: ft.event,
 	})
-	firstRun := true
-	ft.ST.RunThread(func(thread *starlark.Thread) {
-		if firstRun {
-			thread.SetLocal(threadLocalKey, thread)
-			firstRun = false
-		}
-		fn(thread)
-	})
+	ft.ST.RunThread(fn)
 }

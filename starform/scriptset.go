@@ -15,9 +15,6 @@ import (
 	"github.com/canonical/starlark/syntax"
 )
 
-// threadLocalKey must have the same value as formtest.threadLocalKey
-const threadLocalKey = "starform-thread"
-
 type ScriptSet struct {
 	options        *ScriptSetOptions
 	appValue       *appValue
@@ -421,7 +418,6 @@ func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread
 	thread.RequireSafety(options.RequiredSafety)
 	thread.SetMaxSteps(options.MaxSteps)
 	thread.SetMaxAllocs(options.MaxAllocs)
-	thread.SetLocal(threadLocalKey, thread)
 	return thread
 }
 

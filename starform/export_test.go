@@ -9,7 +9,6 @@ func (*TestCacheBase) private() {}
 const LoadEventName = loadEventName
 
 func SetEventObject(thread *starlark.Thread, event *EventObject) {
-	thread.SetLocal(threadLocalKey, thread)
 	thread.SetLocal(eventObjectLocalKey, &eventObjectStorage{
 		Event: event,
 	})
