@@ -152,7 +152,7 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		State: nil,
 	}
 
-	thread := getContextThread(ctx)
+	thread := starlark.ContextThread(ctx)
 	if thread == nil {
 		thread = makeThread(ctx, ss.options)
 		defer thread.Cancel("done")
@@ -391,7 +391,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		return nil
 	}
 
-	thread := getContextThread(ctx)
+	thread := starlark.ContextThread(ctx)
 	if thread == nil {
 		thread = makeThread(ctx, ss.options)
 		defer thread.Cancel("done")
@@ -408,14 +408,6 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		}
 	}
 	return nil
-}
-
-func getContextThread(ctx context.Context) *starlark.Thread {
-	thread, ok := ctx.Value(threadLocalKey).(*starlark.Thread)
-	if !ok {
-		return nil
-	}
-	return thread
 }
 
 func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread {
