@@ -396,6 +396,9 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		thread = makeThread(ctx, ss.options)
 		defer thread.Cancel("done")
 	} else {
+		if err := checkThread(ss.options, thread); err != nil {
+			return err
+		}
 		event := Event(thread)
 		defer setEventObject(thread, event)
 	}
@@ -420,6 +423,14 @@ func makeThread(ctx context.Context, options *ScriptSetOptions) *starlark.Thread
 	thread.SetMaxAllocs(options.MaxAllocs)
 	thread.SetLocal(threadLocalKey, thread)
 	return thread
+}
+
+func checkThread(options *ScriptSetOptions, thread *starlark.Thread) error {
+	_, ok := thread.Local(eventObjectLocalKey).(*eventObjectStorage)
+	if !ok {
+		return fmt.Errorf("internal error: thread is not a starform thread")
+	}
+	return thread.CheckPermits(options.RequiredSafety)
 }
 
 func setEventObject(thread *starlark.Thread, event *EventObject) {
