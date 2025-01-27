@@ -2,6 +2,7 @@ package formtest
 
 import (
 	"context"
+	"math"
 	"strings"
 	"testing/fstest"
 
@@ -37,12 +38,15 @@ type TestBase startest.TestBase
 type FT struct {
 	*startest.ST
 
-	parentCtx context.Context
-	event     *starform.EventObject
-	app       *starform.AppObject
-	cache     starform.ScriptCache
-	logger    starform.Logger
-	predecl   lib.SystemModule
+	parentCtx           context.Context
+	event               *starform.EventObject
+	app                 *starform.AppObject
+	cache               starform.ScriptCache
+	logger              starform.Logger
+	predecl             lib.SystemModule
+	maxAllocs, maxSteps int64
+	requiredSafety      starlark.SafetyFlags
+	safetyGiven         bool
 }
 
 func From(base TestBase) *FT {
@@ -61,6 +65,8 @@ func From(base TestBase) *FT {
 			},
 			Predeclared: true,
 		},
+		maxAllocs: math.MaxInt64,
+		maxSteps:  math.MaxInt64,
 	}
 	ft.predecl.Module.Members["ft"] = ft
 	return ft
@@ -73,6 +79,19 @@ func (ft *FT) SetCache(cache starform.ScriptCache)  { ft.cache = cache }
 func (ft *FT) SetLogger(logger starform.Logger)     { ft.logger = logger }
 
 const ftSafe = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
+
+func (ft *FT) RequireSafety(safety starlark.SafetyFlags) {
+	ft.requiredSafety |= safety
+	ft.safetyGiven = true
+}
+
+func (ft *FT) SetMaxAllocs(maxAllocs int64) {
+	ft.maxAllocs = maxAllocs
+}
+
+func (ft *FT) SetMaxSteps(maxSteps int64) {
+	ft.maxSteps = maxSteps
+}
 
 func (ft *FT) RunString(code string) (ok bool) {
 	if ft.app == nil {
@@ -98,11 +117,19 @@ func (ft *FT) RunString(code string) (ok bool) {
 		return false
 	}
 
+	requiredSafety := ft.requiredSafety
+	if !ft.safetyGiven {
+		requiredSafety = ftSafe
+	}
+
 	set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
-		App:     ft.app,
-		Cache:   ft.cache,
-		Logger:  ft.logger,
-		Modules: modules,
+		App:            ft.app,
+		Cache:          ft.cache,
+		Logger:         ft.logger,
+		Modules:        modules,
+		RequiredSafety: requiredSafety,
+		MaxAllocs:      ft.maxAllocs,
+		MaxSteps:       ft.maxSteps,
 	})
 	if err != nil {
 		ft.Error(err)
@@ -163,6 +190,11 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 		return
 	}
 
+	ft.ST.SetMaxAllocs(ft.maxAllocs)
+	ft.ST.SetMaxSteps(ft.maxSteps)
+	if ft.safetyGiven {
+		ft.ST.RequireSafety(ft.requiredSafety)
+	}
 	ft.ST.AddLocal(eventObjectLocalKey, ft.event)
 	ft.ST.RunThread(fn)
 }
