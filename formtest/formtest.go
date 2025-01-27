@@ -198,13 +198,11 @@ func (ft *FT) RunThread(fn func(thread *starlark.Thread)) {
 		return
 	}
 
-	ft.ST.SetMaxAllocs(ft.maxAllocs)
-	ft.ST.SetMaxSteps(ft.maxSteps)
 	if ft.safetyGiven {
 		ft.ST.RequireSafety(ft.requiredSafety)
 	}
-	ft.ST.AddLocal(eventObjectLocalKey, &eventObjectStorage{
-		Event: ft.event,
-	})
+	ft.ST.SetMaxAllocs(ft.maxAllocs)
+	ft.ST.SetMaxSteps(ft.maxSteps)
+	ft.ST.AddLocal(eventObjectLocalKey, ft.event)
 	ft.ST.RunThread(fn)
 }

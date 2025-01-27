@@ -2,7 +2,7 @@ module github.com/canonical/starform
 
 go 1.18
 
-require github.com/canonical/starlark v0.0.0-20250127072658-a9d38d7b170d
+require github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b
 
 require (
 	github.com/kr/pretty v0.2.1 // indirect
