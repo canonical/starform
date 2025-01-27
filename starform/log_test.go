@@ -149,7 +149,7 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(arbitraryAddedSteps)
+					return thread.AddSteps(starlark.SafeInt(arbitraryAddedSteps))
 				},
 			})
 			return dict
@@ -186,7 +186,7 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(arbitraryAddedSteps)
+					return thread.AddSteps(starlark.SafeInt(arbitraryAddedSteps))
 				},
 			},
 		}),
@@ -203,7 +203,7 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			set.Insert(&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(arbitraryAddedSteps)
+					return thread.AddSteps(starlark.SafeInt(arbitraryAddedSteps))
 				},
 			})
 			return set
@@ -216,7 +216,7 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 			&testSafeStringer{
 				safeString: func(thread *starlark.Thread, _ starlark.StringBuilder) error {
 					// Writes nothing
-					return thread.AddSteps(100)
+					return thread.AddSteps(starlark.SafeInt(arbitraryAddedSteps))
 				},
 			},
 		},
