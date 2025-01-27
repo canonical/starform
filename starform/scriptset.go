@@ -154,6 +154,9 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		thread = makeThread(ctx, ss.options)
 		defer thread.Cancel("done")
 	} else {
+		if err := checkThread(ss.options, thread); err != nil {
+			return err
+		}
 		event := Event(thread)
 		defer setEventObject(thread, event)
 	}
