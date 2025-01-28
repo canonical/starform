@@ -17,6 +17,14 @@ import (
 // eventObjectLocalKey must have the same value as starform.eventObjectLocalKey
 const eventObjectLocalKey = "starform-event-object"
 
+// eventObjectStorage is used for indirection when storing the event
+// object in the thread locals, so that the event can be modified without
+// breaking thread.SetLocal's contract. This type alias must have the same
+// layout as starform.eventObjectStorage.
+type eventObjectStorage = struct {
+	Event *starform.EventObject
+}
+
 var assertModule starform.Module
 
 func init() {
