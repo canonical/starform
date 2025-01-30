@@ -7,20 +7,22 @@
 
 This repository provides the `starform` Go package, a library to help easily and uniformly integrate event-based Starlark scriptlet APIs into applications.
 
-The `starform` package aims to improve configuration by making it easy for an application to define and handle user *intentions* (i.e. configuration or behaviors) through a constrained, yet expressive scripting interface.
-This way, whilst each API can be as domain-specific as needed, the overall syntax, structure and idioms are consistent.
-The user can hence concentrate on building domain-specific knowledge rather than having to learn a new language every time.
-
 ## What is Starform?
 
-Starform is a wrapper package for the [safe Starlark](https://github.com/canonical/starlark) language interpreter.
-It allows developers to provide a scripting interface which exposes events.
-Users can then provide code to react to these events and express how they intend for the application to act.
+Starform is a library which allows users to customize and extend applications with procedural configuration.
+Its design allows each application to define an API that can be as domain-specific as needed whilst maintaining a consistent overall syntax, structure and set of idioms.
+Several aspects of how to approach this problem correctly and conveniently are taken into account in the implementation and in the APIs that are made available.
+
+Starform provides a scripting interface which exposes events.
+Users then write [safe Starlark](https://github.com/canonical/starlark) scriptlets reacting to these events, expressing what they want the application to do in each scenario.
 
 The output of a scriptlet is a target for how the user wishes the system to be or to act – no changes are applied to the host system until after scriptlet execution is complete.
 This contrasts with classical scripting where changes are made during script execution.
-Scriptlets follow the same principle of regular declarative configuration where after reading a config file, contents are validated, amended and only then, if the system deems them reasonable are changes applied.
+Scriptlets follow the same principle of regular declarative configuration where after reading a config file, contents are validated, amended and only then, if the system deems them reasonable are their changes applied.
 Whereas declarative configuration allows a single intent to be specified at startup, starform allows many intents to be specified in reaction to the system's current state, through the use of custom event-handlers.
+
+Starform helps enforce a uniform scriptlet API across different systems.
+The user can hence concentrate on building domain-specific knowledge rather than having to learn a new configuration dialect every time.
 
 ## Usage skeleton
 
