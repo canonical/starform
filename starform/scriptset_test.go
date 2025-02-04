@@ -1789,7 +1789,7 @@ func TestEventNameValidation(t *testing.T) {
 		expected string
 	}{{
 		name:  "ok",
-		event: "porridge",
+		event: "warm_porridge_MMM",
 	}, {
 		name:     "too-short",
 		event:    "",
@@ -1805,6 +1805,10 @@ func TestEventNameValidation(t *testing.T) {
 	}, {
 		name:     "dashes",
 		event:    "cold-porridge",
+		expected: "name invalid",
+	}, {
+		name:     "capital-start",
+		event:    "Hot_porridge",
 		expected: "name invalid",
 	}}
 	for _, test := range tests {
