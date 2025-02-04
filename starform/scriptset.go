@@ -384,7 +384,19 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	return sanitisedPath, nil
 }
 
+var validEventName = regexp.MustCompile(`^[a-z]\w*$`)
+
 func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
+	if len(event.Name) < 3 {
+		return fmt.Errorf("cannot handle %q event: name too short", event.Name)
+	}
+	if len(event.Name) > 20 {
+		return fmt.Errorf("cannot handle %q event: name too long", event.Name)
+	}
+	if !validEventName.Match([]byte(event.Name)) {
+		return fmt.Errorf("cannot handle %q event: name invalid", event.Name)
+	}
+
 	observers, ok := ss.eventObservers[event.Name]
 	if !ok {
 		return nil
