@@ -399,6 +399,16 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	if !validEventName.Match([]byte(event.Name)) {
 		return fmt.Errorf("cannot handle %q event: name invalid", event.Name)
 	}
+	for i := range event.Name {
+		if i == 0 {
+			continue
+		}
+		prev := event.Name[i-1]
+		curr := event.Name[i]
+		if 'a' <= prev && prev <= 'z' && 'A' <= curr && curr <= 'Z' {
+			return fmt.Errorf("cannot handle %q event: name uses camelCase", event.Name)
+		}
+	}
 	observers, ok := ss.eventObservers[event.Name]
 	if !ok {
 		return nil

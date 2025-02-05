@@ -1822,6 +1822,10 @@ func TestEventNameValidation(t *testing.T) {
 		name:     "underscore-double",
 		event:    "aaa__aaa",
 		expected: "name contains double underscores",
+	}, {
+		name:     "camel-case",
+		event:    "camelCase",
+		expected: "name uses camelCase",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
