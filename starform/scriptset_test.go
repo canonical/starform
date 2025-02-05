@@ -1810,6 +1810,18 @@ func TestEventNameValidation(t *testing.T) {
 		name:     "capital-start",
 		event:    "Hot_porridge",
 		expected: "name invalid",
+	}, {
+		name:     "underscore-start",
+		event:    "_aaa",
+		expected: "name invalid",
+	}, {
+		name:     "underscore-end",
+		event:    "aaa_",
+		expected: "name invalid",
+	}, {
+		name:     "underscore-double",
+		event:    "aaa__aaa",
+		expected: "name contains double underscores",
 	}}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
