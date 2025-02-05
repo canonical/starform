@@ -1811,17 +1811,17 @@ func TestEventNameValidation(t *testing.T) {
 		event:    "Hot_porridge",
 		expected: "name invalid",
 	}, {
-		name:     "underscore-start",
+		name:     "leading-underscore",
 		event:    "_aaa",
 		expected: "name invalid",
 	}, {
-		name:     "underscore-end",
+		name:     "trailing-underscore",
 		event:    "aaa_",
 		expected: "name invalid",
 	}, {
-		name:     "underscore-double",
+		name:     "consecutive-underscores",
 		event:    "aaa__aaa",
-		expected: "name contains double underscores",
+		expected: "name contains consecutive underscores",
 	}, {
 		name:     "camel-case",
 		event:    "threeBears",

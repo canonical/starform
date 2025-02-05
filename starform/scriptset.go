@@ -394,7 +394,7 @@ func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 		return fmt.Errorf("cannot handle %q event: name too long", event.Name)
 	}
 	if strings.Contains(event.Name, "__") {
-		return fmt.Errorf("cannot handle %q event: name contains double underscores", event.Name)
+		return fmt.Errorf("cannot handle %q event: name contains consecutive underscores", event.Name)
 	}
 	if !validEventName.Match([]byte(event.Name)) {
 		return fmt.Errorf("cannot handle %q event: name invalid", event.Name)
