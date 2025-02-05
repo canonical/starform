@@ -384,7 +384,7 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	return sanitisedPath, nil
 }
 
-var validEventName = regexp.MustCompile(`^[a-z]\w*[a-zA-Z0-9]$`)
+var validEventName = regexp.MustCompile(`^[a-z][a-z0-9_]*[a-z0-9]$`)
 
 func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
 	if len(event.Name) < 3 {
