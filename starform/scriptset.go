@@ -61,7 +61,7 @@ type scriptState struct {
 	toplevelEnv starlark.StringDict
 }
 
-var validIdentifier = regexp.MustCompile(`^[a-z]\w*$`)
+var validIdentifier = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 var validModuleName = regexp.MustCompile(`^[a-z]\w*(\/[a-z]\w*)*$`)
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
