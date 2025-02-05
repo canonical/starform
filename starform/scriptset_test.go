@@ -116,15 +116,96 @@ func (tsc *testScriptCache) Visit(f func(key, value interface{}) error) error {
 	return nil
 }
 
-func TestOptionsValidation(t *testing.T) {
+type scriptSetOptionsTest struct {
+	name     string
+	opts     *starform.ScriptSetOptions
+	expected string
+}
+
+func (ssot *scriptSetOptionsTest) Run(t *testing.T) {
+	t.Run(ssot.name, func(t *testing.T) {
+		_, err := starform.NewScriptSet(ssot.opts)
+		if ssot.expected == "" && err != nil {
+			t.Errorf("unexpected error: %v", err)
+		} else if ssot.expected != "" {
+			if err == nil {
+				t.Errorf("expected error")
+			} else if expected := fmt.Sprintf("cannot create script set: %s", ssot.expected); err.Error() != expected {
+				t.Errorf("expected %q got %q", expected, err)
+			}
+		}
+	})
+}
+
+func TestScriptSetAppMissing(t *testing.T) {
+	test := scriptSetOptionsTest{
+		name:     "app-missing",
+		opts:     &starform.ScriptSetOptions{},
+		expected: "app not supplied",
+	}
+	test.Run(t)
+}
+
+func TestScriptSetOptionsAppNames(t *testing.T) {
+	tests := []struct {
+		name     string
+		appName  string
+		expected string
+	}{{
+		name:    "ok",
+		appName: "juju_1234",
+	}, {
+		name:     "too-short",
+		appName:  "y",
+		expected: "app name too short",
+	}, {
+		name:     "too-long",
+		appName:  "supercalifragilisticexplialedocious",
+		expected: "app name too long",
+	}, {
+		name:     "leading-underscores",
+		appName:  "_app",
+		expected: "app name invalid",
+	}, {
+		name:     "trailing-underscores",
+		appName:  "app_",
+		expected: "app name invalid",
+	}, {
+		name:     "consecutive-underscores",
+		appName:  "some__app",
+		expected: "app name contains consecutive underscores",
+	}, {
+		name:     "camel-case",
+		appName:  "appName",
+		expected: "app name invalid",
+	}, {
+		name:     "invalid-identifier-dashes",
+		appName:  "app-name",
+		expected: "app name invalid",
+	}, {
+		name:     "invalid-identifier-leading-number",
+		appName:  "1234_app",
+		expected: "app name invalid",
+	}}
+	for _, test := range tests {
+		optionsTest := &scriptSetOptionsTest{
+			name: test.name,
+			opts: &starform.ScriptSetOptions{
+				App: &starform.AppObject{
+					Name: test.appName,
+				},
+			},
+			expected: test.expected,
+		}
+		optionsTest.Run(t)
+	}
+}
+
+func TestScriptSetOptionSafetyFlags(t *testing.T) {
 	app := &starform.AppObject{
 		Name: "test",
 	}
-	tests := []struct {
-		name     string
-		opts     *starform.ScriptSetOptions
-		expected string
-	}{{
+	tests := []scriptSetOptionsTest{{
 		name: "NotSafe",
 		opts: &starform.ScriptSetOptions{
 			App: app,
@@ -135,7 +216,7 @@ func TestOptionsValidation(t *testing.T) {
 			App:            app,
 			RequiredSafety: starlark.MemSafe,
 		},
-		expected: "cannot create script set: MemSafe requested but no MaxAllocs set",
+		expected: "MemSafe requested but no MaxAllocs set",
 	}, {
 		name: "MemSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
@@ -149,7 +230,7 @@ func TestOptionsValidation(t *testing.T) {
 			App:            app,
 			RequiredSafety: starlark.CPUSafe,
 		},
-		expected: "cannot create script set: CPUSafe requested but no MaxSteps set",
+		expected: "CPUSafe requested but no MaxSteps set",
 	}, {
 		name: "CPUSafe (bounded)",
 		opts: &starform.ScriptSetOptions{
@@ -159,16 +240,7 @@ func TestOptionsValidation(t *testing.T) {
 		},
 	}}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, err := starform.NewScriptSet(test.opts)
-			if test.expected == "" && err != nil {
-				t.Errorf("unexpected error: %v", err)
-			} else if test.expected != "" && err == nil {
-				t.Error("expected error")
-			} else if test.expected != "" && err.Error() != test.expected {
-				t.Errorf("expected %v got %v", test.expected, err)
-			}
-		})
+		test.Run(t)
 	}
 }
 
