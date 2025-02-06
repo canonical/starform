@@ -61,7 +61,7 @@ type scriptState struct {
 	toplevelEnv starlark.StringDict
 }
 
-var validIdentifier = regexp.MustCompile(`^[a-z]\w*$`)
+var validIdentifier = regexp.MustCompile(`^[a-z][a-z0-9_]*[a-z0-9]$`)
 var validModuleName = regexp.MustCompile(`^[a-z]\w*(\/[a-z]\w*)*$`)
 
 func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
@@ -71,14 +71,17 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if options.App.Name == "" {
 		return nil, fmt.Errorf("cannot create script set: app name missing")
 	}
-	if !validIdentifier.Match([]byte(options.App.Name)) {
-		return nil, fmt.Errorf("cannot create script set: app name invalid")
-	}
 	if len(options.App.Name) < 3 {
 		return nil, fmt.Errorf("cannot create script set: app name too short")
 	}
 	if len(options.App.Name) > 15 {
 		return nil, fmt.Errorf("cannot create script set: app name too long")
+	}
+	if strings.Contains(options.App.Name, "__") {
+		return nil, fmt.Errorf("cannot create script set: app name contains consecutive underscores")
+	}
+	if !validIdentifier.Match([]byte(options.App.Name)) {
+		return nil, fmt.Errorf("cannot create script set: app name invalid")
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot create script set: MemSafe requested but no MaxAllocs set")
