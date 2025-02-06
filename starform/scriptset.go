@@ -77,13 +77,11 @@ func NewScriptSet(options *ScriptSetOptions) (*ScriptSet, error) {
 	if len(options.App.Name) > 15 {
 		return nil, fmt.Errorf("cannot create script set: app name too long")
 	}
+	if strings.Contains(options.App.Name, "__") {
+		return nil, fmt.Errorf("cannot create script set: app name contains consecutive underscores")
+	}
 	if !validIdentifier.Match([]byte(options.App.Name)) {
 		return nil, fmt.Errorf("cannot create script set: app name invalid")
-	}
-	if strings.Contains(options.App.Name, "__") {
-		{
-			return nil, fmt.Errorf("cannot create script set: app name contains consecutive underscores")
-		}
 	}
 	if options.RequiredSafety.Contains(starlark.MemSafe) && options.MaxAllocs == 0 {
 		return nil, fmt.Errorf("cannot create script set: MemSafe requested but no MaxAllocs set")
