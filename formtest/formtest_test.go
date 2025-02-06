@@ -39,8 +39,8 @@ var app = &starform.AppObject{
 const addIntentSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 type Intent struct {
-	args    starlark.Tuple
-	padding [1024]byte // Simulate other fields.
+	args starlark.Tuple
+	_    [1024]byte // Simulate other fields.
 }
 
 func bar_add_intent(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
