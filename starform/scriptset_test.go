@@ -1781,3 +1781,75 @@ func TestRecursiveEvent(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestEventNameValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		event    string
+		expected string
+	}{{
+		name:  "ok",
+		event: "warm_porridge",
+	}, {
+		name:     "too-short",
+		event:    "",
+		expected: "name too short",
+	}, {
+		name:     "too-long",
+		event:    "someones_been_eating_my_porridge",
+		expected: "name too long",
+	}, {
+		name:     "invalid-runes",
+		event:    "👱🐻🐻🐻",
+		expected: "name invalid",
+	}, {
+		name:     "dashes",
+		event:    "cold-porridge",
+		expected: "name invalid",
+	}, {
+		name:     "capital-start",
+		event:    "Hot_porridge",
+		expected: "name invalid",
+	}, {
+		name:     "leading-underscore",
+		event:    "_aaa",
+		expected: "name invalid",
+	}, {
+		name:     "trailing-underscore",
+		event:    "aaa_",
+		expected: "name invalid",
+	}, {
+		name:     "consecutive-underscores",
+		event:    "aaa__aaa",
+		expected: "name contains consecutive underscores",
+	}, {
+		name:     "camel-case",
+		event:    "threeBears",
+		expected: "name invalid",
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			set, err := starform.NewScriptSet(&starform.ScriptSetOptions{
+				App: &starform.AppObject{
+					Name: "test",
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = set.Handle(context.Background(), &starform.EventObject{
+				Name: test.event,
+			})
+			if test.expected == "" && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			} else if test.expected != "" {
+				if err == nil {
+					t.Errorf("expected error")
+				} else if expected := fmt.Sprintf("cannot handle %q event: %s", test.event, test.expected); err.Error() != expected {
+					t.Errorf("expected %v got %v", expected, err)
+				}
+			}
+		})
+	}
+}
