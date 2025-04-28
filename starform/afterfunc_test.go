@@ -31,19 +31,19 @@ func TestAfterFuncUncancelableContext(t *testing.T) {
 
 func TestAfterFuncNormalOperation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	var run atomic.Bool
+	var run uint32
 	done := make(chan struct{})
 	starform.AfterFunc(ctx, func() {
-		run.Store(true)
+		atomic.StoreUint32(&run, 1)
 		close(done)
 	})
 	time.Sleep(time.Millisecond * 200)
-	if run.Load() == true {
+	if atomic.LoadUint32(&run) == 1 {
 		t.Errorf("function ran prior to context cancelation")
 	}
 	cancel()
 	<-done
-	if run.Load() == false {
+	if atomic.LoadUint32(&run) == 0 {
 		t.Errorf("function did not run on context cancelation")
 	}
 }
