@@ -1,5 +1,3 @@
+version: "2"
 run:
   allow-parallel-runners: true
-linters-settings:
-  nakedret:
-    max-func-lines: 0
