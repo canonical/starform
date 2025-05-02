@@ -1821,7 +1821,7 @@ func TestRecursiveEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+	err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
 		name: "test.star",
 		content: `
 			def init():
@@ -1841,6 +1841,9 @@ func TestRecursiveEvent(t *testing.T) {
 					test.handle('even', event.n - 1)
 		`,
 	}})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	err = set.Handle(context.Background(), &starform.EventObject{
 		Name:  "even",

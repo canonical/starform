@@ -15,10 +15,6 @@ func isStarlarkCancellation(err error) bool {
 	return strings.Contains(err.Error(), "Starlark computation cancelled:")
 }
 
-var noAttrs = func(thread *starlark.Thread, name string) (starlark.Value, error) {
-	return nil, starlark.ErrNoAttr
-}
-
 func TestAppAsStarlarkValue(t *testing.T) {
 	const appName = "testApp"
 
@@ -58,7 +54,7 @@ func TestAppSafeString(t *testing.T) {
 		appValue := app.Value()
 		appValue.Freeze()
 		sb := &strings.Builder{}
-		appValue.(starlark.SafeStringer).SafeString(nil, sb)
+		_ = appValue.(starlark.SafeStringer).SafeString(nil, sb)
 		if str := sb.String(); str != fmt.Sprintf("<app %s>", appName) {
 			t.Error("invalid SafeString value")
 		}

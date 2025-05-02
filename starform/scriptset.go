@@ -346,11 +346,11 @@ func init() {
 	validCleanPath = regexp.MustCompile(fmt.Sprintf(`^(\./|(\.\./)+)?(%s/)*%s\.star$`, validComponent, validComponent))
 }
 
-var miscInvalidPathError = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
+var errMiscInvalidPath = errors.New("path invalid, see https://github.com/canonical/starlark/blob/main/doc/valid-load-paths.md")
 
 func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	if len(loadPath) == 0 {
-		return "", miscInvalidPathError // Special case to simplify valid path regex.
+		return "", errMiscInvalidPath // Special case to simplify valid path regex.
 	}
 	if strings.ContainsRune(loadPath, '-') {
 		return "", errors.New(`path contains "-", use "_" instead`)
@@ -359,7 +359,7 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 		return "", errors.New(`path contains "\", use "/" instead`)
 	}
 	if strings.Contains(loadPath, "__") {
-		return "", miscInvalidPathError // Special case to simplify valid path regex.
+		return "", errMiscInvalidPath // Special case to simplify valid path regex.
 	}
 	if strings.HasPrefix(loadPath, "./../") {
 		return "", errors.New("path contains redundant components")
@@ -374,7 +374,7 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	}
 
 	if !validCleanPath.MatchString(loadPath) {
-		return "", miscInvalidPathError
+		return "", errMiscInvalidPath
 	}
 
 	sanitisedPath := loadPath
