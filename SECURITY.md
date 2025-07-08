@@ -28,17 +28,13 @@ Starform uses SHA-384 to create hashes of input files used as the keys in its de
 
 ## Reporting a vulnerability
 
-Please provide a description of the issue, the steps you took to
-create the issue, affected versions, and, if known, mitigations for
-the issue.
+Please provide a description of the issue, the steps you took to create the issue, affected versions, and, if known, mitigations for the issue.
 
-The preferred way to report a security issue is through
-[GitHub's security advisory for this project](https://github.com/canonical/starform/security/advisories/new). See
-[Privately reporting a security
-vulnerability](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability)
-for instructions on reporting using GitHub's security advisory feature.
+The preferred way to report a security issue is through [GitHub's security advisory for this project][create-advisory].
+See [Privately reporting a security vulnerability][private-reporting] for instructions on reporting using GitHub's security advisory feature.
 
-The [Ubuntu Security disclosure and embargo
-policy](https://ubuntu.com/security/disclosure-policy) contains more
-information about how can contact us, what you can expect when you contact us,
-and what we expect from you.
+The [Ubuntu Security disclosure and embargo policy][ubuntu-security-policy] contains more information about how can contact us, what you can expect when you contact us, and what we expect from you.
+
+[create-advisory]: https://github.com/canonical/starform/security/advisories/new
+[private-reporting]: https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability
+[ubuntu-security-policy]: https://ubuntu.com/security/disclosure-policy
