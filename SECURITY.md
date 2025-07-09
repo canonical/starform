@@ -26,15 +26,17 @@
 
 Starform uses SHA-384 to create hashes of input files used as the keys in its default script cache.
 
-## Reporting a vulnerability
+## Reporting a Vulnerability
 
-Please provide a description of the issue, the steps you took to create the issue, affected versions, and, if known, mitigations for the issue.
+To report a security issue, please follow the steps below:
 
-The preferred way to report a security issue is through [GitHub's security advisory for this project][create-advisory].
-See [Privately reporting a security vulnerability][private-reporting] for instructions on reporting using GitHub's security advisory feature.
+Using GitHub, file a [Private Security Report](https://github.com/canonical/starform/security/advisories/new) with:
 
-The [Ubuntu Security disclosure and embargo policy][ubuntu-security-policy] contains more information about how can contact us, what you can expect when you contact us, and what we expect from you.
+- A description of the issue
+- Steps to reproduce the issue
+- Affected versions of the `starform` package
+- Any known mitigations for the issue
 
-[create-advisory]: https://github.com/canonical/starform/security/advisories/new
-[private-reporting]: https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability
-[ubuntu-security-policy]: https://ubuntu.com/security/disclosure-policy
+The [Ubuntu Security disclosure and embargo policy](https://ubuntu.com/security/disclosure-policy) contains more information about what to expect during this process and our requirements for responsible disclosure.
+
+Thank you for contributing to the security and integrity of the `starform`!
