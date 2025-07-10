@@ -38,7 +38,7 @@ app := &starform.AppObject{
         // Your domain-specific methods go here.
     }
 }
-scriptSet := starform.NewScriptSet(starform.ScriptSetOptions{
+scriptSet := starform.NewScriptSet(&starform.ScriptSetOptions{
     App:            app,
     RequiredSafety: starlark.MemSafe,
     MaxAllocs:      10 * 1024 * 1024,
