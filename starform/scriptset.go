@@ -387,6 +387,15 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	return sanitisedPath, nil
 }
 
+func (ss *ScriptSet) ObservedEventNames() []string {
+	ret := make([]string, 0, len(ss.eventObservers))
+	for key := range ss.eventObservers {
+		ret = append(ret, key)
+	}
+	sort.Strings(ret)
+	return ret
+}
+
 var validEventName = regexp.MustCompile(`^[a-z][a-z0-9_]*[a-z0-9]$`)
 
 func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
