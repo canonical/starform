@@ -1161,9 +1161,9 @@ func TestObservedEventNames(t *testing.T) {
 		name: "test.star",
 		content: `
 			def init():
-				app.observe('foo-1', placeholder)
-				app.observe('bar-1', placeholder)
-				app.observe('baz-1', placeholder)
+				app.observe('foo_1', placeholder)
+				app.observe('bar_1', placeholder)
+				app.observe('baz_1', placeholder)
 
 			def placeholder(event):
 				pass
@@ -1173,7 +1173,7 @@ func TestObservedEventNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	actualNames1 := scripts.ObservedEventNames()
-	expectedNames1 := []string{"bar-1", "baz-1", "foo-1"}
+	expectedNames1 := []string{"bar_1", "baz_1", "foo_1"}
 	if !reflect.DeepEqual(actualNames1, expectedNames1) {
 		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames1, actualNames1)
 	}
@@ -1182,9 +1182,9 @@ func TestObservedEventNames(t *testing.T) {
 		name: "test.star",
 		content: `
 			def init():
-				app.observe('foo-2', placeholder)
-				app.observe('bar-2', placeholder)
-				app.observe('baz-2', placeholder)
+				app.observe('foo_2', placeholder)
+				app.observe('bar_2', placeholder)
+				app.observe('baz_2', placeholder)
 
 			def placeholder(event):
 				pass
@@ -1194,7 +1194,7 @@ func TestObservedEventNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	actualNames2 := scripts.ObservedEventNames()
-	expectedNames2 := []string{"bar-2", "baz-2", "foo-2"}
+	expectedNames2 := []string{"bar_2", "baz_2", "foo_2"}
 	if !reflect.DeepEqual(actualNames2, expectedNames2) {
 		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames2, actualNames2)
 	}
