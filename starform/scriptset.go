@@ -393,6 +393,8 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	return sanitisedPath, nil
 }
 
+// ObservedEventNames returns a sorted slice of the names of the
+// events for which the script set has observers.
 func (ss *ScriptSet) ObservedEventNames() []string {
 	return ss.observedEventNames
 }
