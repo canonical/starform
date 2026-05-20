@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"slices"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1174,7 +1174,7 @@ func TestObservedEventNames(t *testing.T) {
 	}
 	actualNames1 := scripts.ObservedEventNames()
 	expectedNames1 := []string{"bar-1", "baz-1", "foo-1"}
-	if !slices.Equal(actualNames1, expectedNames1) {
+	if !reflect.DeepEqual(actualNames1, expectedNames1) {
 		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames1, actualNames1)
 	}
 
@@ -1195,7 +1195,7 @@ func TestObservedEventNames(t *testing.T) {
 	}
 	actualNames2 := scripts.ObservedEventNames()
 	expectedNames2 := []string{"bar-2", "baz-2", "foo-2"}
-	if !slices.Equal(actualNames2, expectedNames2) {
+	if !reflect.DeepEqual(actualNames2, expectedNames2) {
 		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames2, actualNames2)
 	}
 }
