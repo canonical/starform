@@ -1145,6 +1145,58 @@ func TestObserverTypes(t *testing.T) {
 	}
 }
 
+func TestIsObserved(t *testing.T) {
+	opts := &starform.ScriptSetOptions{
+		App: &starform.AppObject{
+			Name: "app",
+		},
+	}
+	scripts, err := starform.NewScriptSet(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sources1 := []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				app.observe('foo', placeholder)
+
+			def placeholder(event):
+				pass
+		`,
+	}}
+	if err := scripts.LoadSources(context.Background(), sources1); err != nil {
+		t.Fatal(err)
+	}
+	if !scripts.IsObserved("foo") {
+		t.Error("expected foo to be observed")
+	}
+	if scripts.IsObserved("bar") {
+		t.Error("expected bar to be unobserved")
+	}
+
+	sources2 := []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				app.observe('bar', placeholder)
+
+			def placeholder(event):
+				pass
+		`,
+	}}
+	if err := scripts.LoadSources(context.Background(), sources2); err != nil {
+		t.Fatal(err)
+	}
+	if scripts.IsObserved("foo") {
+		t.Error("expected foo to be unobserved after reload")
+	}
+	if !scripts.IsObserved("bar") {
+		t.Error("expected bar to be observed after reload")
+	}
+}
+
 func TestEventHandling(t *testing.T) {
 	const expectedLog = "foo\n1\non_foo_3\nbar\nTrue\n"
 
