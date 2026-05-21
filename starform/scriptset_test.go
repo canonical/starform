@@ -1199,7 +1199,7 @@ func TestIsObserved(t *testing.T) {
 }
 
 func TestObservedEventNames(t *testing.T) {
-	opts := &starform.ScriptSetOptions {
+	opts := &starform.ScriptSetOptions{
 		App: &starform.AppObject{
 			Name: "app",
 		},
