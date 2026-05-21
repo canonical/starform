@@ -387,6 +387,13 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 	return sanitisedPath, nil
 }
 
+// IsObserved returns whether the script set has any observers for the given
+// event.
+func (ss *ScriptSet) IsObserved(name string) bool {
+	_, ok := ss.eventObservers[name]
+	return ok
+}
+
 var validEventName = regexp.MustCompile(`^[a-z][a-z0-9_]*[a-z0-9]$`)
 
 func (ss *ScriptSet) Handle(ctx context.Context, event *EventObject) error {
