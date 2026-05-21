@@ -403,6 +403,8 @@ func (ss *ScriptSet) IsObserved(name string) bool {
 // ObservedEventNames returns a sorted slice of the names of the
 // events for which the script set has observers.
 func (ss *ScriptSet) ObservedEventNames() []string {
+	ret := make([]string, len(ss.observedEventNames))
+	copy(ret, ss.observedEventNames)
 	return ss.observedEventNames
 }
 
