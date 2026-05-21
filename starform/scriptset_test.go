@@ -1226,6 +1226,7 @@ func TestObservedEventNames(t *testing.T) {
 	}
 	actualNames1 := scripts.ObservedEventNames()
 	expectedNames1 := []string{"bar_1", "baz_1", "foo_1"}
+	// TODO(kcza): replace this with slices.Equal once the Go version is bumped
 	if !reflect.DeepEqual(actualNames1, expectedNames1) {
 		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames1, actualNames1)
 	}
@@ -1247,6 +1248,7 @@ func TestObservedEventNames(t *testing.T) {
 	}
 	actualNames2 := scripts.ObservedEventNames()
 	expectedNames2 := []string{"bar_2", "baz_2", "foo_2"}
+	// TODO(kcza): replace this with slices.Equal once the Go version is bumped
 	if !reflect.DeepEqual(actualNames2, expectedNames2) {
 		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames2, actualNames2)
 	}
