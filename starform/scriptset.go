@@ -405,7 +405,7 @@ func (ss *ScriptSet) IsObserved(name string) bool {
 func (ss *ScriptSet) ObservedEventNames() []string {
 	ret := make([]string, len(ss.observedEventNames))
 	copy(ret, ss.observedEventNames)
-	return ss.observedEventNames
+	return ret
 }
 
 var validEventName = regexp.MustCompile(`^[a-z][a-z0-9_]*[a-z0-9]$`)
