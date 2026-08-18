@@ -18,9 +18,11 @@ func (f *fileSource) Content(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
-	cancel := afterFunc(ctx, func() { file.Close() })
+	cancel := afterFunc(ctx, func() {
+		file.Close() //nolint:errcheck
+	})
 	defer cancel()
 
 	return io.ReadAll(file)

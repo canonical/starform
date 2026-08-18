@@ -1873,7 +1873,7 @@ func TestRecursiveEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
+	err = set.LoadSources(context.Background(), []starform.ScriptSource{&testScriptSource{
 		name: "test.star",
 		content: `
 			def init():
@@ -1888,11 +1888,14 @@ func TestRecursiveEvent(t *testing.T) {
 
 			def on_odd(event):
 				if event.n % 2 == 0:
-					fail("'unexpected even number, got %d' % event.n)
+					fail('unexpected even number, got %d' % event.n)
 				if event.n > 0:
 					test.handle('even', event.n - 1)
 		`,
 	}})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	err = set.Handle(context.Background(), &starform.EventObject{
 		Name:  "even",

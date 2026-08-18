@@ -24,7 +24,7 @@ func TestEventSafeString(t *testing.T) {
 			Name: eventName,
 		}
 		sb := &strings.Builder{}
-		event.SafeString(nil, sb)
+		_ = event.SafeString(nil, sb)
 	})
 
 	t.Run("regular-operation", func(t *testing.T) {

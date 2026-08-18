@@ -145,8 +145,8 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 		name: "Dict",
 		input: func() *starlark.Dict {
 			dict := starlark.NewDict(2)
-			dict.SetKey(starlark.MakeInt(1), starlark.None)
-			dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
+			_ = dict.SetKey(starlark.MakeInt(1), starlark.None)
+			_ = dict.SetKey(starlark.MakeInt(2), &testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
 					return thread.AddSteps(starlark.SafeInt(arbitraryAddedSteps))
@@ -199,8 +199,8 @@ func testLogSteps(t *testing.T, builtin *starlark.Builtin) {
 		name: "Set",
 		input: func() *starlark.Set {
 			set := starlark.NewSet(2)
-			set.Insert(starlark.None)
-			set.Insert(&testSafeStringer{
+			_ = set.Insert(starlark.None)
+			_ = set.Insert(&testSafeStringer{
 				safeString: func(thread *starlark.Thread, sb starlark.StringBuilder) error {
 					// Writes nothing
 					return thread.AddSteps(starlark.SafeInt(arbitraryAddedSteps))
@@ -290,10 +290,10 @@ func TestDebugAllocs(t *testing.T) {
 
 func testLogAllocs(t *testing.T, builtin *starlark.Builtin) {
 	listWithLoop := starlark.NewList(nil)
-	listWithLoop.Append(listWithLoop)
+	_ = listWithLoop.Append(listWithLoop)
 
 	dictWithLoop := starlark.NewDict(1)
-	dictWithLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictWithLoop)
+	_ = dictWithLoop.SetKey(starlark.MakeInt(0x1CEB00DA), dictWithLoop)
 
 	args := starlark.Tuple{
 		starlark.True,
@@ -369,7 +369,7 @@ func testLogCancellation(t *testing.T, builtin *starlark.Builtin) {
 				// Int hash only uses the least 32 bits.
 				// Leaving them blank creates collisions.
 				key := starlark.MakeInt64(int64(i) << 32)
-				dict.SetKey(key, starlark.None)
+				_ = dict.SetKey(key, starlark.None)
 			}
 			return dict
 		},
@@ -395,7 +395,7 @@ func testLogCancellation(t *testing.T, builtin *starlark.Builtin) {
 				// Int hash only uses the least 32 bits.
 				// Leaving them blank creates collisions.
 				key := starlark.MakeInt64(int64(i) << 32)
-				set.Insert(key)
+				_ = set.Insert(key)
 			}
 			return set
 		},

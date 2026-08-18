@@ -16,8 +16,14 @@ func TestDefaultCache(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cache.Put(1, "one", &testScriptSource{})
-			cache.Put(2, "two", &testScriptSource{}) // Expect eviction to occur here.
+			if err := cache.Put(1, "one", &testScriptSource{}); err != nil {
+				t.Error(err)
+			}
+
+			// Expect eviction to occur here.
+			if err := cache.Put(2, "two", &testScriptSource{}); err != nil {
+				t.Error(err)
+			}
 
 			if cache.Len() != 1 {
 				t.Errorf("unexpected cache length: want 1 got %d", cache.Len())
@@ -40,8 +46,12 @@ func TestDefaultCache(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cache.Put(2, "two-old", &testScriptSource{})
-			cache.Put(2, "two", &testScriptSource{})
+			if err := cache.Put(2, "two-old", &testScriptSource{}); err != nil {
+				t.Error(err)
+			}
+			if err := cache.Put(2, "two", &testScriptSource{}); err != nil {
+				t.Error(err)
+			}
 
 			if cache.Len() != 1 {
 				t.Errorf("unexpected cache length: want 1 got %d", cache.Len())
@@ -64,7 +74,9 @@ func TestDefaultCache(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cache.Put(2, "two", &testScriptSource{})
+			if err := cache.Put(2, "two", &testScriptSource{}); err != nil {
+				t.Error(err)
+			}
 			cache.Drop(2)
 
 			if cache.Len() != 0 {
@@ -88,7 +100,9 @@ func TestDefaultCache(t *testing.T) {
 			}
 
 			for i := 0; i < maxCacheSize*2; i++ {
-				cache.Put(i, i, &testScriptSource{})
+				if err := cache.Put(i, i, &testScriptSource{}); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			if cache.Len() != maxCacheSize {
@@ -117,15 +131,21 @@ func TestDefaultCache(t *testing.T) {
 			}
 
 			for i := 0; i < maxCacheSize; i++ {
-				cache.Put(i, i, &testScriptSource{})
+				if err := cache.Put(i, i, &testScriptSource{}); err != nil {
+					t.Fatal(err)
+				}
 			}
 			// Make sure multiples of 10 have been recently used.
 			for i := 0; i < maxCacheSize; i += 10 {
-				cache.Get(i)
+				if _, err := cache.Get(i); err != nil {
+					t.Fatal(err)
+				}
 			}
 			// Add enough elements to flush everything except the recently used ones.
 			for i := 1; i <= (maxCacheSize - maxCacheSize/10); i++ {
-				cache.Put(-i, -i, &testScriptSource{})
+				if err := cache.Put(-i, -i, &testScriptSource{}); err != nil {
+					t.Error(err)
+				}
 			}
 
 			if cache.Len() != maxCacheSize {
@@ -153,7 +173,9 @@ func TestDefaultCache(t *testing.T) {
 			}
 
 			for i := 0; i < maxCacheSize; i++ {
-				cache.Put(i, i, &testScriptSource{})
+				if err := cache.Put(i, i, &testScriptSource{}); err != nil {
+					t.Error(err)
+				}
 			}
 			for i := 0; i < maxCacheSize; i++ {
 				cache.Drop(maxCacheSize/2 + i)

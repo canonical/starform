@@ -4,7 +4,7 @@ import "github.com/canonical/starlark/starlark"
 
 type TestCacheBase struct{}
 
-func (*TestCacheBase) private() {}
+func (*TestCacheBase) private() {} //nolint:unused
 
 const LoadEventName = loadEventName
 
