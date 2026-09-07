@@ -16,11 +16,12 @@ import (
 )
 
 type ScriptSet struct {
-	options        *ScriptSetOptions
-	appValue       *appValue
-	modules        map[string]Module
-	predeclared    starlark.StringDict
-	eventObservers map[string][]starlark.Callable
+	options            *ScriptSetOptions
+	appValue           *appValue
+	modules            map[string]Module
+	predeclared        starlark.StringDict
+	eventObservers     map[string][]starlark.Callable
+	observedEventNames []string
 }
 
 type ScriptSource interface {
@@ -231,11 +232,16 @@ func (ss *ScriptSet) LoadSources(ctx context.Context, sources []ScriptSource) er
 		}
 	}
 
-	for _, observers := range state.eventObservers {
+	observedEventNames := make([]string, 0, len(state.eventObservers))
+	for name, observers := range state.eventObservers {
+		observedEventNames = append(observedEventNames, name)
+
 		for _, observer := range observers {
 			observer.Freeze()
 		}
 	}
+	sort.Strings(observedEventNames)
+	ss.observedEventNames = observedEventNames
 	ss.eventObservers = state.eventObservers
 
 	return nil
@@ -392,6 +398,14 @@ func sanitiseLoadPath(loadDir, loadPath string) (string, error) {
 func (ss *ScriptSet) IsObserved(name string) bool {
 	_, ok := ss.eventObservers[name]
 	return ok
+}
+
+// ObservedEventNames returns a sorted slice of the names of the
+// events for which the script set has observers.
+func (ss *ScriptSet) ObservedEventNames() []string {
+	ret := make([]string, len(ss.observedEventNames))
+	copy(ret, ss.observedEventNames)
+	return ret
 }
 
 var validEventName = regexp.MustCompile(`^[a-z][a-z0-9_]*[a-z0-9]$`)

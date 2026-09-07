@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1194,6 +1195,62 @@ func TestIsObserved(t *testing.T) {
 	}
 	if !scripts.IsObserved("bar") {
 		t.Error("expected bar to be observed after reload")
+	}
+}
+
+func TestObservedEventNames(t *testing.T) {
+	opts := &starform.ScriptSetOptions{
+		App: &starform.AppObject{
+			Name: "app",
+		},
+	}
+	scripts, err := starform.NewScriptSet(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sources1 := []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				app.observe('foo_1', placeholder)
+				app.observe('bar_1', placeholder)
+				app.observe('baz_1', placeholder)
+
+			def placeholder(event):
+				pass
+		`,
+	}}
+	if err := scripts.LoadSources(context.Background(), sources1); err != nil {
+		t.Fatal(err)
+	}
+	actualNames1 := scripts.ObservedEventNames()
+	expectedNames1 := []string{"bar_1", "baz_1", "foo_1"}
+	// TODO(kcza): replace this with slices.Equal once the Go version is bumped
+	if !reflect.DeepEqual(actualNames1, expectedNames1) {
+		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames1, actualNames1)
+	}
+
+	sources2 := []starform.ScriptSource{&testScriptSource{
+		name: "test.star",
+		content: `
+			def init():
+				app.observe('foo_2', placeholder)
+				app.observe('bar_2', placeholder)
+				app.observe('baz_2', placeholder)
+
+			def placeholder(event):
+				pass
+		`,
+	}}
+	if err := scripts.LoadSources(context.Background(), sources2); err != nil {
+		t.Fatal(err)
+	}
+	actualNames2 := scripts.ObservedEventNames()
+	expectedNames2 := []string{"bar_2", "baz_2", "foo_2"}
+	// TODO(kcza): replace this with slices.Equal once the Go version is bumped
+	if !reflect.DeepEqual(actualNames2, expectedNames2) {
+		t.Errorf("incorrect observed event names: expected %v but got %v", expectedNames2, actualNames2)
 	}
 }
 
