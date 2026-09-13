@@ -43,7 +43,7 @@ jobs:
 
       - name: Comment Trivy scan on PR
         if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           path: trivy-report.md
           header: trivy-scan
@@ -99,7 +99,7 @@ jobs:
 
       - name: Comment gosec scan on PR
         if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           path: gosec-report.md
           header: gosec-scan
