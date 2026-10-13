@@ -1,5 +1,7 @@
 github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b h1:ISGADlD3LiriT0n29QC1yeh3bhVhSeaa0/sxfv28JSo=
 github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b/go.mod h1:fbhY9i7ZAcza52PfUCd9PDIBFJJMYsAj22/3Q3sU6IY=
+github.com/canonical/starlark v0.0.0-20260428155828-9a81051fac39 h1:w+h16FZeT8sn7ASXZX4BtutzUF6keiuBYb/CEKwWfOQ=
+github.com/canonical/starlark v0.0.0-20260428155828-9a81051fac39/go.mod h1:fbhY9i7ZAcza52PfUCd9PDIBFJJMYsAj22/3Q3sU6IY=
 github.com/google/go-cmp v0.5.5 h1:Khx7svrCpmxxtHBq5j2mp/xVjsi8hQMfNLvJFAlrGgU=
 github.com/kr/pretty v0.2.1 h1:Fmg33tUaq4/8ym9TJN1x7sLJnHVwhP33CNkpYV/7rwI=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
